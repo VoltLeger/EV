@@ -43,24 +43,36 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-          cache: 'gradle'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Accept Android SDK Licenses & Install Components
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
 
       - name: Prepare environment & signing
         run: |
           # Create placeholder .env file to satisfy Secrets Gradle Plugin
           touch .env
 
-          # Restore debug.keystore from base64 if present
+          # Restore debug.keystore from base64 if present, or generate if missing
           if [ -f "debug.keystore.base64" ]; then
             echo "Decoding debug.keystore from debug.keystore.base64..."
             base64 -d debug.keystore.base64 > debug.keystore
+          fi
+
+          if [ ! -f "debug.keystore" ]; then
+            echo "Generating debug.keystore with keytool..."
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
           # Ensure gradlew has executable permissions
           chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --no-daemon --stacktrace --console=plain -Dorg.gradle.workers.max=2 -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=512m"
 
       - name: Prepare APK for distribution
         run: |
