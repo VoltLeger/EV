@@ -15,6 +15,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,9 +44,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -62,6 +65,7 @@ import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SplashScreen
 import com.example.ui.screens.StartChargingScreen
 import com.example.ui.screens.StatisticsScreen
+import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.SoftBlue
 import com.example.ui.theme.VoltLedgerTheme
@@ -158,10 +162,20 @@ class MainActivity : ComponentActivity() {
                         Scaffold(
                             bottomBar = {
                                 NavigationBar(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    tonalElevation = 8.dp,
+                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
+                                    tonalElevation = 0.dp,
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .border(
+                                            width = 1.dp,
+                                            brush = Brush.verticalGradient(
+                                                listOf(
+                                                    Color.White.copy(alpha = 0.28f),
+                                                    Color.White.copy(alpha = 0.05f)
+                                                )
+                                            ),
+                                            shape = androidx.compose.ui.graphics.RectangleShape
+                                        )
                                         .windowInsetsPadding(WindowInsets.navigationBars)
                                         .testTag("bottom_nav_bar")
                                 ) {
@@ -174,11 +188,19 @@ class MainActivity : ComponentActivity() {
                                                 contentDescription = strings.homeNav
                                             )
                                         },
-                                        label = { Text(strings.homeNav, fontSize = 12.sp) },
+                                        label = {
+                                            Text(
+                                                strings.homeNav,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
                                         colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = SoftBlue,
-                                            selectedTextColor = SoftBlue,
-                                            indicatorColor = SoftBlue.copy(alpha = 0.2f)
+                                            selectedIconColor = ElectricCyan,
+                                            selectedTextColor = ElectricCyan,
+                                            indicatorColor = ElectricCyan.copy(alpha = 0.22f),
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                         )
                                     )
 
@@ -191,11 +213,19 @@ class MainActivity : ComponentActivity() {
                                                 contentDescription = strings.statsNav
                                             )
                                         },
-                                        label = { Text(strings.statsNav, fontSize = 12.sp) },
+                                        label = {
+                                            Text(
+                                                strings.statsNav,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
                                         colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = SoftBlue,
-                                            selectedTextColor = SoftBlue,
-                                            indicatorColor = SoftBlue.copy(alpha = 0.2f)
+                                            selectedIconColor = ElectricCyan,
+                                            selectedTextColor = ElectricCyan,
+                                            indicatorColor = ElectricCyan.copy(alpha = 0.22f),
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                         )
                                     )
 
@@ -208,11 +238,19 @@ class MainActivity : ComponentActivity() {
                                                 contentDescription = strings.settingsNav
                                             )
                                         },
-                                        label = { Text(strings.settingsNav, fontSize = 12.sp) },
+                                        label = {
+                                            Text(
+                                                strings.settingsNav,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
                                         colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = SoftBlue,
-                                            selectedTextColor = SoftBlue,
-                                            indicatorColor = SoftBlue.copy(alpha = 0.2f)
+                                            selectedIconColor = ElectricCyan,
+                                            selectedTextColor = ElectricCyan,
+                                            indicatorColor = ElectricCyan.copy(alpha = 0.22f),
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                         )
                                     )
                                 }

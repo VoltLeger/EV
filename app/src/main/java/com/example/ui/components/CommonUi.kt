@@ -2,10 +2,12 @@ package com.example.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -13,21 +15,33 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.BatteryGreen
 import com.example.ui.theme.ElectricCyan
+import com.example.ui.theme.GlassBorderBottom
+import com.example.ui.theme.GlassBorderCyan
+import com.example.ui.theme.GlassBorderTop
+import com.example.ui.theme.GlassWhiteHigh
+import com.example.ui.theme.GlassWhiteLow
+import com.example.ui.theme.GlassWhiteMid
 import com.example.ui.theme.SoftBlue
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -59,23 +73,140 @@ fun formatShortDate(timeMillis: Long): String {
     return sdf.format(Date(timeMillis))
 }
 
+/**
+ * Atmospheric background that emits soft ambient light beneath translucent liquid glass surfaces.
+ */
+@Composable
+fun LiquidGlassBackground(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val bgBase = MaterialTheme.colorScheme.background
+    val cyanGlow = ElectricCyan.copy(alpha = 0.12f)
+    val blueGlow = SoftBlue.copy(alpha = 0.15f)
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(bgBase)
+            .drawBehind {
+                // Top-right glowing orb
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(blueGlow, Color.Transparent),
+                        center = Offset(size.width * 0.9f, size.height * 0.12f),
+                        radius = size.width * 0.75f
+                    ),
+                    center = Offset(size.width * 0.9f, size.height * 0.12f),
+                    radius = size.width * 0.75f
+                )
+                // Mid-left glowing orb
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(cyanGlow, Color.Transparent),
+                        center = Offset(size.width * 0.05f, size.height * 0.55f),
+                        radius = size.width * 0.65f
+                    ),
+                    center = Offset(size.width * 0.05f, size.height * 0.55f),
+                    radius = size.width * 0.65f
+                )
+                // Subtle bottom ambient light
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(blueGlow.copy(alpha = 0.08f), Color.Transparent),
+                        center = Offset(size.width * 0.8f, size.height * 0.95f),
+                        radius = size.width * 0.7f
+                    ),
+                    center = Offset(size.width * 0.8f, size.height * 0.95f),
+                    radius = size.width * 0.7f
+                )
+            }
+    ) {
+        content()
+    }
+}
+
+/**
+ * Modern Liquid Glass Card:
+ * Features a frosted translucent gradient fill, a specular glass rim highlight,
+ * and high-fidelity depth that creates a tactile glassy aesthetic.
+ */
 @Composable
 fun VoltCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    borderColor: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+    borderColor: Color? = null,
+    cornerRadius: Dp = 22.dp,
     content: @Composable () -> Unit
 ) {
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+
+    // Specular glass gradient border
+    val glassBorderBrush = if (borderColor != null) {
+        Brush.linearGradient(
+            colors = listOf(
+                GlassBorderTop,
+                borderColor,
+                borderColor.copy(alpha = 0.4f),
+                GlassBorderBottom
+            ),
+            start = Offset.Zero,
+            end = Offset.Infinite
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(
+                GlassBorderTop,
+                GlassBorderCyan.copy(alpha = 0.4f),
+                GlassBorderBottom
+            ),
+            start = Offset(0f, 0f),
+            end = Offset(300f, 600f)
+        )
+    }
+
+    val shape = RoundedCornerShape(cornerRadius)
+
     Card(
         onClick = { onClick?.invoke() },
         enabled = onClick != null,
-        shape = RoundedCornerShape(20.dp),
+        shape = shape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = Color.Transparent
         ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier
-            .border(1.dp, borderColor, RoundedCornerShape(20.dp)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .clip(shape)
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        surfaceColor,
+                        surfaceVariant.copy(alpha = 0.88f)
+                    )
+                )
+            )
+            .border(
+                width = 1.2.dp,
+                brush = glassBorderBrush,
+                shape = shape
+            )
+            .drawBehind {
+                // Top inner specular light glint (sheen)
+                drawLine(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            GlassWhiteHigh.copy(alpha = 0.45f),
+                            GlassBorderCyan.copy(alpha = 0.3f),
+                            Color.Transparent
+                        )
+                    ),
+                    start = Offset(24f, 1.5f),
+                    end = Offset(size.width - 24f, 1.5f),
+                    strokeWidth = 2f
+                )
+            }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             content()
@@ -86,19 +217,29 @@ fun VoltCard(
 @Composable
 fun StationTypeBadge(type: String) {
     val isDc = type.equals("DC", ignoreCase = true)
-    val bgColor = if (isDc) ElectricCyan.copy(alpha = 0.18f) else BatteryGreen.copy(alpha = 0.18f)
-    val textColor = if (isDc) ElectricCyan else BatteryGreen
+    val accentColor = if (isDc) ElectricCyan else BatteryGreen
+    val bgColor = accentColor.copy(alpha = 0.16f)
+    val borderColor = accentColor.copy(alpha = 0.45f)
+
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
-            .padding(horizontal = 8.dp, vertical = 3.dp)
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    listOf(GlassBorderTop, borderColor, GlassBorderBottom)
+                ),
+                shape = RoundedCornerShape(10.dp)
+            )
+            .padding(horizontal = 9.dp, vertical = 3.5.dp)
     ) {
         Text(
             text = type.uppercase(),
-            color = textColor,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold
+            color = accentColor,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp
         )
     }
 }
@@ -109,10 +250,16 @@ fun TagBadge(name: String, color: Long) {
     val tagColor = Color(color)
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(tagColor.copy(alpha = 0.2f))
-            .border(0.5.dp, tagColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-            .padding(horizontal = 8.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(tagColor.copy(alpha = 0.16f))
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    listOf(GlassBorderTop, tagColor.copy(alpha = 0.5f), GlassBorderBottom)
+                ),
+                shape = RoundedCornerShape(10.dp)
+            )
+            .padding(horizontal = 9.dp, vertical = 3.5.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -121,7 +268,7 @@ fun TagBadge(name: String, color: Long) {
                     .clip(CircleShape)
                     .background(tagColor)
             )
-            Spacer(modifier = Modifier.width(5.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = name,
                 color = tagColor,
@@ -143,20 +290,33 @@ fun MetricCard(
 ) {
     VoltCard(
         modifier = modifier,
-        borderColor = accentColor.copy(alpha = 0.35f)
+        borderColor = accentColor.copy(alpha = 0.45f)
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(accentColor)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = value,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                letterSpacing = (-0.5).sp
             )
             if (unit.isNotBlank()) {
                 Spacer(modifier = Modifier.width(6.dp))
@@ -164,7 +324,7 @@ fun MetricCard(
                     text = unit,
                     fontSize = 14.sp,
                     color = accentColor,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(bottom = 3.dp)
                 )
             }
@@ -177,5 +337,73 @@ fun MetricCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+/**
+ * Sleek liquid glass primary action button with specular rim glint.
+ */
+@Composable
+fun LiquidGlassButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    accentGradient: List<Color> = listOf(ElectricCyan, SoftBlue)
+) {
+    val shape = RoundedCornerShape(16.dp)
+
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        shape = shape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            disabledContainerColor = Color.Gray.copy(alpha = 0.2f)
+        ),
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 4.dp,
+            pressedElevation = 1.dp
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(54.dp)
+            .clip(shape)
+            .background(
+                brush = Brush.horizontalGradient(accentGradient)
+            )
+            .border(
+                width = 1.2.dp,
+                brush = Brush.linearGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.65f),
+                        Color.White.copy(alpha = 0.15f)
+                    )
+                ),
+                shape = shape
+            )
+            .drawBehind {
+                // Top rim specular highlight
+                drawLine(
+                    brush = Brush.horizontalGradient(
+                        listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.5f),
+                            Color.Transparent
+                        )
+                    ),
+                    start = Offset(20f, 1f),
+                    end = Offset(size.width - 20f, 1f),
+                    strokeWidth = 2f
+                )
+            }
+    ) {
+        Text(
+            text = text,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            letterSpacing = 0.3.sp
+        )
     }
 }

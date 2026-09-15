@@ -56,6 +56,7 @@ import com.example.ui.components.ConsumptionLineChart
 import com.example.ui.components.DonutBreakdownChart
 import com.example.ui.components.DonutSlice
 import com.example.ui.components.ExpensesBarChart
+import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.components.MetricCard
 import com.example.ui.components.VoltCard
 import com.example.ui.components.formatCurrency
@@ -217,13 +218,12 @@ fun StatisticsScreen(
         DonutSlice("DC", dcSpent.toFloat(), ElectricCyan)
     )
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    LiquidGlassBackground(modifier = modifier) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         // Period selector chips
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -624,5 +624,6 @@ fun StatisticsScreen(
                 }
             }
         }
+    }
     }
 }

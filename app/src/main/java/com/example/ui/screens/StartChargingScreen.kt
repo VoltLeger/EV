@@ -57,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -66,6 +67,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.Car
 import com.example.data.model.Operator
 import com.example.data.model.Tag
+import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.components.VoltCard
 import com.example.ui.theme.BatteryGreen
 import com.example.ui.theme.ElectricCyan
@@ -166,24 +168,24 @@ fun StartChargingScreen(
     val isSocValid = socVal in 0.0..100.0
     val isFormValid = isOdoValid && isSocValid
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(strings.startChargeTitle, fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
+    LiquidGlassBackground(modifier = modifier) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(strings.startChargeTitle, fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground
+                    )
                 )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background,
-        modifier = modifier
-    ) { padding ->
+            },
+            containerColor = Color.Transparent
+        ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -480,11 +482,24 @@ fun StartChargingScreen(
                 enabled = isFormValid && !isSubmitting,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp)
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            listOf(ElectricCyan, SoftBlue)
+                        )
+                    )
+                    .border(
+                        width = 1.2.dp,
+                        brush = Brush.linearGradient(
+                            listOf(Color.White.copy(alpha = 0.65f), Color.White.copy(alpha = 0.15f))
+                        ),
+                        shape = RoundedCornerShape(18.dp)
+                    )
                     .testTag("launch_charging_button"),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = SoftBlue,
+                    containerColor = Color.Transparent,
                     contentColor = Color.White
                 )
             ) {
@@ -499,5 +514,6 @@ fun StartChargingScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
     }
 }

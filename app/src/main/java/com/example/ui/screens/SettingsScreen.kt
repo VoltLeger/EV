@@ -71,6 +71,7 @@ import com.example.data.model.AppSettings
 import com.example.data.model.Car
 import com.example.data.model.Operator
 import com.example.data.model.Tag
+import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.components.TagBadge
 import com.example.ui.components.VoltCard
 import com.example.ui.theme.BatteryGreen
@@ -122,13 +123,12 @@ fun SettingsScreen(
     var showImportJsonDialog by remember { mutableStateOf(false) }
     var importJsonText by remember { mutableStateOf("") }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
-    ) {
+    LiquidGlassBackground(modifier = modifier) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
         // Section 1: Vehicles
         item {
             VoltCard(modifier = Modifier.fillMaxWidth()) {
@@ -561,6 +561,7 @@ fun SettingsScreen(
                 }
             }
         }
+    }
     }
 
     // Dialog: Add Car

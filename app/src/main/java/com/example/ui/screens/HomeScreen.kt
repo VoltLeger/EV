@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.Car
 import com.example.data.model.ChargingSession
 import com.example.ui.components.ActiveChargingCard
+import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.components.StationTypeBadge
 import com.example.ui.components.TagBadge
 import com.example.ui.components.VoltCard
@@ -84,112 +87,134 @@ fun HomeScreen(
     val currency = LocalCurrency.current
     var carMenuExpanded by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 96.dp)
-    ) {
-        // Vehicle header selector
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+    LiquidGlassBackground(modifier = modifier) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 96.dp)
+        ) {
+            // Vehicle header selector
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { if (allCars.size > 1) carMenuExpanded = true }
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                                .border(
+                                    1.dp,
+                                    Brush.linearGradient(
+                                        listOf(
+                                            Color.White.copy(alpha = 0.35f),
+                                            SoftBlue.copy(alpha = 0.35f),
+                                            Color.White.copy(alpha = 0.08f)
+                                        )
+                                    ),
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .clickable { if (allCars.size > 1) carMenuExpanded = true }
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(SoftBlue.copy(alpha = 0.25f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DirectionsCar,
+                                    contentDescription = null,
+                                    tint = SoftBlue,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = activeCar?.name ?: strings.currentVehicle,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                    if (allCars.size > 1) {
+                                        Icon(
+                                            imageVector = Icons.Default.KeyboardArrowDown,
+                                            contentDescription = "Switch Car",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = "${activeCar?.initialOdometer?.toInt() ?: 0} км",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Battery pill
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(SoftBlue.copy(alpha = 0.2f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DirectionsCar,
-                                contentDescription = null,
-                                tint = SoftBlue,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = activeCar?.name ?: strings.currentVehicle,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(BatteryGreen.copy(alpha = 0.16f))
+                                .border(
+                                    1.dp,
+                                    Brush.linearGradient(
+                                        listOf(
+                                            Color.White.copy(alpha = 0.4f),
+                                            BatteryGreen.copy(alpha = 0.5f),
+                                            Color.Transparent
+                                        )
+                                    ),
+                                    RoundedCornerShape(16.dp)
                                 )
-                                if (allCars.size > 1) {
-                                    Icon(
-                                        imageVector = Icons.Default.KeyboardArrowDown,
-                                        contentDescription = "Switch Car",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.BatteryChargingFull,
+                                    contentDescription = null,
+                                    tint = BatteryGreen,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "${activeCar?.currentSoc?.toInt() ?: 0}%",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = BatteryGreen
+                                )
                             }
-                            Text(
-                                text = "${activeCar?.initialOdometer?.toInt() ?: 0} км",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
                     }
 
-                    // Battery pill
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(BatteryGreen.copy(alpha = 0.15f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    DropdownMenu(
+                        expanded = carMenuExpanded,
+                        onDismissRequest = { carMenuExpanded = false }
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.BatteryChargingFull,
-                                contentDescription = null,
-                                tint = BatteryGreen,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${activeCar?.currentSoc?.toInt() ?: 0}%",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = BatteryGreen
+                        allCars.forEach { car ->
+                            DropdownMenuItem(
+                                text = { Text(car.name + if (car.id == activeCar?.id) " (✓)" else "") },
+                                onClick = {
+                                    onSelectCar(car.id)
+                                    carMenuExpanded = false
+                                }
                             )
                         }
-                    }
-                }
-
-                DropdownMenu(
-                    expanded = carMenuExpanded,
-                    onDismissRequest = { carMenuExpanded = false }
-                ) {
-                    allCars.forEach { car ->
-                        DropdownMenuItem(
-                            text = { Text(car.name + if (car.id == activeCar?.id) " (✓)" else "") },
-                            onClick = {
-                                onSelectCar(car.id)
-                                carMenuExpanded = false
-                            }
-                        )
                     }
                 }
             }
-        }
 
         // Top center: Current month average consumption
         item {
@@ -295,10 +320,23 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(58.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                listOf(ElectricCyan, SoftBlue)
+                            )
+                        )
+                        .border(
+                            width = 1.2.dp,
+                            brush = Brush.linearGradient(
+                                listOf(Color.White.copy(alpha = 0.65f), Color.White.copy(alpha = 0.15f))
+                            ),
+                            shape = RoundedCornerShape(20.dp)
+                        )
                         .testTag("add_charge_button"),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = SoftBlue,
+                        containerColor = Color.Transparent,
                         contentColor = Color.White
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
@@ -324,9 +362,23 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
+                        .border(
+                            width = 1.dp,
+                            brush = Brush.linearGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.35f),
+                                    ElectricCyan.copy(alpha = 0.4f),
+                                    Color.White.copy(alpha = 0.08f)
+                                )
+                            ),
+                            shape = RoundedCornerShape(18.dp)
+                        )
                         .testTag("calculate_range_button"),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Transparent,
                         contentColor = ElectricCyan
                     )
                 ) {
@@ -385,6 +437,7 @@ fun HomeScreen(
                 }
             }
         }
+    }
     }
 }
 

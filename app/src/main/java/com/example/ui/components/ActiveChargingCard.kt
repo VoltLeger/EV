@@ -41,7 +41,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -88,21 +90,53 @@ fun ActiveChargingCard(
         label = "pulseScale"
     )
 
+    val shape = RoundedCornerShape(26.dp)
+
     Card(
-        shape = RoundedCornerShape(24.dp),
+        shape = shape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = Color.Transparent
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier
             .fillMaxWidth()
+            .clip(shape)
+            .background(
+                brush = Brush.verticalGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.surface,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+                    )
+                )
+            )
             .border(
                 width = 1.5.dp,
                 brush = Brush.linearGradient(
-                    colors = listOf(SoftBlue, ElectricCyan, SoftBlue.copy(alpha = 0.5f))
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.6f),
+                        ElectricCyan.copy(alpha = 0.8f),
+                        SoftBlue,
+                        Color.White.copy(alpha = 0.15f)
+                    )
                 ),
-                shape = RoundedCornerShape(24.dp)
+                shape = shape
             )
+            .drawBehind {
+                // Specular reflection line across top
+                drawLine(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.5f),
+                            ElectricCyan.copy(alpha = 0.4f),
+                            Color.Transparent
+                        )
+                    ),
+                    start = androidx.compose.ui.geometry.Offset(24f, 1.5f),
+                    end = androidx.compose.ui.geometry.Offset(size.width - 24f, 1.5f),
+                    strokeWidth = 2f
+                )
+            }
             .testTag("active_charging_card")
     ) {
         Column(

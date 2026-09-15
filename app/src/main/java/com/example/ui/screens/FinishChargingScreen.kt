@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.ChargingSession
 import com.example.data.model.Operator
+import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.components.VoltCard
 import com.example.ui.components.formatCurrency
 import com.example.ui.theme.BatteryGreen
@@ -130,24 +132,24 @@ fun FinishChargingScreen(
     val isDeliveredValid = deliveredVal > 0.0
     val isFormValid = isEndSocValid && isDeliveredValid
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(strings.finishChargeTitle, fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
+    LiquidGlassBackground(modifier = modifier) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(strings.finishChargeTitle, fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground
+                    )
                 )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background,
-        modifier = modifier
-    ) { padding ->
+            },
+            containerColor = Color.Transparent
+        ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -389,11 +391,24 @@ fun FinishChargingScreen(
                 enabled = isFormValid && !isSubmitting,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp)
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            listOf(BatteryGreen, ElectricCyan)
+                        )
+                    )
+                    .border(
+                        width = 1.2.dp,
+                        brush = Brush.linearGradient(
+                            listOf(Color.White.copy(alpha = 0.65f), Color.White.copy(alpha = 0.15f))
+                        ),
+                        shape = RoundedCornerShape(18.dp)
+                    )
                     .testTag("save_and_complete_button"),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = BatteryGreen,
+                    containerColor = Color.Transparent,
                     contentColor = Color.White
                 )
             ) {
@@ -408,5 +423,6 @@ fun FinishChargingScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
     }
 }
