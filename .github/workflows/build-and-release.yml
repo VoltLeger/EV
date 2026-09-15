@@ -1,0 +1,91 @@
+name: Build & Release Debug APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a GitHub Release for this run'
+        required: false
+        default: false
+        type: boolean
+      release_tag:
+        description: 'Tag for the release (e.g. v1.0.0, if manual dispatch)'
+        required: false
+        default: 'v1.0.0'
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build Debug APK & Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Prepare environment & signing
+        run: |
+          # Create placeholder .env file to satisfy Secrets Gradle Plugin
+          touch .env
+
+          # Restore debug.keystore from base64 if present
+          if [ -f "debug.keystore.base64" ]; then
+            echo "Decoding debug.keystore from debug.keystore.base64..."
+            base64 -d debug.keystore.base64 > debug.keystore
+          fi
+
+          # Ensure gradlew has executable permissions
+          chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Prepare APK for distribution
+        run: |
+          mkdir -p release-artifacts
+          VERSION_TAG="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.release_tag }}" ]; then
+            VERSION_TAG="${{ inputs.release_tag }}"
+          fi
+          # Copy and rename APK with a clear descriptive name
+          cp app/build/outputs/apk/debug/app-debug.apk release-artifacts/VoltLedger-${VERSION_TAG}-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk release-artifacts/VoltLedger-debug.apk
+          ls -la release-artifacts/
+
+      - name: Upload Debug APK as Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoltLedger-debug-apk
+          path: release-artifacts/*.apk
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.create_release == true)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/*.apk
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || inputs.release_tag }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || inputs.release_tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,6 @@
+{
+  "name": "VoltLedger",
+  "description": "EV Charging tracker, real consumption calculation, range forecast and cost statistics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

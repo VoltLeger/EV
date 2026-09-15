@@ -1,0 +1,89 @@
+[
+  {
+    "name": "Malanka (Белоруснефть)",
+    "type": "both",
+    "priceAc": 0.55,
+    "priceDc": 0.73,
+    "nightPriceDc": 0.45,
+    "nightStartHour": 23,
+    "nightEndHour": 6,
+    "penaltyIdlePerMin": 0.0,
+    "penaltyFreeMinutes": 0,
+    "comment": "Плата за резервирование коннектора",
+    "isBuiltin": true,
+    "isFree": false
+  },
+  {
+    "name": "Evika (Белтелеком)",
+    "type": "both",
+    "priceAc": 0.54,
+    "priceDc": 0.72,
+    "penaltyIdlePerMin": 0.05,
+    "penaltyFreeMinutes": 30,
+    "comment": "Штраф за простой 0.05 BYN/мин после 30 мин",
+    "isBuiltin": true,
+    "isFree": false
+  },
+  {
+    "name": "forEVo (включая А-100)",
+    "type": "both",
+    "priceAc": 0.55,
+    "priceDc": 0.73,
+    "nightPriceDc": 0.55,
+    "nightStartHour": 21,
+    "nightEndHour": 8,
+    "comment": "Ночной тариф DC при старте 21:00–08:30",
+    "isBuiltin": true,
+    "isFree": false
+  },
+  {
+    "name": "BatteryFly",
+    "type": "both",
+    "priceAc": 0.46,
+    "priceDc": 0.65,
+    "nightPriceDc": 0.49,
+    "nightStartHour": 22,
+    "nightEndHour": 9,
+    "comment": "Ночной тариф 22:00–09:00",
+    "isBuiltin": true,
+    "isFree": false
+  },
+  {
+    "name": "Zaryadka",
+    "type": "both",
+    "priceAc": 0.55,
+    "priceDc": 0.73,
+    "penaltyIdlePerMin": 0.30,
+    "penaltyFreeMinutes": 15,
+    "comment": "Штраф за простой DC 0.30 BYN/мин после 15 мин",
+    "isBuiltin": true,
+    "isFree": false
+  },
+  {
+    "name": "Дача / Дом",
+    "type": "AC",
+    "priceAc": 0.36,
+    "priceDc": 0.36,
+    "comment": "Бытовой тариф для дома и дачи",
+    "isBuiltin": true,
+    "isFree": false
+  },
+  {
+    "name": "Бесплатная зарядка",
+    "type": "both",
+    "priceAc": 0.00001,
+    "priceDc": 0.00001,
+    "comment": "Бонусные или бесплатные киловатты",
+    "isBuiltin": true,
+    "isFree": true
+  },
+  {
+    "name": "Другое",
+    "type": "both",
+    "priceAc": 0.50,
+    "priceDc": 0.70,
+    "comment": "Ручной ввод параметров",
+    "isBuiltin": true,
+    "isFree": false
+  }
+]
