@@ -42,7 +42,17 @@ import com.example.ui.theme.GlassBorderTop
 import com.example.ui.theme.GlassWhiteHigh
 import com.example.ui.theme.GlassWhiteLow
 import com.example.ui.theme.GlassWhiteMid
+import com.example.ui.theme.LocalCurrentTheme
+import com.example.ui.theme.MintBgGradientBottom
+import com.example.ui.theme.MintBgGradientMid
+import com.example.ui.theme.MintBgGradientTop
 import com.example.ui.theme.SoftBlue
+import com.example.ui.theme.WrncAccent
+import com.example.ui.theme.WrncBorder
+import com.example.ui.theme.WrncBorderSpecular
+import com.example.ui.theme.WrncBgGradientBottom
+import com.example.ui.theme.WrncBgGradientMid
+import com.example.ui.theme.WrncBgGradientTop
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -81,45 +91,114 @@ fun LiquidGlassBackground(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
+    val themeMode = LocalCurrentTheme.current
     val bgBase = MaterialTheme.colorScheme.background
-    val cyanGlow = ElectricCyan.copy(alpha = 0.12f)
-    val blueGlow = SoftBlue.copy(alpha = 0.15f)
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(bgBase)
             .drawBehind {
-                // Top-right glowing orb
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(blueGlow, Color.Transparent),
-                        center = Offset(size.width * 0.9f, size.height * 0.12f),
-                        radius = size.width * 0.75f
-                    ),
-                    center = Offset(size.width * 0.9f, size.height * 0.12f),
-                    radius = size.width * 0.75f
-                )
-                // Mid-left glowing orb
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(cyanGlow, Color.Transparent),
-                        center = Offset(size.width * 0.05f, size.height * 0.55f),
-                        radius = size.width * 0.65f
-                    ),
-                    center = Offset(size.width * 0.05f, size.height * 0.55f),
-                    radius = size.width * 0.65f
-                )
-                // Subtle bottom ambient light
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(blueGlow.copy(alpha = 0.08f), Color.Transparent),
-                        center = Offset(size.width * 0.8f, size.height * 0.95f),
-                        radius = size.width * 0.7f
-                    ),
-                    center = Offset(size.width * 0.8f, size.height * 0.95f),
-                    radius = size.width * 0.7f
-                )
+                when (themeMode) {
+                    "wrnc" -> {
+                        // Deep atmospheric vertical gradient from WRNC_приложение.jpg
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    WrncBgGradientTop,
+                                    WrncBgGradientMid,
+                                    WrncBgGradientBottom
+                                )
+                            )
+                        )
+                        // Luminous sky-blue and cyan atmospheric orbs
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(WrncAccent.copy(alpha = 0.20f), Color.Transparent),
+                                center = Offset(size.width * 0.85f, size.height * 0.14f),
+                                radius = size.width * 0.85f
+                            ),
+                            center = Offset(size.width * 0.85f, size.height * 0.14f),
+                            radius = size.width * 0.85f
+                        )
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(Color(0xFF2563EB).copy(alpha = 0.16f), Color.Transparent),
+                                center = Offset(size.width * 0.10f, size.height * 0.60f),
+                                radius = size.width * 0.75f
+                            ),
+                            center = Offset(size.width * 0.10f, size.height * 0.60f),
+                            radius = size.width * 0.75f
+                        )
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(WrncAccent.copy(alpha = 0.12f), Color.Transparent),
+                                center = Offset(size.width * 0.70f, size.height * 0.92f),
+                                radius = size.width * 0.70f
+                            ),
+                            center = Offset(size.width * 0.70f, size.height * 0.92f),
+                            radius = size.width * 0.70f
+                        )
+                    }
+                    "mint" -> {
+                        // Oceanic Teal background gradient from 1741601510-image-1451x1080.png
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    MintBgGradientTop,
+                                    MintBgGradientMid,
+                                    MintBgGradientBottom
+                                )
+                            )
+                        )
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(Color(0xFF5EEAD4).copy(alpha = 0.25f), Color.Transparent),
+                                center = Offset(size.width * 0.85f, size.height * 0.12f),
+                                radius = size.width * 0.85f
+                            ),
+                            center = Offset(size.width * 0.85f, size.height * 0.12f),
+                            radius = size.width * 0.85f
+                        )
+                    }
+                    "amoled" -> {
+                        drawRect(Color.Black)
+                    }
+                    else -> {
+                        val cyanGlow = ElectricCyan.copy(alpha = 0.12f)
+                        val blueGlow = SoftBlue.copy(alpha = 0.15f)
+                        // Top-right glowing orb
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(blueGlow, Color.Transparent),
+                                center = Offset(size.width * 0.9f, size.height * 0.12f),
+                                radius = size.width * 0.75f
+                            ),
+                            center = Offset(size.width * 0.9f, size.height * 0.12f),
+                            radius = size.width * 0.75f
+                        )
+                        // Mid-left glowing orb
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(cyanGlow, Color.Transparent),
+                                center = Offset(size.width * 0.05f, size.height * 0.55f),
+                                radius = size.width * 0.65f
+                            ),
+                            center = Offset(size.width * 0.05f, size.height * 0.55f),
+                            radius = size.width * 0.65f
+                        )
+                        // Subtle bottom ambient light
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(blueGlow.copy(alpha = 0.08f), Color.Transparent),
+                                center = Offset(size.width * 0.8f, size.height * 0.95f),
+                                radius = size.width * 0.7f
+                            ),
+                            center = Offset(size.width * 0.8f, size.height * 0.95f),
+                            radius = size.width * 0.7f
+                        )
+                    }
+                }
             }
     ) {
         content()
@@ -139,6 +218,7 @@ fun VoltCard(
     cornerRadius: Dp = 22.dp,
     content: @Composable () -> Unit
 ) {
+    val themeMode = LocalCurrentTheme.current
     val surfaceColor = MaterialTheme.colorScheme.surface
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
 
@@ -153,6 +233,17 @@ fun VoltCard(
             ),
             start = Offset.Zero,
             end = Offset.Infinite
+        )
+    } else if (themeMode == "wrnc") {
+        Brush.linearGradient(
+            colors = listOf(
+                WrncBorderSpecular,
+                WrncBorder,
+                WrncBorder.copy(alpha = 0.25f),
+                WrncBorderSpecular.copy(alpha = 0.4f)
+            ),
+            start = Offset(0f, 0f),
+            end = Offset(300f, 600f)
         )
     } else {
         Brush.linearGradient(

@@ -18,7 +18,7 @@ object CsvJsonBackupHelper {
 
     fun exportSessionsToCsv(sessions: List<ChargingSession>): String {
         val sb = StringBuilder()
-        sb.append("id,car_id,start_time,end_time,start_odometer,start_soc,end_soc,station_type,operator_name,tag_name,kwh_delivered,kwh_received,price_per_kwh,energy_cost,penalty_cost,fixed_amount,total_cost,currency,status\n")
+        sb.append("id,car_id,start_time,end_time,start_odometer,start_soc,end_soc,station_type,operator_name,kwh_delivered,kwh_received,price_per_kwh,energy_cost,penalty_cost,fixed_amount,total_cost,currency,status\n")
         for (s in sessions) {
             sb.append("${s.id},")
             sb.append("${s.carId},")
@@ -29,7 +29,6 @@ object CsvJsonBackupHelper {
             sb.append("${s.endSoc},")
             sb.append("\"${s.stationType}\",")
             sb.append("\"${s.operatorName.replace("\"", "\"\"")}\",")
-            sb.append("\"${s.tagName.replace("\"", "\"\"")}\",")
             sb.append("${s.kwhDeliveredByStation},")
             sb.append("${s.kwhReceivedByCar ?: ""},")
             sb.append("${s.pricePerKwh},")
@@ -50,7 +49,7 @@ object CsvJsonBackupHelper {
             val line = lines[i].trim()
             if (line.isEmpty()) continue
             val tokens = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)".toRegex())
-            if (tokens.size >= 18) {
+            if (tokens.size >= 17) {
                 try {
                     val clean = tokens.map { it.trim().removeSurrounding("\"") }
                     val session = ChargingSession(
@@ -62,16 +61,15 @@ object CsvJsonBackupHelper {
                         endSoc = clean[6].toDoubleOrNull() ?: 0.0,
                         stationType = clean[7].ifEmpty { "AC" },
                         operatorName = clean[8],
-                        tagName = clean[9],
-                        kwhDeliveredByStation = clean[10].toDoubleOrNull() ?: 0.0,
-                        kwhReceivedByCar = clean[11].toDoubleOrNull(),
-                        pricePerKwh = clean[12].toDoubleOrNull() ?: 0.5,
-                        energyCost = clean[13].toDoubleOrNull() ?: 0.0,
-                        penaltyCost = clean[14].toDoubleOrNull() ?: 0.0,
-                        fixedAmount = clean[15].toDoubleOrNull() ?: 0.0,
-                        totalCost = clean[16].toDoubleOrNull() ?: 0.0,
-                        currency = clean[17].ifEmpty { "BYN" },
-                        status = if (clean.size > 18) clean[18] else "completed"
+                        kwhDeliveredByStation = clean[9].toDoubleOrNull() ?: 0.0,
+                        kwhReceivedByCar = clean[10].toDoubleOrNull(),
+                        pricePerKwh = clean[11].toDoubleOrNull() ?: 0.5,
+                        energyCost = clean[12].toDoubleOrNull() ?: 0.0,
+                        penaltyCost = clean[13].toDoubleOrNull() ?: 0.0,
+                        fixedAmount = clean[14].toDoubleOrNull() ?: 0.0,
+                        totalCost = clean[15].toDoubleOrNull() ?: 0.0,
+                        currency = clean[16].ifEmpty { "BYN" },
+                        status = if (clean.size > 17) clean[17] else "completed"
                     )
                     list.add(session)
                 } catch (_: Exception) {
@@ -102,6 +100,7 @@ object CsvJsonBackupHelper {
             obj.put("usableCapacityKwh", c.usableCapacityKwh)
             obj.put("initialOdometer", c.initialOdometer)
             obj.put("currentSoc", c.currentSoc)
+            obj.put("passportConsumption", c.passportConsumption)
             obj.put("createdAt", c.createdAt)
             carsArray.put(obj)
         }
@@ -125,7 +124,6 @@ object CsvJsonBackupHelper {
             obj.put("currency", s.currency)
             obj.put("stationType", s.stationType)
             obj.put("operatorName", s.operatorName)
-            obj.put("tagName", s.tagName)
             obj.put("isFreeCharge", s.isFreeCharge)
             obj.put("nightTariffApplied", s.nightTariffApplied)
             obj.put("startTime", s.startTime)
@@ -153,6 +151,7 @@ object CsvJsonBackupHelper {
                         usableCapacityKwh = obj.optDouble("usableCapacityKwh", 57.0),
                         initialOdometer = obj.optDouble("initialOdometer", 0.0),
                         currentSoc = obj.optDouble("currentSoc", 50.0),
+                        passportConsumption = obj.optDouble("passportConsumption", 16.0),
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                     )
                 )
@@ -179,7 +178,6 @@ object CsvJsonBackupHelper {
                         currency = obj.optString("currency", "BYN"),
                         stationType = obj.optString("stationType", "AC"),
                         operatorName = obj.optString("operatorName", ""),
-                        tagName = obj.optString("tagName", ""),
                         isFreeCharge = obj.optBoolean("isFreeCharge", false),
                         nightTariffApplied = obj.optBoolean("nightTariffApplied", false),
                         startTime = obj.optLong("startTime", System.currentTimeMillis()),

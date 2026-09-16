@@ -1,9 +1,17 @@
 package com.example.data.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "charging_sessions")
+@Entity(
+    tableName = "charging_sessions",
+    indices = [
+        Index(value = ["carId", "startTime"]),
+        Index(value = ["status"]),
+        Index(value = ["startTime"])
+    ]
+)
 data class ChargingSession(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
@@ -24,8 +32,6 @@ data class ChargingSession(
     val operatorName: String = "",
     val operatorComment: String? = null,
     val avgPowerKw: Double? = null,
-    val tagId: Long? = null,
-    val tagName: String = "",
     val isFreeCharge: Boolean = false,
     val nightTariffApplied: Boolean = false,
     val startTime: Long = System.currentTimeMillis(),

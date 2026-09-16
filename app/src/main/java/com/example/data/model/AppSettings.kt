@@ -11,5 +11,7 @@ data class AppSettings(
     val notifyWeekly: Boolean = true,
     val notifyMonthly: Boolean = true,
     val selectedCarId: Long = 0L,
-    val onboardingCompleted: Boolean = false
+    val onboardingCompleted: Boolean = false,
+    val pinEnabled: Boolean = false,
+    val pinCode: String = ""
 )

@@ -11,6 +11,35 @@ data class RangeForecastResult(
     val remainingKwh: Double
 )
 
+data class MonthComparisonStats(
+    val currentMonthCost: Double,
+    val prevMonthCost: Double,
+    val costDiffPercent: Double?, // positive means spent more
+    val currentMonthDistance: Double,
+    val prevMonthDistance: Double,
+    val distanceDiffPercent: Double?,
+    val currentMonthConsumption: Double?,
+    val prevMonthConsumption: Double?,
+    val consumptionDiffPercent: Double?
+)
+
+data class TopStationRank(
+    val name: String,
+    val metricValue: Double,
+    val formattedValue: String,
+    val subtitle: String
+)
+
+data class OperatorStatSummary(
+    val name: String,
+    val count: Int,
+    val totalKwh: Double,
+    val totalCost: Double,
+    val avgPricePerKwh: Double,
+    val avgPowerKw: Double?,
+    val avgDurationMinutes: Long?
+)
+
 object EVCalculator {
 
     /**
@@ -145,5 +174,193 @@ object EVCalculator {
         } else {
             null
         }
+    }
+
+    /**
+     * Interactive calculation of estimated range for a given battery SoC percentage
+     */
+    fun calculateRangeForSoc(
+        usableCapacityKwh: Double,
+        socPercent: Double,
+        consumptionPer100Km: Double
+    ): Double {
+        if (consumptionPer100Km <= 0.0) return 0.0
+        val clampedSoc = socPercent.coerceIn(0.0, 100.0)
+        val kwh = usableCapacityKwh * (clampedSoc / 100.0)
+        return (kwh / consumptionPer100Km) * 100.0
+    }
+
+    /**
+     * Compares real consumption to official passport / WLTP consumption.
+     * Returns: (deltaKwhPer100Km, deltaPercent)
+     * e.g. real 18.0 vs passport 16.0 -> (+2.0 kWh, +12.5%)
+     */
+    fun comparePassportConsumption(
+        actualConsumption: Double,
+        passportConsumption: Double
+    ): Pair<Double, Double> {
+        if (passportConsumption <= 0.0) return Pair(0.0, 0.0)
+        val deltaKwh = actualConsumption - passportConsumption
+        val deltaPercent = (deltaKwh / passportConsumption) * 100.0
+        return Pair(deltaKwh, deltaPercent)
+    }
+
+    /**
+     * Calculates Month-to-Month comparison (current calendar month vs previous calendar month)
+     */
+    fun calculateMonthToMonthStats(completedSessions: List<ChargingSession>): MonthComparisonStats {
+        val cal = Calendar.getInstance()
+        val curYear = cal.get(Calendar.YEAR)
+        val curMonth = cal.get(Calendar.MONTH)
+
+        cal.add(Calendar.MONTH, -1)
+        val prevYear = cal.get(Calendar.YEAR)
+        val prevMonth = cal.get(Calendar.MONTH)
+
+        val tempCal = Calendar.getInstance()
+        val curSessions = completedSessions.filter {
+            tempCal.timeInMillis = it.startTime
+            tempCal.get(Calendar.YEAR) == curYear && tempCal.get(Calendar.MONTH) == curMonth
+        }
+
+        val prevSessions = completedSessions.filter {
+            tempCal.timeInMillis = it.startTime
+            tempCal.get(Calendar.YEAR) == prevYear && tempCal.get(Calendar.MONTH) == prevMonth
+        }
+
+        val curCost = curSessions.sumOf { it.totalCost }
+        val prevCost = prevSessions.sumOf { it.totalCost }
+        val costDiff = if (prevCost > 0.0) ((curCost - prevCost) / prevCost) * 100.0 else null
+
+        val curDist = if (curSessions.isNotEmpty()) {
+            (curSessions.maxOf { it.startOdometer } - curSessions.minOf { it.startOdometer }).coerceAtLeast(0.0)
+        } else 0.0
+
+        val prevDist = if (prevSessions.isNotEmpty()) {
+            (prevSessions.maxOf { it.startOdometer } - prevSessions.minOf { it.startOdometer }).coerceAtLeast(0.0)
+        } else 0.0
+
+        val distDiff = if (prevDist > 0.0) ((curDist - prevDist) / prevDist) * 100.0 else null
+
+        val curCons = calculateMonthConsumption(completedSessions, curYear, curMonth)
+        val prevCons = calculateMonthConsumption(completedSessions, prevYear, prevMonth)
+        val consDiff = if (curCons != null && prevCons != null && prevCons > 0.0) {
+            ((curCons - prevCons) / prevCons) * 100.0
+        } else null
+
+        return MonthComparisonStats(
+            currentMonthCost = curCost,
+            prevMonthCost = prevCost,
+            costDiffPercent = costDiff,
+            currentMonthDistance = curDist,
+            prevMonthDistance = prevDist,
+            distanceDiffPercent = distDiff,
+            currentMonthConsumption = curCons,
+            prevMonthConsumption = prevCons,
+            consumptionDiffPercent = consDiff
+        )
+    }
+
+    /**
+     * Top-3 Cheapest Stations (lowest effective cost per delivered kWh)
+     */
+    fun getTopCheapestStations(sessions: List<ChargingSession>, currency: String): List<TopStationRank> {
+        val grouped = sessions.filter { it.kwhDeliveredByStation > 0 && it.operatorName.isNotBlank() }
+            .groupBy { it.operatorName }
+
+        return grouped.map { (opName, list) ->
+            val totalKwh = list.sumOf { it.kwhDeliveredByStation }
+            val totalCost = list.sumOf { it.totalCost }
+            val avgPrice = if (totalKwh > 0) totalCost / totalKwh else 0.0
+            TopStationRank(
+                name = opName,
+                metricValue = avgPrice,
+                formattedValue = String.format(java.util.Locale.US, "%.2f %s/кВт·ч", avgPrice, currency),
+                subtitle = "${list.size} зарядок • ${String.format(java.util.Locale.US, "%.1f", totalKwh)} кВт·ч"
+            )
+        }.sortedBy { it.metricValue }.take(3)
+    }
+
+    /**
+     * Top-3 Fastest Stations (highest recorded or average power in kW)
+     */
+    fun getTopFastestStations(sessions: List<ChargingSession>): List<TopStationRank> {
+        val grouped = sessions.filter { (it.avgPowerKw ?: 0.0) > 0 && it.operatorName.isNotBlank() }
+            .groupBy { it.operatorName }
+
+        return grouped.mapNotNull { (opName, list) ->
+            val powers = list.mapNotNull { it.avgPowerKw }
+            if (powers.isEmpty()) return@mapNotNull null
+            val avgPower = powers.average()
+            TopStationRank(
+                name = opName,
+                metricValue = avgPower,
+                formattedValue = String.format(java.util.Locale.US, "%.0f кВт", avgPower),
+                subtitle = "макс: ${String.format(java.util.Locale.US, "%.0f", powers.maxOrNull() ?: avgPower)} кВт • ${list.size} сессий"
+            )
+        }.sortedByDescending { it.metricValue }.take(3)
+    }
+
+    /**
+     * Top-3 Stations with Least Losses (lowest difference between station delivered and car received)
+     */
+    fun getTopLeastLossesStations(sessions: List<ChargingSession>): List<TopStationRank> {
+        val withLosses = sessions.filter {
+            it.kwhReceivedByCar != null &&
+            it.kwhReceivedByCar!! > 0 &&
+            it.kwhDeliveredByStation > it.kwhReceivedByCar!! &&
+            it.operatorName.isNotBlank()
+        }.groupBy { it.operatorName }
+
+        return withLosses.mapNotNull { (opName, list) ->
+            val lossPercents = list.map { s ->
+                val delivered = s.kwhDeliveredByStation
+                val received = s.kwhReceivedByCar ?: delivered
+                ((delivered - received) / delivered) * 100.0
+            }
+            if (lossPercents.isEmpty()) return@mapNotNull null
+            val avgLoss = lossPercents.average()
+            TopStationRank(
+                name = opName,
+                metricValue = avgLoss,
+                formattedValue = String.format(java.util.Locale.US, "%.1f%% потерь", avgLoss),
+                subtitle = "по ${list.size} замерам"
+            )
+        }.sortedBy { it.metricValue }.take(3)
+    }
+
+    /**
+     * Detailed Operator Aggregated Statistics (with avg power & duration)
+     */
+    fun getOperatorDetailedStats(sessions: List<ChargingSession>): List<OperatorStatSummary> {
+        val grouped = sessions.filter { it.status == "completed" && it.operatorName.isNotBlank() }
+            .groupBy { it.operatorName }
+
+        return grouped.map { (name, list) ->
+            val count = list.size
+            val totalKwh = list.sumOf { it.kwhDeliveredByStation }
+            val totalCost = list.sumOf { it.totalCost }
+            val avgPrice = if (totalKwh > 0) totalCost / totalKwh else 0.0
+
+            val powers = list.mapNotNull { it.avgPowerKw }.filter { it > 0 }
+            val avgPower = if (powers.isNotEmpty()) powers.average() else null
+
+            val durations = list.mapNotNull { s ->
+                if (s.endTime != null && s.endTime > s.startTime) {
+                    (s.endTime - s.startTime) / (1000 * 60)
+                } else null
+            }
+            val avgDuration = if (durations.isNotEmpty()) durations.average().toLong() else null
+
+            OperatorStatSummary(
+                name = name,
+                count = count,
+                totalKwh = totalKwh,
+                totalCost = totalCost,
+                avgPricePerKwh = avgPrice,
+                avgPowerKw = avgPower,
+                avgDurationMinutes = avgDuration
+            )
+        }.sortedByDescending { it.totalCost }
     }
 }

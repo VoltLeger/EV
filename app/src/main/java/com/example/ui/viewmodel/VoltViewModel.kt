@@ -7,11 +7,14 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.SettingsManager
 import com.example.data.local.seedDefaultData
 import com.example.data.model.AppSettings
+import com.example.data.model.Award
 import com.example.data.model.Car
 import com.example.data.model.ChargingSession
 import com.example.data.model.Operator
 import com.example.data.model.Tag
+import com.example.data.model.UserProfile
 import com.example.data.repository.VoltRepository
+import com.example.util.AwardCalculator
 import com.example.util.CsvJsonBackupHelper
 import com.example.util.DefaultTariffsLoader
 import com.example.util.EVCalculator
@@ -37,8 +40,17 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch(Dispatchers.IO) {
             seedDefaultData(application, db)
+            repository.getOrCreateUserProfile()
         }
     }
+
+    val userProfile: StateFlow<UserProfile> = repository.userProfile
+        .map { it ?: UserProfile() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = UserProfile()
+        )
 
     val settings: StateFlow<AppSettings> = repository.appSettings.stateIn(
         scope = viewModelScope,
@@ -104,6 +116,57 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
     private val _forecastState = MutableStateFlow<RangeForecastResult?>(null)
     val forecastState: StateFlow<RangeForecastResult?> = _forecastState.asStateFlow()
 
+    val awards: StateFlow<List<Award>> = combine(allSessions, allCars, activeCar) { sessions, cars, car ->
+        AwardCalculator.calculateAwards(sessions, cars, car)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = emptyList()
+    )
+
+    val totalXp: StateFlow<Long> = combine(allSessions, awards) { sessions, aw ->
+        AwardCalculator.calculateTotalXp(sessions, aw)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = 0L
+    )
+
+    val rankTier: StateFlow<Pair<String, Int>> = totalXp.map { xp ->
+        AwardCalculator.getRankTier(xp)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = "Новичок" to 1
+    )
+
+    fun updateUserProfile(
+        displayName: String? = null,
+        callsign: String? = null,
+        bio: String? = null,
+        avatarEffect: String? = null,
+        avatarIcon: String? = null,
+        isLeaderboardOptIn: Boolean? = null
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val current = repository.getOrCreateUserProfile()
+            val xp = totalXp.value
+            val tier = AwardCalculator.getRankTier(xp).first
+            val updated = current.copy(
+                displayName = displayName ?: current.displayName,
+                callsign = callsign ?: current.callsign,
+                bio = bio ?: current.bio,
+                avatarEffect = avatarEffect ?: current.avatarEffect,
+                avatarIcon = avatarIcon ?: current.avatarIcon,
+                isLeaderboardOptIn = isLeaderboardOptIn ?: current.isLeaderboardOptIn,
+                totalXp = xp,
+                rankTier = tier,
+                lastActiveAt = System.currentTimeMillis()
+            )
+            repository.updateUserProfile(updated)
+        }
+    }
+
     fun calculateForecast(remainingSoc: Double) {
         val car = activeCar.value ?: return
         val carSessions = allSessions.value.filter { it.carId == car.id && it.status == "completed" }
@@ -119,7 +182,8 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         carName: String,
         declaredCapacityKwh: Double,
         odometer: Double,
-        soc: Double
+        soc: Double,
+        passportConsumption: Double = 16.0
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             val usable = EVCalculator.calculateUsableCapacity(declaredCapacityKwh)
@@ -129,6 +193,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                 usableCapacityKwh = usable,
                 initialOdometer = odometer.coerceAtLeast(0.0),
                 currentSoc = soc.coerceIn(0.0, 100.0),
+                passportConsumption = passportConsumption.coerceIn(5.0, 50.0),
                 isActive = true
             )
             val carId = repository.insertCar(car)
@@ -145,7 +210,6 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         customOperatorName: String?,
         avgPowerKw: Double?,
         pricePerKwh: Double,
-        tag: Tag?,
         startTime: Long,
         nightTariffApplied: Boolean
     ) {
@@ -166,8 +230,6 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                 operatorName = operator?.name ?: customOperatorName ?: "",
                 operatorComment = operator?.comment,
                 avgPowerKw = avgPowerKw,
-                tagId = tag?.id,
-                tagName = tag?.name ?: "",
                 isFreeCharge = isFree,
                 nightTariffApplied = nightTariffApplied,
                 startTime = startTime,
@@ -223,7 +285,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addCar(name: String, declaredKwh: Double, odometer: Double, currentSoc: Double) {
+    fun addCar(name: String, declaredKwh: Double, odometer: Double, currentSoc: Double, passportConsumption: Double = 16.0) {
         viewModelScope.launch(Dispatchers.IO) {
             val usable = EVCalculator.calculateUsableCapacity(declaredKwh)
             val car = Car(
@@ -232,6 +294,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                 usableCapacityKwh = usable,
                 initialOdometer = odometer.coerceAtLeast(0.0),
                 currentSoc = currentSoc.coerceIn(0.0, 100.0),
+                passportConsumption = passportConsumption.coerceIn(5.0, 50.0),
                 isActive = false
             )
             repository.insertCar(car)
@@ -364,6 +427,71 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
             totalCost = 45.80,
             currency = curr
         )
+    }
+
+    fun testDcNotification() {
+        val isEn = settings.value.language == "en"
+        NotificationHelper.showDcSessionExceededNotification(
+            context = getApplication(),
+            isEn = isEn
+        )
+    }
+
+    fun testUnfinishedNotification() {
+        val isEn = settings.value.language == "en"
+        NotificationHelper.showUnfinishedChargeNotification(
+            context = getApplication(),
+            isEn = isEn,
+            hoursElapsed = settings.value.unfinishedHoursThreshold
+        )
+    }
+
+    fun checkActiveSessionNotifications() {
+        val session = activeSession.value ?: return
+        val isEn = settings.value.language == "en"
+        val durationMillis = System.currentTimeMillis() - session.startTime
+        val durationHours = durationMillis / (1000.0 * 3600.0)
+
+        if (session.stationType.equals("DC", ignoreCase = true) && durationHours >= 2.0) {
+            NotificationHelper.showDcSessionExceededNotification(getApplication(), isEn)
+        } else if (durationHours >= settings.value.unfinishedHoursThreshold) {
+            NotificationHelper.showUnfinishedChargeNotification(getApplication(), isEn, durationHours.toInt())
+        }
+    }
+
+    fun updatePinSettings(enabled: Boolean, pin: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.updatePinSettings(enabled, pin)
+        }
+    }
+
+    fun startQuickHomeCharge(targetSoc: Double = 100.0, customPrice: Double? = null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val car = activeCar.value ?: allCars.value.firstOrNull() ?: return@launch
+            val homeOp = allOperators.value.find { it.name.contains("Дом", ignoreCase = true) || it.name.contains("Home", ignoreCase = true) }
+            val now = Calendar.getInstance()
+            val isNight = homeOp != null && EVCalculator.isNightTariffTime(homeOp.nightStartHour, homeOp.nightEndHour, now)
+            val price = customPrice ?: (if (isNight && homeOp != null) (homeOp.nightPriceAc ?: homeOp.priceAc) else (homeOp?.priceAc ?: 0.25))
+
+            val session = ChargingSession(
+                carId = car.id,
+                startOdometer = car.initialOdometer,
+                startSoc = car.currentSoc,
+                endSoc = targetSoc,
+                pricePerKwh = price,
+                currency = settings.value.currency,
+                stationType = "AC",
+                operatorId = homeOp?.id,
+                operatorName = homeOp?.name ?: "Домашняя розетка (AC)",
+                operatorComment = "Быстрый ввод в 1 тап",
+                avgPowerKw = 3.7,
+                isFreeCharge = price <= 0.0001,
+                nightTariffApplied = isNight,
+                startTime = System.currentTimeMillis(),
+                status = "active"
+            )
+            repository.insertSession(session)
+        }
     }
 
     fun exportCsvData(): String {

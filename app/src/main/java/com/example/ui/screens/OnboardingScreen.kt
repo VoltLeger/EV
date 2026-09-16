@@ -52,16 +52,18 @@ import java.util.Locale
 
 @Composable
 fun OnboardingScreen(
-    onFinish: (name: String, capacity: Double, odo: Double, soc: Double) -> Unit,
+    onFinish: (name: String, capacity: Double, odo: Double, soc: Double, passport: Double) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
     var carName by remember { mutableStateOf("") }
     var capacityText by remember { mutableStateOf("70.0") }
+    var passportText by remember { mutableStateOf("16.0") }
     var odometerText by remember { mutableStateOf("15000") }
     var socText by remember { mutableStateOf("80") }
 
     val capacityVal = capacityText.toDoubleOrNull() ?: 0.0
+    val passportVal = passportText.toDoubleOrNull() ?: 16.0
     val odoVal = odometerText.toDoubleOrNull() ?: 0.0
     val socVal = socText.toDoubleOrNull() ?: 0.0
 
@@ -211,6 +213,29 @@ fun OnboardingScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Step 2.5: Passport Consumption (WLTP)
+        OutlinedTextField(
+            value = passportText,
+            onValueChange = { passportText = it },
+            label = { Text("Паспортный расход WLTP (кВт·ч/100 км)") },
+            placeholder = { Text("напр. 15.5") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            leadingIcon = {
+                Icon(Icons.Default.Speed, contentDescription = null, tint = SoftBlue)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("passport_consumption_input"),
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = SoftBlue,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+            )
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // Step 3: Current Odometer
         OutlinedTextField(
             value = odometerText,
@@ -269,7 +294,7 @@ fun OnboardingScreen(
         Button(
             onClick = {
                 if (isValid) {
-                    onFinish(carName.trim(), capacityVal, odoVal, socVal)
+                    onFinish(carName.trim(), capacityVal, odoVal, socVal, passportVal)
                 }
             },
             enabled = isValid,

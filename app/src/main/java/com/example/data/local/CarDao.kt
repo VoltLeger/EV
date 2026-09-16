@@ -23,6 +23,9 @@ interface CarDao {
     @Query("SELECT * FROM cars WHERE isActive = 1 LIMIT 1")
     fun getActiveCar(): Flow<Car?>
 
+    @Query("SELECT COUNT(*) FROM cars")
+    suspend fun countCars(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCar(car: Car): Long
 

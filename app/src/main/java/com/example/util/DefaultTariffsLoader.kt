@@ -3,6 +3,7 @@ package com.example.util
 import android.content.Context
 import android.util.Log
 import com.example.data.local.AppDatabase
+import com.example.data.model.Car
 import com.example.data.model.Operator
 import com.example.data.model.Tag
 import org.json.JSONArray
@@ -16,42 +17,79 @@ object DefaultTariffsLoader {
     const val FILE_NAME = "default_tariffs.json"
 
     val FALLBACK_OPERATORS = listOf(
+        // AC Operators
         Operator(
-            name = "Malanka (Белоруснефть)",
-            type = "both",
+            name = "Домашняя зарядка",
+            type = "AC",
+            subType = "Дом",
+            priceAc = 0.36,
+            nightPriceAc = 0.18,
+            nightStartHour = 22,
+            nightEndHour = 6,
+            comment = "Бытовой тариф AC (Дом)",
+            isBuiltin = true
+        ),
+        Operator(
+            name = "Дачная зарядка",
+            type = "AC",
+            subType = "Дача",
+            priceAc = 0.40,
+            nightPriceAc = 0.20,
+            nightStartHour = 22,
+            nightEndHour = 6,
+            comment = "Бытовой тариф AC (Дача)",
+            isBuiltin = true
+        ),
+        Operator(
+            name = "Malanka AC",
+            type = "AC",
+            subType = "Город",
             priceAc = 0.55,
+            comment = "Медленная зарядка AC",
+            isBuiltin = true
+        ),
+        Operator(
+            name = "Evika AC",
+            type = "AC",
+            subType = "Город",
+            priceAc = 0.54,
+            comment = "Белтелеком AC",
+            isBuiltin = true
+        ),
+
+        // DC Operators
+        Operator(
+            name = "Malanka DC",
+            type = "DC",
             priceDc = 0.73,
             nightPriceDc = 0.45,
             nightStartHour = 23,
             nightEndHour = 6,
-            comment = "Плата за резервирование коннектора",
+            comment = "Быстрая зарядка DC (Белоруснефть)",
             isBuiltin = true
         ),
         Operator(
-            name = "Evika (Белтелеком)",
-            type = "both",
-            priceAc = 0.54,
+            name = "Evika DC",
+            type = "DC",
             priceDc = 0.72,
             penaltyIdlePerMin = 0.05,
             penaltyFreeMinutes = 30,
-            comment = "Штраф за простой 0.05 BYN/мин после 30 мин",
+            comment = "Штраф за простой 0.05/мин после 30 мин",
             isBuiltin = true
         ),
         Operator(
-            name = "forEVo (включая А-100)",
-            type = "both",
-            priceAc = 0.55,
+            name = "forEVo DC (А-100)",
+            type = "DC",
             priceDc = 0.73,
             nightPriceDc = 0.55,
             nightStartHour = 21,
             nightEndHour = 8,
-            comment = "Ночной тариф DC при старте 21:00–08:30",
+            comment = "Ночной тариф DC 21:00–08:30",
             isBuiltin = true
         ),
         Operator(
-            name = "BatteryFly",
-            type = "both",
-            priceAc = 0.46,
+            name = "BatteryFly DC",
+            type = "DC",
             priceDc = 0.65,
             nightPriceDc = 0.49,
             nightStartHour = 22,
@@ -60,39 +98,23 @@ object DefaultTariffsLoader {
             isBuiltin = true
         ),
         Operator(
-            name = "Zaryadka",
-            type = "both",
-            priceAc = 0.55,
+            name = "Zaryadka DC",
+            type = "DC",
             priceDc = 0.73,
             penaltyIdlePerMin = 0.30,
             penaltyFreeMinutes = 15,
-            comment = "Штраф за простой DC 0.30 BYN/мин после 15 мин",
+            comment = "Штраф за простой 0.30/мин после 15 мин",
             isBuiltin = true
         ),
         Operator(
-            name = "Дача / Дом",
+            name = "Бесплатная",
             type = "AC",
-            priceAc = 0.36,
-            priceDc = 0.36,
-            comment = "Бытовой тариф для дома и дачи",
-            isBuiltin = true
-        ),
-        Operator(
-            name = "Бесплатная зарядка",
-            type = "both",
+            subType = "Бонус",
             priceAc = 0.00001,
             priceDc = 0.00001,
-            comment = "Бонусные или бесплатные киловатты",
+            comment = "Бесплатные киловатты",
             isBuiltin = true,
             isFree = true
-        ),
-        Operator(
-            name = "Другое",
-            type = "both",
-            priceAc = 0.50,
-            priceDc = 0.70,
-            comment = "Ручной ввод параметров",
-            isBuiltin = true
         )
     )
 
@@ -116,6 +138,7 @@ object DefaultTariffsLoader {
             val operator = Operator(
                 name = obj.optString("name", "Unknown"),
                 type = obj.optString("type", "both"),
+                subType = obj.optString("subType", ""),
                 priceAc = obj.optDouble("priceAc", 0.55),
                 priceDc = obj.optDouble("priceDc", 0.73),
                 nightPriceAc = if (obj.has("nightPriceAc") && !obj.isNull("nightPriceAc")) obj.getDouble("nightPriceAc") else null,
@@ -151,6 +174,8 @@ object DefaultTariffsLoader {
                     // Update tariff values from file without affecting user ID
                     db.operatorDao().updateOperator(
                         existing.copy(
+                            type = op.type,
+                            subType = op.subType,
                             priceAc = op.priceAc,
                             priceDc = op.priceDc,
                             nightPriceAc = op.nightPriceAc,
@@ -166,7 +191,20 @@ object DefaultTariffsLoader {
                 }
             }
 
-            // 4. Default tags if needed
+            // 4. Default car if none exists
+            if (db.carDao().countCars() == 0) {
+                val defaultCar = Car(
+                    name = "Электромобиль",
+                    declaredCapacityKwh = 60.0,
+                    usableCapacityKwh = 58.0,
+                    initialOdometer = 12000.0,
+                    currentSoc = 65.0,
+                    isActive = true
+                )
+                db.carDao().insertCar(defaultCar)
+            }
+
+            // 5. Default tags if needed
             if (db.tagDao().countTags() == 0) {
                 val defaultTags = listOf(
                     Tag(name = "Дом", color = 0xFF10B981, isBuiltin = true),

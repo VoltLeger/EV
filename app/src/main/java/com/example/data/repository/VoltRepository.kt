@@ -7,6 +7,7 @@ import com.example.data.model.Car
 import com.example.data.model.ChargingSession
 import com.example.data.model.Operator
 import com.example.data.model.Tag
+import com.example.data.model.UserProfile
 import kotlinx.coroutines.flow.Flow
 
 class VoltRepository(
@@ -19,6 +20,19 @@ class VoltRepository(
     val allTags: Flow<List<Tag>> = db.tagDao().getAllTags()
     val appSettings: Flow<AppSettings> = settingsManager.settingsFlow
     val activeSession: Flow<ChargingSession?> = db.chargingSessionDao().getActiveSession()
+    val userProfile: Flow<UserProfile?> = db.userProfileDao().getUserProfile()
+
+    suspend fun getOrCreateUserProfile(): UserProfile {
+        val existing = db.userProfileDao().getUserProfileDirect()
+        if (existing != null) return existing
+        val newProfile = UserProfile()
+        db.userProfileDao().insertOrUpdate(newProfile)
+        return newProfile
+    }
+
+    suspend fun updateUserProfile(profile: UserProfile) {
+        db.userProfileDao().insertOrUpdate(profile)
+    }
 
     fun getSessionsForCar(carId: Long): Flow<List<ChargingSession>> =
         db.chargingSessionDao().getSessionsForCar(carId)
@@ -83,6 +97,7 @@ class VoltRepository(
     suspend fun updateNotifyWeekly(enabled: Boolean) = settingsManager.updateNotifyWeekly(enabled)
     suspend fun updateNotifyMonthly(enabled: Boolean) = settingsManager.updateNotifyMonthly(enabled)
     suspend fun setOnboardingCompleted(completed: Boolean) = settingsManager.setOnboardingCompleted(completed)
+    suspend fun updatePinSettings(enabled: Boolean, pin: String) = settingsManager.updatePinSettings(enabled, pin)
 
     // Backup restore
     suspend fun restoreSessions(sessions: List<ChargingSession>, replace: Boolean) {

@@ -58,14 +58,24 @@ object NotificationHelper {
         manager.notify(id, builder.build())
     }
 
-    fun showUnfinishedChargeNotification(context: Context, isEn: Boolean) {
+    fun showUnfinishedChargeNotification(context: Context, isEn: Boolean, hoursElapsed: Int = 4) {
         val title = if (isEn) "VoltLedger: Active Charge" else "VoltLedger: Активная зарядка"
         val message = if (isEn) {
-            "You haven't completed your charging session — tap to enter final data."
+            "Your charging session has been running for $hoursElapsed+ hours. Tap to complete and log final metrics."
         } else {
-            "Вы не завершили зарядку — введите конечные данные."
+            "Зарядка продолжается уже более $hoursElapsed ч. Нажмите, чтобы завершить сессию и внести данные."
         }
         showNotification(context, 1001, title, message)
+    }
+
+    fun showDcSessionExceededNotification(context: Context, isEn: Boolean) {
+        val title = if (isEn) "⚠️ DC Fast Charging: 2+ Hours" else "⚠️ Быстрая зарядка DC: более 2 часов"
+        val message = if (isEn) {
+            "DC fast charging session has exceeded 2 hours! Check the station to prevent idle penalties or battery overheating."
+        } else {
+            "Сессия быстрой зарядки DC длится более 2 часов! Проверьте станцию, чтобы избежать штрафов за простой."
+        }
+        showNotification(context, 1003, title, message)
     }
 
     fun showWeeklyReportNotification(context: Context, isEn: Boolean, spentDiffPercent: Int, totalCost: Double, currency: String) {

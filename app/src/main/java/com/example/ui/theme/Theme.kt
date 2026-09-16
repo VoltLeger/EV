@@ -12,6 +12,43 @@ import com.example.util.AppStrings
 
 val LocalAppStrings = staticCompositionLocalOf { AppStrings(isEn = false) }
 val LocalCurrency = staticCompositionLocalOf { "BYN" }
+val LocalCurrentTheme = staticCompositionLocalOf { "dark" }
+
+private val WrncColorScheme = darkColorScheme(
+    primary = WrncAccent,
+    onPrimary = Color(0xFF071224),
+    primaryContainer = Color(0xFF132B50),
+    onPrimaryContainer = Color(0xFFBAE6FD),
+    secondary = Color(0xFF60A5FA),
+    onSecondary = Color(0xFF071224),
+    tertiary = Color(0xFF34D399),
+    onTertiary = Color.White,
+    background = WrncBg,
+    onBackground = WrncTextPrimary,
+    surface = WrncSurface,
+    onSurface = WrncTextPrimary,
+    surfaceVariant = WrncSurfaceVariant,
+    onSurfaceVariant = WrncTextSecondary,
+    outline = WrncBorder
+)
+
+private val MintColorScheme = lightColorScheme(
+    primary = MintPrimary,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFCCFBF1),
+    onPrimaryContainer = Color(0xFF115E59),
+    secondary = MintAccent,
+    onSecondary = Color.White,
+    tertiary = Color(0xFF10B981),
+    onTertiary = Color.White,
+    background = MintBg,
+    onBackground = Color(0xFFF0FDFA),
+    surface = MintSurface,
+    onSurface = MintTextPrimary,
+    surfaceVariant = MintSurfaceVariant,
+    onSurfaceVariant = MintTextSecondary,
+    outline = MintBorder
+)
 
 private val DarkColorScheme = darkColorScheme(
     primary = SoftBlue,
@@ -69,16 +106,23 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun VoltLedgerTheme(
-    themeSetting: String = "dark", // "dark", "light", "system", "amoled"
+    themeSetting: String = "dark", // "dark", "wrnc", "mint", "light", "system", "amoled"
     languageSetting: String = "ru", // "ru", "en"
     currencySetting: String = "BYN",
     content: @Composable () -> Unit
 ) {
     val systemDark = isSystemInDarkTheme()
-    val colorScheme = when (themeSetting) {
+    val resolvedTheme = if (themeSetting == "system") {
+        if (systemDark) "dark" else "light"
+    } else {
+        themeSetting
+    }
+
+    val colorScheme = when (resolvedTheme) {
+        "wrnc" -> WrncColorScheme
+        "mint" -> MintColorScheme
         "light" -> LightColorScheme
         "amoled" -> AmoledColorScheme
-        "system" -> if (systemDark) DarkColorScheme else LightColorScheme
         else -> DarkColorScheme // default dark
     }
 
@@ -86,7 +130,8 @@ fun VoltLedgerTheme(
 
     CompositionLocalProvider(
         LocalAppStrings provides appStrings,
-        LocalCurrency provides currencySetting
+        LocalCurrency provides currencySetting,
+        LocalCurrentTheme provides resolvedTheme
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

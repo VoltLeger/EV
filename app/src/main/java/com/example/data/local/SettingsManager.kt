@@ -28,6 +28,8 @@ class SettingsManager(private val context: Context) {
         val KEY_NOTIFY_MONTHLY = booleanPreferencesKey("notify_monthly")
         val KEY_SELECTED_CAR_ID = longPreferencesKey("selected_car_id")
         val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        val KEY_PIN_ENABLED = booleanPreferencesKey("pin_enabled")
+        val KEY_PIN_CODE = stringPreferencesKey("pin_code")
     }
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -42,7 +44,9 @@ class SettingsManager(private val context: Context) {
             notifyWeekly = prefs[KEY_NOTIFY_WEEKLY] ?: true,
             notifyMonthly = prefs[KEY_NOTIFY_MONTHLY] ?: true,
             selectedCarId = prefs[KEY_SELECTED_CAR_ID] ?: 0L,
-            onboardingCompleted = prefs[KEY_ONBOARDING_COMPLETED] ?: false
+            onboardingCompleted = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
+            pinEnabled = prefs[KEY_PIN_ENABLED] ?: false,
+            pinCode = prefs[KEY_PIN_CODE] ?: ""
         )
     }
 
@@ -88,5 +92,12 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = completed }
+    }
+
+    suspend fun updatePinSettings(enabled: Boolean, pin: String) {
+        context.dataStore.edit {
+            it[KEY_PIN_ENABLED] = enabled
+            it[KEY_PIN_CODE] = pin
+        }
     }
 }
