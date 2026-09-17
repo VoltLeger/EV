@@ -55,7 +55,11 @@ object NotificationHelper {
             .setAutoCancel(true)
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(id, builder.build())
+        try {
+            manager.notify(id, builder.build())
+        } catch (e: Exception) {
+            // Silently ignore if notifications permission is not granted or blocked
+        }
     }
 
     fun showUnfinishedChargeNotification(context: Context, isEn: Boolean, hoursElapsed: Int = 4) {

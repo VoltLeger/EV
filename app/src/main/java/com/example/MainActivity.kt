@@ -4,11 +4,10 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.app.ActivityCompat
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.AnimatedContent
@@ -96,29 +95,41 @@ class MainActivity : FragmentActivity() {
     private val viewModel: VoltViewModel by viewModels()
 
     private fun promptBiometric(onSuccess: () -> Unit) {
-        val biometricManager = BiometricManager.from(this)
-        val canAuthenticate = biometricManager.canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
-        )
-        if (canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS) {
-            return
-        }
-
-        val executor = ContextCompat.getMainExecutor(this)
-        val biometricPrompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                super.onAuthenticationSucceeded(result)
-                onSuccess()
+        try {
+            val biometricManager = BiometricManager.from(this)
+            val canAuthenticate = biometricManager.canAuthenticate(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
+            )
+            if (canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS) {
+                return
             }
-        })
 
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("VoltLedger")
-            .setSubtitle("Подтвердите личность для разблокировки")
-            .setNegativeButtonText("Использовать PIN")
-            .build()
+            val executor = ContextCompat.getMainExecutor(this)
+            val biometricPrompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    onSuccess()
+                }
 
-        biometricPrompt.authenticate(promptInfo)
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                }
+            })
+
+            val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                .setTitle("VoltLedger")
+                .setSubtitle("Подтвердите личность для разблокировки")
+                .setNegativeButtonText("Использовать PIN")
+                .build()
+
+            biometricPrompt.authenticate(promptInfo)
+        } catch (e: Throwable) {
+            // Silently fallback to PIN on device or configuration errors
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -141,20 +152,23 @@ class MainActivity : FragmentActivity() {
                 languageSetting = settings.language,
                 currencySetting = settings.currency
             ) {
-                // Request Notification permission if Android 13+
-                val context = LocalContext.current
+                // Request Notification permission if Android 13+ safely with 16-bit requestCode
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    val permissionLauncher = rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.RequestPermission()
-                    ) { _ -> }
-
                     LaunchedEffect(Unit) {
                         if (ContextCompat.checkSelfPermission(
-                                context,
+                                this@MainActivity,
                                 Manifest.permission.POST_NOTIFICATIONS
                             ) != PackageManager.PERMISSION_GRANTED
                         ) {
-                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            try {
+                                ActivityCompat.requestPermissions(
+                                    this@MainActivity,
+                                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                                    1001
+                                )
+                            } catch (e: Exception) {
+                                // Silently handle if host OS or device blocks permission requests
+                            }
                         }
                     }
                 }
