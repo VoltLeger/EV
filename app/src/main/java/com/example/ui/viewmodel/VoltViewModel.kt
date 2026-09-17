@@ -465,7 +465,25 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun startQuickHomeCharge(targetSoc: Double = 100.0, customPrice: Double? = null) {
+    fun updateBiometricSettings(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.updateBiometricSettings(enabled)
+        }
+    }
+
+    fun updateSession(session: ChargingSession) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.updateSession(session)
+        }
+    }
+
+    fun deleteSession(session: ChargingSession) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.deleteSession(session)
+        }
+    }
+
+    fun startQuickHomeCharge(currentSoc: Double, meterKwh: Double? = null, customPrice: Double? = null) {
         viewModelScope.launch(Dispatchers.IO) {
             val car = activeCar.value ?: allCars.value.firstOrNull() ?: return@launch
             val homeOp = allOperators.value.find { it.name.contains("Дом", ignoreCase = true) || it.name.contains("Home", ignoreCase = true) }
@@ -476,15 +494,15 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
             val session = ChargingSession(
                 carId = car.id,
                 startOdometer = car.initialOdometer,
-                startSoc = car.currentSoc,
-                endSoc = targetSoc,
+                startSoc = currentSoc.coerceIn(0.0, 100.0),
+                endSoc = 100.0,
                 pricePerKwh = price,
                 currency = settings.value.currency,
                 stationType = "AC",
                 operatorId = homeOp?.id,
-                operatorName = homeOp?.name ?: "Домашняя розетка (AC)",
-                operatorComment = "Быстрый ввод в 1 тап",
-                avgPowerKw = 3.7,
+                operatorName = "Домашняя розетка",
+                operatorComment = if (meterKwh != null && meterKwh > 0) "Счётчик: $meterKwh кВт·ч" else "Домашняя зарядка",
+                avgPowerKw = 3.5,
                 isFreeCharge = price <= 0.0001,
                 nightTariffApplied = isNight,
                 startTime = System.currentTimeMillis(),

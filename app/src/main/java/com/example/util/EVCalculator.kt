@@ -363,4 +363,63 @@ object EVCalculator {
             )
         }.sortedByDescending { it.totalCost }
     }
+
+    /**
+     * Calculates average consumption between the last two charging sessions.
+     */
+    fun calculateLastTwoChargesConsumption(completedSessions: List<ChargingSession>): LastTwoChargesConsumption {
+        val sorted = completedSessions.sortedByDescending { it.endTime ?: it.startTime }
+        if (sorted.size < 2) {
+            val single = sorted.firstOrNull()
+            return LastTwoChargesConsumption(
+                avgConsumption = null,
+                distanceKm = 0.0,
+                totalKwh = single?.kwhDeliveredByStation ?: 0.0,
+                lastChargeKwh = single?.kwhDeliveredByStation,
+                hasEnoughData = false
+            )
+        }
+        val latest = sorted[0]
+        val previous = sorted[1]
+        val distance = (latest.startOdometer - previous.startOdometer).coerceAtLeast(0.0)
+        val deliveredKwh = latest.kwhDeliveredByStation
+        val consumption = if (distance >= 5.0 && deliveredKwh > 0.0) {
+            (deliveredKwh / distance) * 100.0
+        } else null
+
+        return LastTwoChargesConsumption(
+            avgConsumption = consumption,
+            distanceKm = distance,
+            totalKwh = deliveredKwh,
+            lastChargeKwh = latest.kwhDeliveredByStation,
+            hasEnoughData = consumption != null
+        )
+    }
+
+    /**
+     * Estimates prospective odometer when user types in remaining battery SoC.
+     */
+    fun estimateOdometerFromSoc(
+        currentSoc: Double,
+        carOdometer: Double,
+        carSoc: Double,
+        usableCapacityKwh: Double,
+        avgConsumption: Double?
+    ): Double {
+        val socDiff = (carSoc - currentSoc).coerceAtLeast(0.0)
+        if (socDiff <= 0.0) return carOdometer
+        val kwhUsed = (socDiff / 100.0) * usableCapacityKwh
+        val consumption = if (avgConsumption != null && avgConsumption > 5.0) avgConsumption else 16.5
+        val estimatedDistance = (kwhUsed / consumption) * 100.0
+        return Math.round((carOdometer + estimatedDistance) * 10.0) / 10.0
+    }
 }
+
+data class LastTwoChargesConsumption(
+    val avgConsumption: Double?,
+    val distanceKm: Double,
+    val totalKwh: Double,
+    val lastChargeKwh: Double?,
+    val hasEnoughData: Boolean
+)
+

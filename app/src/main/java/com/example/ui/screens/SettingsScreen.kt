@@ -108,6 +108,7 @@ fun SettingsScreen(
     onSendTestNotification: () -> Unit,
     onTestDcNotification: () -> Unit = {},
     onUpdatePinSettings: (Boolean, String) -> Unit = { _, _ -> },
+    onUpdateBiometricSettings: (Boolean) -> Unit = {},
     onExportCsv: () -> String,
     onExportJson: () -> String,
     onImportJson: (String) -> Unit,
@@ -680,6 +681,32 @@ fun SettingsScreen(
                         ) {
                             Text("Изменить 4-значный PIN", fontSize = 13.sp)
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Biometric Unlock Switch
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = strings.biometricLockEnabled, fontSize = 14.sp)
+                            Text(
+                                text = if (settings.biometricEnabled) "Биометрия активна" else "Отключено",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Switch(
+                            checked = settings.biometricEnabled,
+                            onCheckedChange = { isChecked ->
+                                onUpdateBiometricSettings(isChecked)
+                            },
+                            colors = SwitchDefaults.colors(checkedThumbColor = ElectricCyan, checkedTrackColor = ElectricCyan.copy(alpha = 0.4f))
+                        )
                     }
                 }
 

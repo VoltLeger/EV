@@ -13,5 +13,6 @@ data class AppSettings(
     val selectedCarId: Long = 0L,
     val onboardingCompleted: Boolean = false,
     val pinEnabled: Boolean = false,
-    val pinCode: String = ""
+    val pinCode: String = "",
+    val biometricEnabled: Boolean = false
 )

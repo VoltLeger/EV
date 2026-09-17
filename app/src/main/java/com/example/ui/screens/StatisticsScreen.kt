@@ -885,8 +885,8 @@ fun StatisticsScreen(
                                     Spacer(modifier = Modifier.height(12.dp))
                                     DonutBreakdownChart(
                                         slices = listOf(
-                                            DonutSlice("AC", acCost.toFloat(), SoftBlue),
-                                            DonutSlice("DC", dcCost.toFloat(), ElectricCyan)
+                                            DonutSlice("AC", acCost.toFloat(), Color(0xFF38BDF8)),
+                                            DonutSlice("DC", dcCost.toFloat(), Color(0xFFC084FC))
                                         ),
                                         centerValue = formatCurrency(totalCost, currency),
                                         centerTitle = strings.totalCost

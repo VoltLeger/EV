@@ -30,6 +30,7 @@ class SettingsManager(private val context: Context) {
         val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val KEY_PIN_ENABLED = booleanPreferencesKey("pin_enabled")
         val KEY_PIN_CODE = stringPreferencesKey("pin_code")
+        val KEY_BIOMETRIC_ENABLED = booleanPreferencesKey("biometric_enabled")
     }
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -46,7 +47,8 @@ class SettingsManager(private val context: Context) {
             selectedCarId = prefs[KEY_SELECTED_CAR_ID] ?: 0L,
             onboardingCompleted = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
             pinEnabled = prefs[KEY_PIN_ENABLED] ?: false,
-            pinCode = prefs[KEY_PIN_CODE] ?: ""
+            pinCode = prefs[KEY_PIN_CODE] ?: "",
+            biometricEnabled = prefs[KEY_BIOMETRIC_ENABLED] ?: false
         )
     }
 
@@ -98,6 +100,12 @@ class SettingsManager(private val context: Context) {
         context.dataStore.edit {
             it[KEY_PIN_ENABLED] = enabled
             it[KEY_PIN_CODE] = pin
+        }
+    }
+
+    suspend fun updateBiometricSettings(enabled: Boolean) {
+        context.dataStore.edit {
+            it[KEY_BIOMETRIC_ENABLED] = enabled
         }
     }
 }

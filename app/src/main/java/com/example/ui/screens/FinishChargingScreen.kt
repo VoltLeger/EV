@@ -285,46 +285,51 @@ fun FinishChargingScreen(
                 shape = RoundedCornerShape(14.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            val isHomeCharging = session.operatorName.contains("Дом", ignoreCase = true) ||
+                    session.stationType.equals("Home", ignoreCase = true)
 
-            // Penalty & Fixed Amount Row
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = penaltyCostText,
-                    onValueChange = { penaltyCostText = it },
-                    label = { Text("Штраф / простой") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp)
-                )
+            if (!isHomeCharging) {
+                Spacer(modifier = Modifier.height(16.dp))
 
-                OutlinedTextField(
-                    value = fixedAmountText,
-                    onValueChange = { fixedAmountText = it },
-                    label = { Text("Фикс. сумма") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp)
-                )
-            }
-
-            if (suggestedPenalty > 0.0) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = BatteryOrange,
-                        modifier = Modifier.size(14.dp)
+                // Penalty & Fixed Amount Row
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = penaltyCostText,
+                        onValueChange = { penaltyCostText = it },
+                        label = { Text("Штраф / простой") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "${strings.penaltyRuleHint}: ${String.format(Locale.US, "%.2f", suggestedPenalty)} $currency",
-                        fontSize = 11.sp,
-                        color = BatteryOrange
+
+                    OutlinedTextField(
+                        value = fixedAmountText,
+                        onValueChange = { fixedAmountText = it },
+                        label = { Text("Фикс. сумма") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp)
                     )
+                }
+
+                if (suggestedPenalty > 0.0) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = BatteryOrange,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "${strings.penaltyRuleHint}: ${String.format(Locale.US, "%.2f", suggestedPenalty)} $currency",
+                            fontSize = 11.sp,
+                            color = BatteryOrange
+                        )
+                    }
                 }
             }
 

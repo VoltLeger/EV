@@ -22,7 +22,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.DirectionsCar
@@ -36,30 +38,26 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -92,9 +90,10 @@ fun HomeScreen(
     onSelectCar: (Long) -> Unit,
     onAddChargeClick: () -> Unit,
     onCalculateRangeClick: () -> Unit,
-    onQuickHomeCharge: ((Double) -> Unit)? = null,
+    onQuickHomeCharge: ((Double, Double?) -> Unit)? = null,
     onCompleteChargeClick: (ChargingSession) -> Unit,
     onCancelActiveCharge: (ChargingSession) -> Unit,
+    onNavigateToHistory: (() -> Unit)? = null,
     userProfile: UserProfile? = null,
     onOpenProfile: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -102,52 +101,32 @@ fun HomeScreen(
     val strings = LocalAppStrings.current
     val currency = LocalCurrency.current
     var carMenuExpanded by remember { mutableStateOf(false) }
+
+    // Quick Home Charge Dialog State
     var showHomeChargeDialog by remember { mutableStateOf(false) }
-    var homeChargeTargetSoc by remember { mutableFloatStateOf(100f) }
-
-    // Driving style and interactive battery forecast state
-    val usableCapacity = activeCar?.usableCapacityKwh ?: 57.0
-    val carSoc = activeCar?.currentSoc?.toFloat() ?: 80f
-
-    // Driving style: 0 = "Мой стиль", 1 = "Город/Эко", 2 = "Трасса", 3 = "Зима"
-    var selectedStyleIndex by remember { mutableIntStateOf(0) }
-    var sliderSoc by remember { mutableFloatStateOf(carSoc) }
-
-    // Sync slider with carSoc when car changes
-    LaunchedEffect(activeCar?.id, carSoc) {
-        sliderSoc = carSoc
+    var homeChargeSocText by remember(activeCar?.currentSoc) {
+        mutableStateOf(activeCar?.currentSoc?.toInt()?.toString() ?: "30")
     }
+    var homeChargeMeterText by remember { mutableStateOf("") }
 
-    // Determine baseline consumption
+    val usableCapacity = activeCar?.usableCapacityKwh ?: 57.0
+    val carSoc = activeCar?.currentSoc ?: 80.0
+
+    // Compute baseline consumption
+    val completedSessions = recentSessions.filter { it.status == "completed" }
     val realAvg = monthConsumption ?: run {
-        val completed = recentSessions.filter { it.status == "completed" }
-        val forecast = EVCalculator.calculateRangeForecast(completed, usableCapacity, carSoc.toDouble())
+        val forecast = EVCalculator.calculateRangeForecast(completedSessions, usableCapacity, carSoc)
         forecast.realConsumptionPer100Km
     }
 
-    val selectedConsumption = when (selectedStyleIndex) {
-        0 -> realAvg
-        1 -> 14.0
-        2 -> 19.5
-        3 -> 23.0
-        else -> realAvg
-    }
-
-    // Calculated range for interactive slider
-    val interactiveRange = EVCalculator.calculateRangeForSoc(
-        usableCapacityKwh = usableCapacity,
-        socPercent = sliderSoc.toDouble(),
-        consumptionPer100Km = selectedConsumption
-    )
-
-    // Range with current car SOC for vehicle top bar pill
+    // Range with current car SOC for top vehicle bar pill
     val currentSocRange = EVCalculator.calculateRangeForSoc(
         usableCapacityKwh = usableCapacity,
-        socPercent = carSoc.toDouble(),
+        socPercent = carSoc,
         consumptionPer100Km = realAvg
     )
 
-    // Range after departure from active charge
+    // Departure forecast range if active session exists
     val departureForecastRange = if (activeSession != null) {
         val targetSoc = if (activeSession.endSoc > carSoc) activeSession.endSoc else 90.0
         EVCalculator.calculateRangeForSoc(
@@ -157,8 +136,12 @@ fun HomeScreen(
         )
     } else null
 
-    // Compute widget metrics (last session, month consumption, cost per 100 km)
-    val completedSessions = recentSessions.filter { it.status == "completed" }
+    // Calculate Last Two Charges Consumption (Centerpiece 3D Card)
+    val lastTwoConsumption = remember(completedSessions) {
+        EVCalculator.calculateLastTwoChargesConsumption(completedSessions)
+    }
+
+    // Lower block metrics
     val lastSession = completedSessions.maxByOrNull { it.startTime }
     val costPer100Km = if (lastSession != null && lastSession.kwhDeliveredByStation > 0 && lastSession.totalCost > 0) {
         val pricePerKwh = lastSession.totalCost / lastSession.kwhDeliveredByStation
@@ -172,7 +155,7 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            // Vehicle header with predicted range
+            // 1. Top Vehicle Header Row
             item {
                 Box(
                     modifier = Modifier
@@ -203,6 +186,7 @@ fun HomeScreen(
                                 )
                                 .clickable { if (allCars.size > 1) carMenuExpanded = true }
                                 .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .testTag("car_selector_dropdown_button")
                         ) {
                             Box(
                                 modifier = Modifier
@@ -244,7 +228,7 @@ fun HomeScreen(
                             }
                         }
 
-                        // Top Right: Estimated Range pill + Pilot Avatar
+                        // Top Right: Range Forecast Pill (clickable to open forecast dialog) + Avatar
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -264,6 +248,7 @@ fun HomeScreen(
                                         ),
                                         RoundedCornerShape(16.dp)
                                     )
+                                    .clickable { onCalculateRangeClick() }
                                     .padding(horizontal = 12.dp, vertical = 8.dp)
                                     .testTag("estimated_range_top_pill")
                             ) {
@@ -323,162 +308,154 @@ fun HomeScreen(
                 }
             }
 
-            // Enlarged Centerpiece: Range Forecast with Interactive Battery Slider
+            // 2. Centerpiece 3D Card: Average Consumption (Last 2 Charges)
             item {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .padding(horizontal = 20.dp, vertical = 8.dp)
                 ) {
-                    VoltCard(
+                    // Flat 3D Depth Backdrop Layer
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("interactive_range_card"),
-                        borderColor = ElectricCyan.copy(alpha = 0.45f)
+                            .height(160.dp)
+                            .padding(top = 4.dp, start = 4.dp, end = 4.dp)
+                            .clip(RoundedCornerShape(26.dp))
+                            .background(Color(0xFF003566).copy(alpha = 0.45f))
+                    )
+
+                    // Front Polished Glassmorphic 3D Card
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        Color(0xFF0F172A).copy(alpha = 0.92f),
+                                        Color(0xFF1E293B).copy(alpha = 0.95f),
+                                        Color(0xFF0F172A).copy(alpha = 0.98f)
+                                    )
+                                )
+                            )
+                            .border(
+                                width = 1.5.dp,
+                                brush = Brush.linearGradient(
+                                    listOf(
+                                        Color.White.copy(alpha = 0.55f),
+                                        ElectricCyan,
+                                        SoftBlue.copy(alpha = 0.5f),
+                                        Color.White.copy(alpha = 0.15f)
+                                    )
+                                ),
+                                shape = RoundedCornerShape(24.dp)
+                            )
+                            .shadow(
+                                elevation = 12.dp,
+                                shape = RoundedCornerShape(24.dp),
+                                ambientColor = ElectricCyan,
+                                spotColor = ElectricCyan
+                            )
+                            .padding(vertical = 16.dp, horizontal = 18.dp)
+                            .testTag("last_two_charges_card")
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp, horizontal = 12.dp)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            // Top row: Title and current consumption badge
+                            // Top Tag: Centered Header
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(ElectricCyan.copy(alpha = 0.15f))
+                                    .border(1.dp, ElectricCyan.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 12.dp, vertical = 4.dp)
                             ) {
-                                Text(
-                                    text = if (activeSession != null) strings.forecastAfterCharge else strings.estimatedRangeTitle,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                Icon(
+                                    imageVector = Icons.Default.Speed,
+                                    contentDescription = null,
+                                    tint = ElectricCyan,
+                                    modifier = Modifier.size(15.dp)
                                 )
-
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(SoftBlue.copy(alpha = 0.18f))
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                                ) {
-                                    Text(
-                                        text = "${String.format(Locale.US, "%.1f", selectedConsumption)} ${strings.kwhPer100Km}",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SoftBlue
-                                    )
-                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "СРЕДНИЙ РАСХОД ЗА 2 ПОСЛЕДНИЕ ЗАРЯДКИ",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = ElectricCyan,
+                                    letterSpacing = 0.6.sp
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            // Glowing Large Forecast Number
+                            // Large Glowing Number
                             Row(
                                 verticalAlignment = Alignment.Bottom,
                                 horizontalArrangement = Arrangement.Center
                             ) {
-                                Text(
-                                    text = "${interactiveRange.toInt()}",
-                                    fontSize = 54.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = ElectricCyan
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "км",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = ElectricCyan.copy(alpha = 0.8f),
-                                    modifier = Modifier.padding(bottom = 10.dp)
-                                )
-                            }
-
-                            val availableKwh = usableCapacity * (sliderSoc / 100.0)
-                            Text(
-                                text = "При ${sliderSoc.toInt()}% батареи (~${String.format(Locale.US, "%.1f", availableKwh)} кВт·ч)",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Interactive Slider
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "5%",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Slider(
-                                    value = sliderSoc,
-                                    onValueChange = { sliderSoc = it },
-                                    valueRange = 5f..100f,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(horizontal = 8.dp)
-                                        .testTag("battery_soc_slider"),
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = ElectricCyan,
-                                        activeTrackColor = ElectricCyan,
-                                        inactiveTrackColor = ElectricCyan.copy(alpha = 0.2f)
+                                if (lastTwoConsumption.hasEnoughData && lastTwoConsumption.avgConsumption != null) {
+                                    Text(
+                                        text = String.format(Locale.US, "%.1f", lastTwoConsumption.avgConsumption),
+                                        fontSize = 54.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.White
                                     )
-                                )
-                                Text(
-                                    text = "100%",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Driving Style Chips
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                val styles = listOf(
-                                    strings.drivingStyleMy,
-                                    strings.drivingStyleCity,
-                                    strings.drivingStyleHighway,
-                                    strings.drivingStyleWinter
-                                )
-                                styles.forEachIndexed { index, styleName ->
-                                    val isSelected = selectedStyleIndex == index
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { selectedStyleIndex = index },
-                                        label = {
-                                            Text(
-                                                text = styleName,
-                                                fontSize = 10.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = ElectricCyan.copy(alpha = 0.22f),
-                                            selectedLabelColor = ElectricCyan,
-                                            containerColor = Color.Transparent,
-                                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        ),
-                                        border = FilterChipDefaults.filterChipBorder(
-                                            enabled = true,
-                                            selected = isSelected,
-                                            borderColor = if (isSelected) ElectricCyan else Color.White.copy(alpha = 0.12f)
-                                        )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "кВт·ч / 100 км",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ElectricCyan,
+                                        modifier = Modifier.padding(bottom = 10.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        text = if (monthConsumption != null && monthConsumption > 0.0) {
+                                            String.format(Locale.US, "%.1f", monthConsumption)
+                                        } else "—",
+                                        fontSize = 46.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.White
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "кВт·ч / 100 км",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SoftBlue,
+                                        modifier = Modifier.padding(bottom = 8.dp)
                                     )
                                 }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            // Subtitle with distance and energy info
+                            if (lastTwoConsumption.hasEnoughData) {
+                                Text(
+                                    text = "Дистанция между зарядками: ${lastTwoConsumption.distanceKm.toInt()} км (+${String.format(Locale.US, "%.1f", lastTwoConsumption.totalKwh)} кВт·ч)",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            } else {
+                                Text(
+                                    text = "Добавьте минимум 2 завершённые зарядки с пробегом",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
                 }
             }
 
-            // High-Impact Home Screen Widget: (Last charge / Month consumption / Cost per 100 km)
+            // 3. Lower Block: (Last Charge | Month Consumption | Price per 100 km)
+            // Perfectly aligned on fixed horizontal levels
             item {
                 Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
                     VoltCard(
@@ -490,136 +467,186 @@ fun HomeScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 10.dp, horizontal = 6.dp),
+                                .padding(vertical = 12.dp, horizontal = 6.dp),
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // 1. Last Charge
+                            // Column 1: ПОСЛЕДНЯЯ ЗАРЯДКА
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.ElectricBolt,
-                                        contentDescription = null,
-                                        tint = ElectricCyan,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
+                                // Fixed Header Slot
+                                Box(
+                                    modifier = Modifier.height(22.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Text(
-                                        text = strings.lastChargeWidget,
+                                        text = "ПОСЛ. ЗАРЯДКА",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = ElectricCyan,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                // Fixed Value Slot
+                                Box(
+                                    modifier = Modifier.height(26.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (lastSession != null && lastSession.kwhDeliveredByStation > 0) {
+                                            "+${String.format(Locale.US, "%.1f", lastSession.kwhDeliveredByStation)}"
+                                        } else "—",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                // Fixed Unit / Subtitle Slot
+                                Box(
+                                    modifier = Modifier.height(18.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (lastSession != null && lastSession.totalCost > 0) {
+                                            "${String.format(Locale.US, "%.2f", lastSession.totalCost)} $currency"
+                                        } else "кВт·ч",
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Text(
-                                    text = if (lastSession != null && lastSession.kwhDeliveredByStation > 0) {
-                                        "+${String.format(Locale.US, "%.1f", lastSession.kwhDeliveredByStation)}"
-                                    } else "—",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = if (lastSession != null && lastSession.totalCost > 0) {
-                                        "${String.format(Locale.US, "%.2f", lastSession.totalCost)} $currency"
-                                    } else "кВт·ч",
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
 
+                            // Divider 1
                             Box(
                                 modifier = Modifier
                                     .width(1.dp)
-                                    .height(36.dp)
+                                    .height(48.dp)
                                     .background(Color.White.copy(alpha = 0.12f))
                             )
 
-                            // 2. Month Avg Consumption
+                            // Column 2: РАСХОД ЗА МЕСЯЦ (Aligned with Month up, kWh/100km down)
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Speed,
-                                        contentDescription = null,
-                                        tint = SoftBlue,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
+                                // Fixed Header Slot (Month consumption title up)
+                                Box(
+                                    modifier = Modifier.height(22.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Text(
-                                        text = strings.monthConsumptionWidget,
+                                        text = "РАСХОД / МЕСЯЦ",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = SoftBlue,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                // Fixed Value Slot
+                                Box(
+                                    modifier = Modifier.height(26.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (monthConsumption != null && monthConsumption > 0.0) {
+                                            String.format(Locale.US, "%.1f", monthConsumption)
+                                        } else "—",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                // Fixed Unit Slot (kWh/100km down)
+                                Box(
+                                    modifier = Modifier.height(18.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = strings.kwhPer100Km,
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Text(
-                                    text = if (monthConsumption != null && monthConsumption > 0.0) {
-                                        String.format(Locale.US, "%.1f", monthConsumption)
-                                    } else "—",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = strings.kwhPer100Km,
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
 
+                            // Divider 2
                             Box(
                                 modifier = Modifier
                                     .width(1.dp)
-                                    .height(36.dp)
+                                    .height(48.dp)
                                     .background(Color.White.copy(alpha = 0.12f))
                             )
 
-                            // 3. Cost per 100 km
+                            // Column 3: ЦЕНА ЗА 100 КМ
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Timeline,
-                                        contentDescription = null,
-                                        tint = BatteryGreen,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
+                                // Fixed Header Slot
+                                Box(
+                                    modifier = Modifier.height(22.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Text(
-                                        text = strings.costPer100KmWidget,
+                                        text = "ЦЕНА / 100 КМ",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = BatteryGreen,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                // Fixed Value Slot
+                                Box(
+                                    modifier = Modifier.height(26.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (costPer100Km != null && costPer100Km > 0) {
+                                            String.format(Locale.US, "%.2f", costPer100Km)
+                                        } else "—",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = BatteryGreen
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                // Fixed Unit Slot
+                                Box(
+                                    modifier = Modifier.height(18.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "$currency / 100 км",
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Text(
-                                    text = if (costPer100Km != null && costPer100Km > 0) {
-                                        String.format(Locale.US, "%.2f", costPer100Km)
-                                    } else "—",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BatteryGreen
-                                )
-                                Text(
-                                    text = "$currency / 100 км",
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
                         }
                     }
                 }
             }
 
-            // Floating Active Charging Card (appears if session is active)
+            // 4. Floating Active Charging Card (shown when session is in progress)
             item {
                 AnimatedVisibility(
                     visible = activeSession != null,
@@ -642,162 +669,121 @@ fun HomeScreen(
                 }
             }
 
-            // Action Buttons: Primary "Add Charge" & Quick "Home Charge (1 Tap)"
+            // 5. Action Buttons (Full-Width Solid Gradient "Add Charge" & "Home Charge")
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp)
+                        .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        // Button 1: "Добавить зарядку"
-                        Button(
-                            onClick = onAddChargeClick,
-                            modifier = Modifier
-                                .weight(1.3f)
-                                .height(56.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(
-                                    brush = Brush.horizontalGradient(
-                                        listOf(ElectricCyan, SoftBlue)
-                                    )
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    brush = Brush.linearGradient(
-                                        listOf(Color.White.copy(alpha = 0.65f), Color.White.copy(alpha = 0.15f))
-                                    ),
-                                    shape = RoundedCornerShape(18.dp)
-                                )
-                                .testTag("add_charge_button"),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Transparent,
-                                contentColor = Color.White
-                            ),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = strings.addCharge,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        // Button 2: "Домашняя (1 тап)"
-                        OutlinedButton(
-                            onClick = {
-                                if (onQuickHomeCharge != null) {
-                                    showHomeChargeDialog = true
-                                } else {
-                                    onAddChargeClick()
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1.1f)
-                                .height(56.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
-                                .border(
-                                    width = 1.dp,
-                                    brush = Brush.linearGradient(
-                                        listOf(
-                                            Color.White.copy(alpha = 0.35f),
-                                            BatteryGreen.copy(alpha = 0.5f),
-                                            Color.White.copy(alpha = 0.08f)
-                                        )
-                                    ),
-                                    shape = RoundedCornerShape(18.dp)
-                                )
-                                .testTag("quick_home_charge_button"),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = Color.Transparent,
-                                contentColor = BatteryGreen
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Home,
-                                contentDescription = null,
-                                tint = BatteryGreen,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text(
-                                    text = strings.homeChargeQuick,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BatteryGreen
-                                )
-                                Text(
-                                    text = strings.homeChargeSubtitle,
-                                    fontSize = 9.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Secondary Button: "Рассчитать пробег"
-                    OutlinedButton(
-                        onClick = onCalculateRangeClick,
+                    // Button 1: "Добавить зарядку" (Full width, seamless smooth gradient, no mismatched inner rects)
+                    Button(
+                        onClick = onAddChargeClick,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.55f))
+                            .height(56.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    listOf(
+                                        Color(0xFF0077B6),
+                                        Color(0xFF0096C7),
+                                        Color(0xFF00B4D8)
+                                    )
+                                )
+                            )
                             .border(
-                                width = 1.dp,
+                                width = 1.2.dp,
                                 brush = Brush.linearGradient(
                                     listOf(
-                                        Color.White.copy(alpha = 0.25f),
-                                        ElectricCyan.copy(alpha = 0.3f),
-                                        Color.White.copy(alpha = 0.05f)
+                                        Color.White.copy(alpha = 0.55f),
+                                        ElectricCyan,
+                                        Color.White.copy(alpha = 0.2f)
                                     )
                                 ),
-                                shape = RoundedCornerShape(16.dp)
+                                shape = RoundedCornerShape(18.dp)
                             )
-                            .testTag("calculate_range_button"),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
+                            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = ElectricCyan)
+                            .testTag("add_charge_button"),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(
                             containerColor = Color.Transparent,
-                            contentColor = ElectricCyan
-                        )
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Timeline,
+                            imageVector = Icons.Default.Add,
                             contentDescription = null,
-                            tint = ElectricCyan,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = strings.calculateRange,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold
+                            text = strings.addCharge,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Button 2: "Домашняя зарядка (1 тап)" (Full width, sleek dark glass with mint border)
+                    OutlinedButton(
+                        onClick = {
+                            if (onQuickHomeCharge != null) {
+                                showHomeChargeDialog = true
+                            } else {
+                                onAddChargeClick()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
+                            .border(
+                                width = 1.2.dp,
+                                brush = Brush.linearGradient(
+                                    listOf(
+                                        BatteryGreen.copy(alpha = 0.7f),
+                                        Color.White.copy(alpha = 0.3f),
+                                        BatteryGreen.copy(alpha = 0.4f)
+                                    )
+                                ),
+                                shape = RoundedCornerShape(18.dp)
+                            )
+                            .testTag("quick_home_charge_button"),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = BatteryGreen
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = null,
+                            tint = BatteryGreen,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Домашняя зарядка (1 тап)",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = BatteryGreen
                         )
                     }
                 }
             }
 
-            // Recent Sessions Section
+            // 6. Recent Sessions Header (Only 3-5 sessions, with "Вся история →" button)
             item {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 6.dp)
+                        .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = strings.recentCharges,
@@ -805,6 +791,27 @@ fun HomeScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
+
+                    if (onNavigateToHistory != null) {
+                        TextButton(
+                            onClick = onNavigateToHistory,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "Вся история",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = SoftBlue
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = SoftBlue,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -813,7 +820,7 @@ fun HomeScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 20.dp),
+                            .padding(horizontal = 20.dp, vertical = 24.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -826,7 +833,7 @@ fun HomeScreen(
                     }
                 }
             } else {
-                items(recentSessions.take(5)) { session ->
+                items(recentSessions.take(4)) { session ->
                     Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 5.dp)) {
                         RecentSessionCard(session = session, currency = currency)
                     }
@@ -835,94 +842,99 @@ fun HomeScreen(
         }
     }
 
-    // Quick Home Charge Dialog (1-Tap confirmation)
+    // Quick Home Charge Dialog (Upgraded: Battery % remaining + current meter reading + 1-Tap start)
     if (showHomeChargeDialog) {
-        val neededKwh = (usableCapacity * ((homeChargeTargetSoc - carSoc).coerceAtLeast(0f) / 100.0))
+        val parsedSoc = homeChargeSocText.toDoubleOrNull() ?: carSoc
+        val neededKwh = (usableCapacity * ((100.0 - parsedSoc).coerceAtLeast(0.0) / 100.0))
         val estPrice = 0.25 // Standard home rate
         val estCost = neededKwh * estPrice
+        val parsedMeter = homeChargeMeterText.toDoubleOrNull()
 
         AlertDialog(
             onDismissRequest = { showHomeChargeDialog = false },
+            icon = { Icon(Icons.Default.Home, contentDescription = null, tint = BatteryGreen, modifier = Modifier.size(28.dp)) },
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Home, contentDescription = null, tint = BatteryGreen)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Быстрая домашняя зарядка",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                    text = "Домашняя зарядка",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     Text(
-                        text = "Автоматический расчёт для ${activeCar?.name ?: "автомобиля"} от ${carSoc.toInt()}% до ${homeChargeTargetSoc.toInt()}%:",
+                        text = "Введите текущий остаток батареи и показания счётчика электроэнергии:",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
+                    // Input 1: Remaining battery %
+                    OutlinedTextField(
+                        value = homeChargeSocText,
+                        onValueChange = { homeChargeSocText = it },
+                        label = { Text("Остаток заряда (%)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+
+                    // Input 2: Current meter reading in kWh
+                    OutlinedTextField(
+                        value = homeChargeMeterText,
+                        onValueChange = { homeChargeMeterText = it },
+                        label = { Text("Показания счётчика (кВт·ч)") },
+                        placeholder = { Text("необязательно") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+
                     VoltCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(10.dp)) {
+                        Column(modifier = Modifier.padding(8.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("Потребуется энергии:", fontSize = 13.sp)
+                                Text("До 100% потребуется:", fontSize = 12.sp)
                                 Text(
                                     text = "+${String.format(Locale.US, "%.1f", neededKwh)} кВт·ч",
                                     fontWeight = FontWeight.Bold,
-                                    color = ElectricCyan
+                                    color = ElectricCyan,
+                                    fontSize = 13.sp
                                 )
                             }
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("Домашний тариф:", fontSize = 13.sp)
-                                Text(
-                                    text = "${String.format(Locale.US, "%.2f", estPrice)} $currency/кВт·ч",
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Ориентир. стоимость:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("Ориентир. стоимость:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                 Text(
                                     text = "~${String.format(Locale.US, "%.2f", estCost)} $currency",
                                     fontWeight = FontWeight.Bold,
-                                    color = BatteryGreen
+                                    color = BatteryGreen,
+                                    fontSize = 13.sp
                                 )
                             }
                         }
                     }
-
-                    Text(
-                        text = "Целевой заряд: ${homeChargeTargetSoc.toInt()}%",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Slider(
-                        value = homeChargeTargetSoc,
-                        onValueChange = { homeChargeTargetSoc = it },
-                        valueRange = (carSoc.coerceAtLeast(10f))..100f,
-                        steps = 8
-                    )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        onQuickHomeCharge?.invoke(homeChargeTargetSoc.toDouble())
+                        onQuickHomeCharge?.invoke(parsedSoc, parsedMeter)
                         showHomeChargeDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = BatteryGreen)
+                    colors = ButtonDefaults.buttonColors(containerColor = BatteryGreen),
+                    modifier = Modifier.testTag("confirm_quick_home_charge_button")
                 ) {
-                    Text("Запустить (1 тап)")
+                    Text("Запустить (1 тап)", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -940,6 +952,14 @@ fun RecentSessionCard(
     currency: String,
     modifier: Modifier = Modifier
 ) {
+    val isDc = session.stationType.equals("DC", ignoreCase = true)
+    val isHome = session.operatorName.contains("Дом", ignoreCase = true)
+    val badgeColor = when {
+        isHome -> BatteryGreen
+        isDc -> Color(0xFFC084FC) // Purple
+        else -> Color(0xFF38BDF8) // Light Blue AC
+    }
+
     VoltCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -948,7 +968,20 @@ fun RecentSessionCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    StationTypeBadge(type = session.stationType)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(7.dp))
+                            .background(badgeColor.copy(alpha = 0.2f))
+                            .border(1.dp, badgeColor, RoundedCornerShape(7.dp))
+                            .padding(horizontal = 7.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = if (isHome) "HOME" else session.stationType,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = badgeColor
+                        )
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = session.operatorName.ifEmpty { "Станция зарядки" },
