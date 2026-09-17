@@ -102,6 +102,7 @@ class MainActivity : ComponentActivity() {
             val monthAvgConsumption by viewModel.monthAvgConsumption.collectAsState()
             val operators by viewModel.allOperators.collectAsState()
             val tags by viewModel.allTags.collectAsState()
+            val userProfile by viewModel.userProfile.collectAsState()
 
             VoltLedgerTheme(
                 themeSetting = settings.theme,
@@ -128,6 +129,7 @@ class MainActivity : ComponentActivity() {
 
                 val navController = rememberNavController()
                 var showRangeForecastDialog by remember { mutableStateOf(false) }
+                var showProfileAwardsDialog by remember { mutableStateOf(false) }
                 var sessionToFinish by remember { mutableStateOf<ChargingSession?>(null) }
 
                 // Periodic active session notification check (e.g. DC charging > 2 hours)
@@ -348,7 +350,9 @@ class MainActivity : ComponentActivity() {
                                             },
                                             onCancelActiveCharge = { session ->
                                                 viewModel.cancelActiveSession(session)
-                                            }
+                                            },
+                                            userProfile = userProfile,
+                                            onOpenProfile = { showProfileAwardsDialog = true }
                                         )
                                         1 -> StatisticsScreen(
                                             activeCar = activeCar,
@@ -383,7 +387,9 @@ class MainActivity : ComponentActivity() {
                                             onExportCsv = { viewModel.exportCsvData() },
                                             onExportJson = { viewModel.exportJsonBackup() },
                                             onImportJson = { viewModel.importBackupJson(it, replace = false) },
-                                            onRefreshTariffs = { viewModel.refreshTariffsFromFile() }
+                                            onRefreshTariffs = { viewModel.refreshTariffsFromFile() },
+                                            userProfile = userProfile,
+                                            onOpenProfile = { showProfileAwardsDialog = true }
                                         )
                                     }
                                 }
@@ -458,6 +464,14 @@ class MainActivity : ComponentActivity() {
                         car = activeCar,
                         completedSessions = carSessions,
                         onDismiss = { showRangeForecastDialog = false }
+                    )
+                }
+
+                // Pilot Profile & Hall of Fame Awards Dialog
+                if (showProfileAwardsDialog) {
+                    ProfileAwardsDialog(
+                        viewModel = viewModel,
+                        onDismiss = { showProfileAwardsDialog = false }
                     )
                 }
             }
