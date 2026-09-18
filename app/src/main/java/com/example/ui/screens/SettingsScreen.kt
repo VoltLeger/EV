@@ -124,6 +124,7 @@ fun SettingsScreen(
     var showAddCarDialog by remember { mutableStateOf(false) }
     var showAddOperatorDialog by remember { mutableStateOf(false) }
     var editingOperator by remember { mutableStateOf<Operator?>(null) }
+    var operatorToDelete by remember { mutableStateOf<Operator?>(null) }
     var showImportJsonDialog by remember { mutableStateOf(false) }
     var importJsonText by remember { mutableStateOf("") }
 
@@ -345,7 +346,7 @@ fun SettingsScreen(
                                     }
                                     if (!op.isBuiltin) {
                                         IconButton(
-                                            onClick = { onDeleteOperator(op) },
+                                            onClick = { operatorToDelete = op },
                                             modifier = Modifier.size(32.dp)
                                         ) {
                                             Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
@@ -434,7 +435,7 @@ fun SettingsScreen(
                                     }
                                     if (!op.isBuiltin) {
                                         IconButton(
-                                            onClick = { onDeleteOperator(op) },
+                                            onClick = { operatorToDelete = op },
                                             modifier = Modifier.size(32.dp)
                                         ) {
                                             Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
@@ -878,9 +879,22 @@ fun SettingsScreen(
         var opName by remember { mutableStateOf(target?.name ?: "") }
         var opType by remember { mutableStateOf(target?.type ?: "AC") }
         var opSubType by remember { mutableStateOf(target?.subType ?: "") }
-        var opPriceAc by remember { mutableStateOf(target?.priceAc?.toString() ?: "0.36") }
-        var opPriceDc by remember { mutableStateOf(target?.priceDc?.toString() ?: "0.73") }
-        var opNightPrice by remember { mutableStateOf(target?.nightPriceAc?.toString() ?: target?.nightPriceDc?.toString() ?: "") }
+        var opPrice by remember {
+            mutableStateOf(
+                if (target != null) {
+                    if (target.type.equals("DC", true)) target.priceDc.toString() else target.priceAc.toString()
+                } else "0.36"
+            )
+        }
+        var opNightPrice by remember {
+            mutableStateOf(
+                if (target != null) {
+                    (if (target.type.equals("DC", true)) target.nightPriceDc else target.nightPriceAc)?.toString() ?: ""
+                } else ""
+            )
+        }
+        var opNightStart by remember { mutableStateOf(target?.nightStartHour?.toString() ?: "23") }
+        var opNightEnd by remember { mutableStateOf(target?.nightEndHour?.toString() ?: "6") }
         var opPenaltyPerMin by remember { mutableStateOf(target?.penaltyIdlePerMin?.toString() ?: "0.00") }
         var opPenaltyFreeMin by remember { mutableStateOf(target?.penaltyFreeMinutes?.toString() ?: "0") }
         var opComment by remember { mutableStateOf(target?.comment ?: "") }
@@ -894,10 +908,50 @@ fun SettingsScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(value = opName, onValueChange = { opName = it }, label = { Text("Название (напр. Malanka, Дом)") }, singleLine = true)
+                    
+                    // Type selector AC / DC
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { opType = "AC" },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (opType == "AC") SoftBlue.copy(alpha = 0.25f) else Color.Transparent
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (opType == "AC") SoftBlue else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            )
+                        ) {
+                            Text("AC (Медленная)", fontSize = 12.sp, fontWeight = if (opType == "AC") FontWeight.Bold else FontWeight.Normal)
+                        }
+                        OutlinedButton(
+                            onClick = { opType = "DC" },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (opType == "DC") ElectricCyan.copy(alpha = 0.25f) else Color.Transparent
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (opType == "DC") ElectricCyan else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            )
+                        ) {
+                            Text("DC (Быстрая)", fontSize = 12.sp, fontWeight = if (opType == "DC") FontWeight.Bold else FontWeight.Normal)
+                        }
+                    }
+
                     OutlinedTextField(value = opSubType, onValueChange = { opSubType = it }, label = { Text("Подтип / Локация (напр. Дом, Дача, Город)") }, singleLine = true)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(value = opPriceAc, onValueChange = { opPriceAc = it }, label = { Text("Цена (Дневная)") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
-                        OutlinedTextField(value = opNightPrice, onValueChange = { opNightPrice = it }, label = { Text("Цена (Ночная, опц.)") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
+                        OutlinedTextField(value = opPrice, onValueChange = { opPrice = it }, label = { Text("Тариф день ($currency)") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
+                        OutlinedTextField(value = opNightPrice, onValueChange = { opNightPrice = it }, label = { Text("Тариф ночь ($currency)") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = opNightStart, onValueChange = { opNightStart = it }, label = { Text("Ночь с (ч)") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+                        OutlinedTextField(value = opNightEnd, onValueChange = { opNightEnd = it }, label = { Text("Ночь по (ч)") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(value = opPenaltyPerMin, onValueChange = { opPenaltyPerMin = it }, label = { Text("Штраф/мин (опц.)") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
@@ -908,22 +962,25 @@ fun SettingsScreen(
             },
             confirmButton = {
                 Button(onClick = {
-                    val p = opPriceAc.toDoubleOrNull() ?: 0.50
+                    val p = opPrice.toDoubleOrNull() ?: 0.50
                     val nightP = opNightPrice.toDoubleOrNull()
+                    val nStart = opNightStart.toIntOrNull() ?: 23
+                    val nEnd = opNightEnd.toIntOrNull() ?: 6
                     val pPen = opPenaltyPerMin.toDoubleOrNull() ?: 0.0
                     val freeM = opPenaltyFreeMin.toIntOrNull() ?: 0
                     if (opName.isNotBlank()) {
-                        val determinedType = if (opSubType.contains("Дом", true) || opSubType.contains("Дача", true) || p < 0.50) "AC" else "DC"
                         if (isEditing && target != null) {
                             onUpdateOperator(
                                 target.copy(
                                     name = opName.trim(),
                                     subType = opSubType.trim(),
-                                    type = determinedType,
-                                    priceAc = if (determinedType == "AC") p else target.priceAc,
-                                    priceDc = if (determinedType == "DC") p else target.priceDc,
-                                    nightPriceAc = if (determinedType == "AC") nightP else target.nightPriceAc,
-                                    nightPriceDc = if (determinedType == "DC") nightP else target.nightPriceDc,
+                                    type = opType,
+                                    priceAc = if (opType == "AC") p else target.priceAc,
+                                    priceDc = if (opType == "DC") p else target.priceDc,
+                                    nightPriceAc = if (opType == "AC") nightP else target.nightPriceAc,
+                                    nightPriceDc = if (opType == "DC") nightP else target.nightPriceDc,
+                                    nightStartHour = nStart,
+                                    nightEndHour = nEnd,
                                     penaltyIdlePerMin = pPen,
                                     penaltyFreeMinutes = freeM,
                                     comment = opComment
@@ -934,11 +991,13 @@ fun SettingsScreen(
                                 Operator(
                                     name = opName.trim(),
                                     subType = opSubType.trim(),
-                                    type = determinedType,
-                                    priceAc = if (determinedType == "AC") p else 0.55,
-                                    priceDc = if (determinedType == "DC") p else 0.73,
-                                    nightPriceAc = if (determinedType == "AC") nightP else null,
-                                    nightPriceDc = if (determinedType == "DC") nightP else null,
+                                    type = opType,
+                                    priceAc = if (opType == "AC") p else 0.55,
+                                    priceDc = if (opType == "DC") p else 0.73,
+                                    nightPriceAc = if (opType == "AC") nightP else null,
+                                    nightPriceDc = if (opType == "DC") nightP else null,
+                                    nightStartHour = nStart,
+                                    nightEndHour = nEnd,
                                     penaltyIdlePerMin = pPen,
                                     penaltyFreeMinutes = freeM,
                                     comment = opComment,
@@ -952,10 +1011,56 @@ fun SettingsScreen(
                 }) { Text(strings.save) }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showAddOperatorDialog = false
-                    editingOperator = null
-                }) { Text(strings.cancel) }
+                Row {
+                    if (isEditing && target != null && !target.isBuiltin) {
+                        TextButton(
+                            onClick = {
+                                val toDelete = target
+                                showAddOperatorDialog = false
+                                editingOperator = null
+                                operatorToDelete = toDelete
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Удалить")
+                        }
+                    }
+                    TextButton(onClick = {
+                        showAddOperatorDialog = false
+                        editingOperator = null
+                    }) { Text(strings.cancel) }
+                }
+            }
+        )
+    }
+
+    // Dialog: Confirm Delete Operator
+    if (operatorToDelete != null) {
+        val op = operatorToDelete!!
+        AlertDialog(
+            onDismissRequest = { operatorToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Удалить оператора?") },
+            text = {
+                Text("Оператор «${op.name}» будет удалён из списка. Существующие завершённые зарядки сохранят свои сохранённые данные.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteOperator(op)
+                        operatorToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Удалить")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { operatorToDelete = null }) {
+                    Text(strings.cancel)
+                }
             }
         )
     }

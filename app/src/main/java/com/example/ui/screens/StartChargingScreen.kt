@@ -158,7 +158,7 @@ fun StartChargingScreen(
         }
     }
 
-    // Update price when operator, station type, or night tariff changes
+    // Update price when operator, station type, or manual tariff selection changes
     fun recalculatePrice(op: Operator?, type: String, applyNight: Boolean) {
         if (op == null) return
         if (op.isFree) {
@@ -167,22 +167,18 @@ fun StartChargingScreen(
             return
         }
 
-        val isNight = applyNight && autoNightTariffEnabled &&
-                ((type == "DC" && op.nightPriceDc != null) || (type == "AC" && op.nightPriceAc != null)) &&
-                EVCalculator.isNightTariffTime(op.nightStartHour, op.nightEndHour)
-
-        nightTariffApplied = isNight
+        nightTariffApplied = applyNight
 
         val price = if (type == "DC") {
-            if (isNight && op.nightPriceDc != null) op.nightPriceDc else op.priceDc
+            if (applyNight && op.nightPriceDc != null) op.nightPriceDc else op.priceDc
         } else {
-            if (isNight && op.nightPriceAc != null) op.nightPriceAc else op.priceAc
+            if (applyNight && op.nightPriceAc != null) op.nightPriceAc else op.priceAc
         }
         pricePerKwhText = String.format(Locale.US, "%.2f", price)
     }
 
     LaunchedEffect(selectedOperator, selectedStationType) {
-        recalculatePrice(selectedOperator, selectedStationType, applyNight = true)
+        recalculatePrice(selectedOperator, selectedStationType, applyNight = nightTariffApplied)
     }
 
     val odoVal = odometerText.toDoubleOrNull() ?: 0.0
@@ -338,12 +334,22 @@ fun StartChargingScreen(
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = selectedOperator?.name ?: "Выберите оператора",
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 15.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                                Column {
+                                    Text(
+                                        text = selectedOperator?.name ?: "Выберите оператора",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 15.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (nightTariffApplied) {
+                                        Text(
+                                            text = "🌙 Ночной тариф активен",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ElectricCyan
+                                        )
+                                    }
+                                }
                             }
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowDown,
@@ -361,6 +367,10 @@ fun StartChargingScreen(
                         val distinctOps = filteredOperators.distinctBy { it.name.trim() }
                         distinctOps.forEach { op ->
                             val opColor = if (selectedStationType == "DC") Color(0xFFC084FC) else Color(0xFF38BDF8)
+                            val standardPrice = if (selectedStationType == "DC") op.priceDc else op.priceAc
+                            val nightPrice = if (selectedStationType == "DC") op.nightPriceDc else op.nightPriceAc
+
+                            // Standard tariff option
                             DropdownMenuItem(
                                 text = {
                                     Row(
@@ -376,22 +386,78 @@ fun StartChargingScreen(
                                                     .background(opColor)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text(op.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                            Column {
+                                                Text(op.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                                if (nightPrice != null) {
+                                                    Text("Стандартный тариф (день)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            }
                                         }
-                                        val priceVal = if (selectedStationType == "DC") op.priceDc else op.priceAc
                                         Text(
-                                            text = "${String.format(Locale.US, "%.2f", priceVal)} $currency",
-                                            fontSize = 12.sp,
+                                            text = "${String.format(Locale.US, "%.2f", standardPrice)} $currency",
+                                            fontSize = 13.sp,
                                             color = ElectricCyan,
-                                            fontWeight = FontWeight.Medium
+                                            fontWeight = FontWeight.SemiBold
                                         )
                                     }
                                 },
                                 onClick = {
                                     selectedOperator = op
+                                    recalculatePrice(op, selectedStationType, applyNight = false)
                                     operatorMenuExpanded = false
                                 }
                             )
+
+                            // Night tariff option with extra white border / badge if operator supports night tariff
+                            if (nightPrice != null) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color.White.copy(alpha = 0.08f))
+                                                .border(1.5.dp, Color.White, RoundedCornerShape(8.dp))
+                                                .padding(horizontal = 8.dp, vertical = 6.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text("🌙", fontSize = 13.sp)
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Column {
+                                                        Text(
+                                                            text = "${op.name} • Ночной тариф",
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 13.sp,
+                                                            color = Color.White
+                                                        )
+                                                        Text(
+                                                            text = "Льготный период (${op.nightStartHour}:00 - ${op.nightEndHour}:00)",
+                                                            fontSize = 10.sp,
+                                                            color = Color.White.copy(alpha = 0.75f)
+                                                        )
+                                                    }
+                                                }
+                                                Text(
+                                                    text = "${String.format(Locale.US, "%.2f", nightPrice)} $currency",
+                                                    fontSize = 13.sp,
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.ExtraBold
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedOperator = op
+                                        recalculatePrice(op, selectedStationType, applyNight = true)
+                                        operatorMenuExpanded = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }

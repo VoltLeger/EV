@@ -20,15 +20,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ElectricBolt
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Speed
@@ -94,6 +99,8 @@ fun HomeScreen(
     onCompleteChargeClick: (ChargingSession) -> Unit,
     onCancelActiveCharge: (ChargingSession) -> Unit,
     onNavigateToHistory: (() -> Unit)? = null,
+    onUpdateSession: ((ChargingSession) -> Unit)? = null,
+    onDeleteSession: ((ChargingSession) -> Unit)? = null,
     userProfile: UserProfile? = null,
     onOpenProfile: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -101,6 +108,10 @@ fun HomeScreen(
     val strings = LocalAppStrings.current
     val currency = LocalCurrency.current
     var carMenuExpanded by remember { mutableStateOf(false) }
+
+    // Session Edit & Delete state
+    var editingSession by remember { mutableStateOf<ChargingSession?>(null) }
+    var sessionToDelete by remember { mutableStateOf<ChargingSession?>(null) }
 
     // Quick Home Charge Dialog State
     var showHomeChargeDialog by remember { mutableStateOf(false) }
@@ -669,59 +680,139 @@ fun HomeScreen(
                 }
             }
 
-            // 5. Action Buttons (Full-Width Solid Gradient "Add Charge" & "Home Charge")
+            // 4b. Hall of Fame / Pilot Awards Card (Tap to open Hall of Fame)
+            if (onOpenProfile != null) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 4.dp)
+                    ) {
+                        VoltCard(
+                            onClick = onOpenProfile,
+                            modifier = Modifier.fillMaxWidth(),
+                            borderColor = ElectricCyan.copy(alpha = 0.6f)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                Brush.linearGradient(
+                                                    listOf(
+                                                        ElectricCyan.copy(alpha = 0.25f),
+                                                        SoftBlue.copy(alpha = 0.15f)
+                                                    )
+                                                )
+                                            )
+                                            .border(1.dp, ElectricCyan.copy(alpha = 0.5f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.EmojiEvents,
+                                            contentDescription = null,
+                                            tint = ElectricCyan,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = "Зал славы и Награды",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(ElectricCyan.copy(alpha = 0.2f))
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = "XP",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = ElectricCyan
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "${userProfile?.displayName ?: "Пилот EV"} • Достижения и рекорды",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = ElectricCyan,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 5. Action Buttons (Full-Width Sleek Glass "Add Charge" & "Home Charge")
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp)
                 ) {
-                    // Button 1: "Добавить зарядку" (Full width, seamless smooth gradient, no mismatched inner rects)
-                    Button(
+                    // Button 1: "Добавить зарядку" (Full width, sleek dark glass matching Home Charge with Electric Cyan accent)
+                    OutlinedButton(
                         onClick = onAddChargeClick,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp)
+                            .height(52.dp)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(
-                                brush = Brush.horizontalGradient(
-                                    listOf(
-                                        Color(0xFF0077B6),
-                                        Color(0xFF0096C7),
-                                        Color(0xFF00B4D8)
-                                    )
-                                )
-                            )
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
                             .border(
                                 width = 1.2.dp,
                                 brush = Brush.linearGradient(
                                     listOf(
-                                        Color.White.copy(alpha = 0.55f),
-                                        ElectricCyan,
-                                        Color.White.copy(alpha = 0.2f)
+                                        ElectricCyan.copy(alpha = 0.8f),
+                                        Color.White.copy(alpha = 0.35f),
+                                        SoftBlue.copy(alpha = 0.6f)
                                     )
                                 ),
                                 shape = RoundedCornerShape(18.dp)
                             )
-                            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = ElectricCyan)
                             .testTag("add_charge_button"),
                         shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(
+                        colors = ButtonDefaults.outlinedButtonColors(
                             containerColor = Color.Transparent,
-                            contentColor = Color.White
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                            contentColor = ElectricCyan
+                        )
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = null,
-                            modifier = Modifier.size(22.dp)
+                            tint = ElectricCyan,
+                            modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = strings.addCharge,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ElectricCyan
                         )
                     }
 
@@ -835,7 +926,11 @@ fun HomeScreen(
             } else {
                 items(recentSessions.take(4)) { session ->
                     Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 5.dp)) {
-                        RecentSessionCard(session = session, currency = currency)
+                        RecentSessionCard(
+                            session = session,
+                            currency = currency,
+                            onClick = { editingSession = session }
+                        )
                     }
                 }
             }
@@ -944,12 +1039,177 @@ fun HomeScreen(
             }
         )
     }
+
+    // Edit Session Dialog from Home Screen
+    if (editingSession != null) {
+        val s = editingSession!!
+        var editOperatorName by remember(s.id) { mutableStateOf(s.operatorName) }
+        var editStartSoc by remember(s.id) { mutableStateOf(s.startSoc.toInt().toString()) }
+        var editEndSoc by remember(s.id) { mutableStateOf(s.endSoc.toInt().toString()) }
+        var editKwh by remember(s.id) { mutableStateOf(String.format(Locale.US, "%.1f", s.kwhDeliveredByStation)) }
+        var editCost by remember(s.id) { mutableStateOf(String.format(Locale.US, "%.2f", s.totalCost)) }
+        var editOdometer by remember(s.id) { mutableStateOf(s.startOdometer.toInt().toString()) }
+        var editStationType by remember(s.id) { mutableStateOf(s.stationType) }
+        var editComment by remember(s.id) { mutableStateOf(s.operatorComment ?: "") }
+
+        AlertDialog(
+            onDismissRequest = { editingSession = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = ElectricCyan)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Редактирование зарядки", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedTextField(
+                        value = editOperatorName,
+                        onValueChange = { editOperatorName = it },
+                        label = { Text("Оператор / Станция") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = editStartSoc,
+                            onValueChange = { editStartSoc = it },
+                            label = { Text("Начальный %") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = editEndSoc,
+                            onValueChange = { editEndSoc = it },
+                            label = { Text("Конечный %") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = editKwh,
+                            onValueChange = { editKwh = it },
+                            label = { Text("Заряжено кВт·ч") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = editCost,
+                            onValueChange = { editCost = it },
+                            label = { Text("Сумма ($currency)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = editOdometer,
+                        onValueChange = { editOdometer = it },
+                        label = { Text("Пробег (км)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = editComment,
+                        onValueChange = { editComment = it },
+                        label = { Text("Заметка / Тег") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val updated = s.copy(
+                            operatorName = editOperatorName.trim(),
+                            startSoc = editStartSoc.toDoubleOrNull() ?: s.startSoc,
+                            endSoc = editEndSoc.toDoubleOrNull() ?: s.endSoc,
+                            kwhDeliveredByStation = editKwh.toDoubleOrNull() ?: s.kwhDeliveredByStation,
+                            totalCost = editCost.toDoubleOrNull() ?: s.totalCost,
+                            startOdometer = editOdometer.toDoubleOrNull() ?: s.startOdometer,
+                            stationType = editStationType,
+                            operatorComment = editComment.trim().ifEmpty { null }
+                        )
+                        onUpdateSession?.invoke(updated)
+                        editingSession = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan)
+                ) {
+                    Text("Сохранить")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            val toDelete = s
+                            editingSession = null
+                            sessionToDelete = toDelete
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Удалить")
+                    }
+                    TextButton(onClick = { editingSession = null }) {
+                        Text(strings.cancel)
+                    }
+                }
+            }
+        )
+    }
+
+    // Confirm Delete Dialog from Home Screen
+    if (sessionToDelete != null) {
+        val s = sessionToDelete!!
+        AlertDialog(
+            onDismissRequest = { sessionToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Удалить эту зарядку?") },
+            text = {
+                Text("Зарядка на ${s.operatorName.ifEmpty { "EV Station" }} (+${String.format(Locale.US, "%.1f", s.kwhDeliveredByStation)} кВт·ч, ${formatCurrency(s.totalCost, currency)}) будет удалена навсегда.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteSession?.invoke(s)
+                        sessionToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Удалить")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { sessionToDelete = null }) {
+                    Text(strings.cancel)
+                }
+            }
+        )
+    }
 }
 
 @Composable
 fun RecentSessionCard(
     session: ChargingSession,
     currency: String,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isDc = session.stationType.equals("DC", ignoreCase = true)
@@ -960,7 +1220,10 @@ fun RecentSessionCard(
         else -> Color(0xFF38BDF8) // Light Blue AC
     }
 
-    VoltCard(modifier = modifier.fillMaxWidth()) {
+    VoltCard(
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick
+    ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -990,12 +1253,23 @@ fun RecentSessionCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                Text(
-                    text = formatCurrency(session.totalCost, currency),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = ElectricCyan
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = formatCurrency(session.totalCost, currency),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = ElectricCyan
+                    )
+                    if (onClick != null) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit session",
+                            tint = SoftBlue.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))

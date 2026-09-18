@@ -463,7 +463,9 @@ class MainActivity : FragmentActivity() {
                                                     viewModel.cancelActiveSession(session)
                                                 },
                                                 userProfile = userProfile,
-                                                onOpenProfile = { showProfileAwardsDialog = true }
+                                                onOpenProfile = { showProfileAwardsDialog = true },
+                                                onUpdateSession = { viewModel.updateSession(it) },
+                                                onDeleteSession = { viewModel.deleteSession(it) }
                                             )
                                             1 -> HistoryScreen(
                                                 sessions = allSessions.filter { it.carId == (activeCar?.id ?: 0L) },
