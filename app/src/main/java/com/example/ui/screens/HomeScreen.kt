@@ -181,13 +181,52 @@ fun HomeScreen(
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Vehicle selector / Car Passport
+                        // Top-Left: Hall of Fame / Awards Cup Button
+                        if (onOpenProfile != null) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(
+                                        Brush.radialGradient(
+                                            listOf(
+                                                Color(0xFFF59E0B).copy(alpha = 0.25f),
+                                                MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+                                            )
+                                        )
+                                    )
+                                    .border(
+                                        1.dp,
+                                        Brush.linearGradient(
+                                            listOf(
+                                                Color(0xFFF59E0B).copy(alpha = 0.6f),
+                                                ElectricCyan.copy(alpha = 0.3f),
+                                                Color.White.copy(alpha = 0.1f)
+                                            )
+                                        ),
+                                        RoundedCornerShape(14.dp)
+                                    )
+                                    .clickable { onOpenProfile() }
+                                    .testTag("awards_cup_button"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.EmojiEvents,
+                                    contentDescription = "Зал славы и награды",
+                                    tint = Color(0xFFF59E0B),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+
+                        // Center: Vehicle selector / Car Passport
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
+                                .weight(1f)
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
                                 .border(
@@ -202,13 +241,13 @@ fun HomeScreen(
                                     RoundedCornerShape(16.dp)
                                 )
                                 .clickable { showCarPassportDialog = true }
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .padding(horizontal = 10.dp, vertical = 7.dp)
                                 .testTag("car_passport_button")
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .size(34.dp)
+                                    .clip(RoundedCornerShape(9.dp))
                                     .background(SoftBlue.copy(alpha = 0.25f)),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -219,102 +258,87 @@ fun HomeScreen(
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .clip(RoundedCornerShape(10.dp))
+                                            .clip(RoundedCornerShape(9.dp))
                                     )
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.DirectionsCar,
                                         contentDescription = "Паспорт авто",
                                         tint = SoftBlue,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Column(modifier = Modifier.weight(1f, fill = false)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = activeCar?.name ?: strings.currentVehicle,
-                                        fontSize = 16.sp,
+                                        fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onBackground,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
                                     Text(
                                         text = "📋",
-                                        fontSize = 12.sp
+                                        fontSize = 10.sp
                                     )
                                 }
                                 Text(
                                     text = "${activeCar?.initialOdometer?.toInt() ?: 0} км",
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
 
-                        // Top Right: Range Forecast Pill (clickable to open forecast dialog) + Avatar
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(if (activeSession != null) ElectricCyan.copy(alpha = 0.18f) else BatteryGreen.copy(alpha = 0.16f))
-                                    .border(
-                                        1.dp,
-                                        Brush.linearGradient(
-                                            listOf(
-                                                Color.White.copy(alpha = 0.45f),
-                                                if (activeSession != null) ElectricCyan.copy(alpha = 0.6f) else BatteryGreen.copy(alpha = 0.5f),
-                                                Color.Transparent
-                                            )
-                                        ),
-                                        RoundedCornerShape(16.dp)
-                                    )
-                                    .clickable { onCalculateRangeClick() }
-                                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                                    .testTag("estimated_range_top_pill")
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = if (activeSession != null) Icons.Default.ElectricBolt else Icons.Default.BatteryChargingFull,
-                                        contentDescription = null,
-                                        tint = if (activeSession != null) ElectricCyan else BatteryGreen,
-                                        modifier = Modifier.size(17.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text(
-                                            text = if (departureForecastRange != null) {
-                                                "~${departureForecastRange.toInt()} км"
-                                            } else {
-                                                "~${currentSocRange.toInt()} км"
-                                            },
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = if (activeSession != null) ElectricCyan else BatteryGreen
+                        // Top Right: Range Forecast Pill (clickable to open forecast dialog)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (activeSession != null) ElectricCyan.copy(alpha = 0.18f) else BatteryGreen.copy(alpha = 0.16f))
+                                .border(
+                                    1.dp,
+                                    Brush.linearGradient(
+                                        listOf(
+                                            Color.White.copy(alpha = 0.45f),
+                                            if (activeSession != null) ElectricCyan.copy(alpha = 0.6f) else BatteryGreen.copy(alpha = 0.5f),
+                                            Color.Transparent
                                         )
-                                        Text(
-                                            text = if (activeSession != null) "на выезде" else "${carSoc.toInt()}%",
-                                            fontSize = 10.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-
-                            if (onOpenProfile != null) {
-                                VoltAvatar(
-                                    avatarEffect = userProfile?.avatarEffect ?: "neon_cyan",
-                                    avatarIcon = userProfile?.avatarIcon ?: "bolt",
-                                    imageUri = activeCar?.photoUri,
-                                    size = 42.dp,
-                                    onClick = onOpenProfile
+                                    ),
+                                    RoundedCornerShape(16.dp)
                                 )
+                                .clickable { onCalculateRangeClick() }
+                                .padding(horizontal = 10.dp, vertical = 7.dp)
+                                .testTag("estimated_range_top_pill")
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (activeSession != null) Icons.Default.ElectricBolt else Icons.Default.BatteryChargingFull,
+                                    contentDescription = null,
+                                    tint = if (activeSession != null) ElectricCyan else BatteryGreen,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = if (departureForecastRange != null) {
+                                            "~${departureForecastRange.toInt()} км"
+                                        } else {
+                                            "~${currentSocRange.toInt()} км"
+                                        },
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = if (activeSession != null) ElectricCyan else BatteryGreen
+                                    )
+                                    Text(
+                                        text = if (activeSession != null) "на выезде" else "${carSoc.toInt()}%",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }

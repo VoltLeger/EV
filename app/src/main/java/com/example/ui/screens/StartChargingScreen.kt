@@ -121,7 +121,6 @@ fun StartChargingScreen(
     var selectedOperator by remember { mutableStateOf<Operator?>(null) }
     var operatorMenuExpanded by remember { mutableStateOf(false) }
     var customOperatorName by remember { mutableStateOf("") }
-    var avgPowerText by remember { mutableStateOf("") }
     var pricePerKwhText by remember { mutableStateOf("0.55") }
     var nightTariffApplied by remember { mutableStateOf(false) }
     var startTimestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -185,7 +184,7 @@ fun StartChargingScreen(
     val odoVal = odometerText.toDoubleOrNull() ?: 0.0
     val socVal = socText.toDoubleOrNull() ?: 0.0
     val priceVal = pricePerKwhText.toDoubleOrNull() ?: 0.0
-    val avgPowerVal = avgPowerText.toDoubleOrNull()
+    val avgPowerVal: Double? = null
 
     // Odometer validation: cannot be less than previous odometer
     val isOdoValid = odoVal >= prevOdometer
@@ -499,79 +498,18 @@ fun StartChargingScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Price per kWh & Power
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = pricePerKwhText,
-                        onValueChange = { pricePerKwhText = it },
-                        label = { Text("${strings.pricePerKwh} ($currency)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("price_per_kwh_input"),
-                        shape = RoundedCornerShape(14.dp)
-                    )
-
-                    OutlinedTextField(
-                        value = avgPowerText,
-                        onValueChange = { avgPowerText = it },
-                        label = { Text("Мощность, кВт") },
-                        placeholder = { Text("напр. 60") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                }
-
-                // Night Tariff Badge with white border
-                if (nightTariffApplied) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(SoftBlue.copy(alpha = 0.15f))
-                            .border(1.5.dp, Color.White, RoundedCornerShape(12.dp))
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(text = "🌙", fontSize = 16.sp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "${strings.nightTariffApplied} (Ночной тариф • Белая рамка)",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.White
-                                )
-                            }
-
-                            IconButton(
-                                onClick = {
-                                    nightTariffApplied = false
-                                    val op = selectedOperator
-                                    if (op != null) {
-                                        val stdPrice = if (selectedStationType == "DC") op.priceDc else op.priceAc
-                                        pricePerKwhText = String.format(Locale.US, "%.2f", stdPrice)
-                                    }
-                                },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = strings.cancelNightTariff,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
+                // Price per kWh
+                OutlinedTextField(
+                    value = pricePerKwhText,
+                    onValueChange = { pricePerKwhText = it },
+                    label = { Text("${strings.pricePerKwh} ($currency)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("price_per_kwh_input"),
+                    shape = RoundedCornerShape(14.dp)
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 

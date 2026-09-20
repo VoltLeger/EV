@@ -92,6 +92,7 @@ fun ProfileAwardsDialog(
     val awards by viewModel.awards.collectAsState()
     val totalXp by viewModel.totalXp.collectAsState()
     val rankTier by viewModel.rankTier.collectAsState()
+    val activeCar by viewModel.activeCar.collectAsState()
     val context = LocalContext.current
 
     var isEditingName by remember { mutableStateOf(false) }
@@ -168,6 +169,7 @@ fun ProfileAwardsDialog(
                                     VoltAvatar(
                                         avatarEffect = profile.avatarEffect,
                                         avatarIcon = profile.avatarIcon,
+                                        imageUri = activeCar?.photoUri,
                                         size = 72.dp,
                                         showGlow = true
                                     )
