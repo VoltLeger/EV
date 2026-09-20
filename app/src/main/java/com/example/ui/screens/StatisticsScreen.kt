@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Car
+import com.example.data.model.CarExpense
 import com.example.data.model.ChargingSession
 import com.example.ui.components.ChartPoint
 import com.example.ui.components.ConsumptionLineChart
@@ -72,6 +73,7 @@ import com.example.ui.components.TagBadge
 import com.example.ui.components.VoltCard
 import com.example.ui.components.formatCurrency
 import com.example.ui.components.formatShortDate
+import com.example.ui.components.getCategoryEmoji
 import com.example.ui.theme.BatteryGreen
 import com.example.ui.theme.BatteryOrange
 import com.example.ui.theme.ElectricCyan
@@ -90,13 +92,14 @@ enum class StatsPeriod {
 fun StatisticsScreen(
     activeCar: Car?,
     allSessions: List<ChargingSession>,
+    carExpenses: List<CarExpense> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val strings = LocalAppStrings.current
     val currency = LocalCurrency.current
 
-    // Navigation Tabs: 0 = Overview, 1 = Operators, 2 = Top-3 & Efficiency
+    // Navigation Tabs: 0 = Overview, 1 = Expenses, 2 = Operators, 3 = Top-3 & Efficiency
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedPeriod by remember { mutableStateOf(StatsPeriod.MONTH) }
 
@@ -139,6 +142,12 @@ fun StatisticsScreen(
 
     val currentPeriodSessions = completedSessions.filter { it.startTime >= periodStartMillis }
 
+    // Car Expenses in current period
+    val currentPeriodExpenses = carExpenses.filter {
+        (carId == 0L || it.carId == carId) && it.timestamp >= periodStartMillis
+    }
+    val totalExpensesCost = currentPeriodExpenses.sumOf { it.amount }
+
     // Prior period comparison
     val periodDuration = now - periodStartMillis
     val priorPeriodSessions = completedSessions.filter {
@@ -151,6 +160,9 @@ fun StatisticsScreen(
     val totalEnergyCost = currentPeriodSessions.sumOf { it.energyCost }
     val totalPenaltyCost = currentPeriodSessions.sumOf { it.penaltyCost }
 
+    // Total Car Spending (Charging + Maintenance & Other Expenses)
+    val totalCarSpend = totalCost + totalExpensesCost
+
     // Distance in period
     val minOdo = currentPeriodSessions.minOfOrNull { it.startOdometer } ?: 0.0
     val maxOdo = currentPeriodSessions.maxOfOrNull { it.startOdometer } ?: 0.0
@@ -158,6 +170,10 @@ fun StatisticsScreen(
 
     val costPerKm = if (periodDistanceKm > 0) totalCost / periodDistanceKm else 0.0
     val costPer100Km = costPerKm * 100.0
+
+    // Total ownership cost per KM (includes charging + maintenance/insurance, but NOT counted in energy consumption per 100km!)
+    val totalCostPerKm = if (periodDistanceKm > 0) totalCarSpend / periodDistanceKm else 0.0
+    val totalCostPer100Km = totalCostPerKm * 100.0
 
     // Prior period total spent comparison
     val priorTotalCost = priorPeriodSessions.sumOf { it.totalCost }
@@ -270,28 +286,35 @@ fun StatisticsScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Tab Navigation Row (Overview, Operators, Top-3 & Efficiency)
+                    // Tab Navigation Row (Overview, Expenses, Operators, Top-3 & Efficiency)
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                         SegmentedButton(
                             selected = selectedTab == 0,
                             onClick = { selectedTab = 0 },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3)
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 4)
                         ) {
-                            Text(strings.tabOverview, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text(strings.tabOverview, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                         }
                         SegmentedButton(
                             selected = selectedTab == 1,
                             onClick = { selectedTab = 1 },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3)
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 4)
                         ) {
-                            Text(strings.tabOperators, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Затраты", fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                         }
                         SegmentedButton(
                             selected = selectedTab == 2,
                             onClick = { selectedTab = 2 },
-                            shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3)
+                            shape = SegmentedButtonDefaults.itemShape(index = 2, count = 4)
                         ) {
-                            Text(strings.tabTopEfficiency, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text(strings.tabOperators, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        SegmentedButton(
+                            selected = selectedTab == 3,
+                            onClick = { selectedTab = 3 },
+                            shape = SegmentedButtonDefaults.itemShape(index = 3, count = 4)
+                        ) {
+                            Text(strings.tabTopEfficiency, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -548,12 +571,296 @@ fun StatisticsScreen(
                                 modifier = Modifier.weight(1f)
                             )
                         }
+
+                        if (totalExpensesCost > 0.0) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            VoltCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                borderColor = SoftBlue.copy(alpha = 0.4f)
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "ВСЕ РАСХОДЫ НА АВТО ЗА ПЕРИОД",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = SoftBlue,
+                                            letterSpacing = 0.8.sp
+                                        )
+                                        Text(
+                                            text = formatCurrency(totalCarSpend, currency),
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ElectricCyan
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "Зарядка: ${formatCurrency(totalCost, currency)} • Прочие: ${formatCurrency(totalExpensesCost, currency)}",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        if (periodDistanceKm > 0) {
+                                            Text(
+                                                text = "${String.format(Locale.US, "%.2f", totalCostPerKm)} $currency/км",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = BatteryGreen
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            // ================== TAB 1: OPERATORS GROUPED ==================
+            // ================== TAB 1: EXPENSES & CHARTS ==================
             if (selectedTab == 1) {
+                // Period selector chips
+                item {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(StatsPeriod.values()) { period ->
+                            val periodName = when (period) {
+                                StatsPeriod.DAY -> strings.day
+                                StatsPeriod.WEEK -> strings.week
+                                StatsPeriod.MONTH -> strings.month
+                                StatsPeriod.THREE_MONTHS -> strings.threeMonths
+                                StatsPeriod.SIX_MONTHS -> strings.sixMonths
+                                StatsPeriod.YEAR -> strings.year
+                            }
+                            val isSelected = selectedPeriod == period
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedPeriod = period },
+                                label = { Text(periodName, fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = ElectricCyan.copy(alpha = 0.22f),
+                                    selectedLabelColor = ElectricCyan
+                                )
+                            )
+                        }
+                    }
+                }
+
+                // 1. VISUAL DIAGRAM FIRST
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 6.dp)
+                    ) {
+                        VoltCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "Диаграмма затрат на автомобиль",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Наглядная визуализация всех статей расходов",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                val washCost = currentPeriodExpenses.filter { it.category.contains("Мойка", ignoreCase = true) }.sumOf { it.amount }
+                                val maintenanceCost = currentPeriodExpenses.filter { it.category.contains("ТО", ignoreCase = true) || it.category.contains("Ремонт", ignoreCase = true) }.sumOf { it.amount }
+                                val insuranceCost = currentPeriodExpenses.filter { it.category.contains("Страховк", ignoreCase = true) }.sumOf { it.amount }
+                                val tiresCost = currentPeriodExpenses.filter { it.category.contains("Шин", ignoreCase = true) }.sumOf { it.amount }
+                                val parkingCost = currentPeriodExpenses.filter { it.category.contains("Парковк", ignoreCase = true) }.sumOf { it.amount }
+                                val otherCost = currentPeriodExpenses.filter {
+                                    !it.category.contains("Мойка", ignoreCase = true) &&
+                                    !it.category.contains("ТО", ignoreCase = true) &&
+                                    !it.category.contains("Ремонт", ignoreCase = true) &&
+                                    !it.category.contains("Страховк", ignoreCase = true) &&
+                                    !it.category.contains("Шин", ignoreCase = true) &&
+                                    !it.category.contains("Парковк", ignoreCase = true)
+                                }.sumOf { it.amount }
+
+                                val slices = mutableListOf<DonutSlice>()
+                                if (totalCost > 0.0) slices.add(DonutSlice("⚡ Зарядка", totalCost.toFloat(), ElectricCyan))
+                                if (washCost > 0.0) slices.add(DonutSlice("🧼 Мойка", washCost.toFloat(), Color(0xFF38BDF8)))
+                                if (maintenanceCost > 0.0) slices.add(DonutSlice("🔧 ТО / Сервис", maintenanceCost.toFloat(), Color(0xFFF59E0B)))
+                                if (insuranceCost > 0.0) slices.add(DonutSlice("🛡️ Страховка", insuranceCost.toFloat(), Color(0xFF10B981)))
+                                if (tiresCost > 0.0) slices.add(DonutSlice("🛞 Шиномонтаж", tiresCost.toFloat(), Color(0xFFA855F7)))
+                                if (parkingCost > 0.0) slices.add(DonutSlice("🅿️ Парковка", parkingCost.toFloat(), Color(0xFFEC4899)))
+                                if (otherCost > 0.0) slices.add(DonutSlice("💼 Прочее", otherCost.toFloat(), Color(0xFF94A3B8)))
+
+                                if (slices.isEmpty()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(24.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "За выбранный период нет данных о расходах",
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                } else {
+                                    DonutBreakdownChart(
+                                        slices = slices,
+                                        centerValue = formatCurrency(totalCarSpend, currency),
+                                        centerTitle = "Всего затрат"
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. DRY NUMBERS & KEY METRICS SECOND
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "Точные показатели и стоимость владения",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Metric Row 1: Total Spend & Total Cost per KM
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            MetricCard(
+                                title = "Все расходы на авто",
+                                value = formatCurrency(totalCarSpend, currency),
+                                subtitle = "Зарядка + ТО, мойка и т.д.",
+                                accentColor = ElectricCyan,
+                                modifier = Modifier.weight(1f)
+                            )
+                            MetricCard(
+                                title = "Общая цена 1 км",
+                                value = if (periodDistanceKm > 0) "${String.format(Locale.US, "%.2f", totalCostPerKm)} $currency" else "—",
+                                subtitle = if (periodDistanceKm > 0) "Все расходы / ${periodDistanceKm.toInt()} км" else "Нет данных о пробеге",
+                                accentColor = SoftBlue,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Metric Row 2: 1 km only charging & EV Energy Consumption (strictly excluding other costs)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            MetricCard(
+                                title = "1 км только зарядка",
+                                value = if (periodDistanceKm > 0) "${String.format(Locale.US, "%.2f", costPerKm)} $currency" else "—",
+                                subtitle = "Только электричество",
+                                accentColor = BatteryGreen,
+                                modifier = Modifier.weight(1f)
+                            )
+                            MetricCard(
+                                title = "Расход энергии (EV)",
+                                value = if (periodConsumption != null) "${String.format(Locale.US, "%.1f", periodConsumption)} кВт·ч" else "—",
+                                subtitle = "на 100 км (без ТО/страховки)",
+                                accentColor = ElectricCyan,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                // 3. Detailed Category Breakdown Table
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 8.dp)
+                    ) {
+                        VoltCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = "Детализация по статьям затрат",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                val categoriesMap = currentPeriodExpenses.groupBy { it.category }
+
+                                // Row for Charging
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("⚡", fontSize = 16.sp)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text("Зарядка электромобиля", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                            Text("${currentPeriodSessions.size} сессий", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(formatCurrency(totalCost, currency), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = ElectricCyan)
+                                        val pct = if (totalCarSpend > 0) (totalCost / totalCarSpend * 100) else 0.0
+                                        Text("${String.format(Locale.US, "%.1f", pct)}%", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+
+                                categoriesMap.forEach { (cat, items) ->
+                                    val catSum = items.sumOf { it.amount }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(getCategoryEmoji(cat), fontSize = 16.sp)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Column {
+                                                Text(cat, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                                Text("${items.size} записей", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(formatCurrency(catSum, currency), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                            val pct = if (totalCarSpend > 0) (catSum / totalCarSpend * 100) else 0.0
+                                            Text("${String.format(Locale.US, "%.1f", pct)}%", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ================== TAB 2: OPERATORS GROUPED ==================
+            if (selectedTab == 2) {
                 item {
                     Column(
                         modifier = Modifier
@@ -685,8 +992,8 @@ fun StatisticsScreen(
                 }
             }
 
-            // ================== TAB 2: TOP-3 & EFFICIENCY ==================
-            if (selectedTab == 2) {
+            // ================== TAB 3: TOP-3 & EFFICIENCY ==================
+            if (selectedTab == 3) {
                 // Top-3 Cheapest Stations
                 item {
                     Column(

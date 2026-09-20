@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.AlertDialog
@@ -58,10 +59,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -73,6 +77,7 @@ import com.example.data.model.Car
 import com.example.data.model.ChargingSession
 import com.example.data.model.UserProfile
 import com.example.ui.components.ActiveChargingCard
+import com.example.ui.components.AddEditExpenseDialog
 import com.example.ui.components.CarPassportDialog
 import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.components.StationTypeBadge
@@ -109,11 +114,14 @@ fun HomeScreen(
     onOpenProfile: (() -> Unit)? = null,
     onUpdateCar: ((Car) -> Unit)? = null,
     onDeleteCar: ((Car) -> Unit)? = null,
+    onAddExpense: ((category: String, amount: Double, odometer: Double?, comment: String?) -> Unit)? = null,
+    topExpenseCategories: List<String> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
     val currency = LocalCurrency.current
     var showCarPassportDialog by remember { mutableStateOf(false) }
+    var showAddExpenseDialog by remember { mutableStateOf(false) }
 
     // Session Edit & Delete state
     var editingSession by remember { mutableStateOf<ChargingSession?>(null) }
@@ -345,56 +353,51 @@ fun HomeScreen(
                 }
             }
 
-            // 2. Centerpiece 3D Card: Average Consumption (Last 2 Charges)
+            // 2. Centerpiece Card: Average Consumption (Last 2 Charges)
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 8.dp)
                 ) {
-                    // Flat 3D Depth Backdrop Layer
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(160.dp)
-                            .padding(top = 4.dp, start = 4.dp, end = 4.dp)
                             .clip(RoundedCornerShape(26.dp))
-                            .background(Color(0xFF003566).copy(alpha = 0.45f))
-                    )
-
-                    // Front Polished Glassmorphic 3D Card
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(24.dp))
+                            // Base gradient background smoothly transitioning into ambient theme
                             .background(
                                 Brush.verticalGradient(
-                                    listOf(
-                                        Color(0xFF0F172A).copy(alpha = 0.92f),
-                                        Color(0xFF1E293B).copy(alpha = 0.95f),
-                                        Color(0xFF0F172A).copy(alpha = 0.98f)
+                                    colors = listOf(
+                                        Color(0xFF131D31).copy(alpha = 0.85f),
+                                        Color(0xFF0F172A).copy(alpha = 0.90f),
+                                        Color(0xFF0B1120).copy(alpha = 0.85f)
                                     )
                                 )
                             )
+                            // Soft radial glow in the center that smoothly dissolves toward borders
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        ElectricCyan.copy(alpha = 0.20f),
+                                        SoftBlue.copy(alpha = 0.07f),
+                                        Color.Transparent
+                                    ),
+                                    radius = 420f
+                                )
+                            )
                             .border(
-                                width = 1.5.dp,
+                                width = 1.2.dp,
                                 brush = Brush.linearGradient(
                                     listOf(
-                                        Color.White.copy(alpha = 0.55f),
-                                        ElectricCyan,
-                                        SoftBlue.copy(alpha = 0.5f),
-                                        Color.White.copy(alpha = 0.15f)
+                                        Color.White.copy(alpha = 0.35f),
+                                        ElectricCyan.copy(alpha = 0.45f),
+                                        SoftBlue.copy(alpha = 0.25f),
+                                        Color.White.copy(alpha = 0.08f)
                                     )
                                 ),
-                                shape = RoundedCornerShape(24.dp)
+                                shape = RoundedCornerShape(26.dp)
                             )
-                            .shadow(
-                                elevation = 12.dp,
-                                shape = RoundedCornerShape(24.dp),
-                                ambientColor = ElectricCyan,
-                                spotColor = ElectricCyan
-                            )
-                            .padding(vertical = 16.dp, horizontal = 18.dp)
+                            .padding(vertical = 18.dp, horizontal = 20.dp)
                             .testTag("last_two_charges_card")
                     ) {
                         Column(
@@ -407,8 +410,8 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.Center,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(ElectricCyan.copy(alpha = 0.15f))
-                                    .border(1.dp, ElectricCyan.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                    .background(ElectricCyan.copy(alpha = 0.12f))
+                                    .border(1.dp, ElectricCyan.copy(alpha = 0.30f), RoundedCornerShape(10.dp))
                                     .padding(horizontal = 12.dp, vertical = 4.dp)
                             ) {
                                 Icon(
@@ -427,19 +430,31 @@ fun HomeScreen(
                                 )
                             }
 
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                            // Large Glowing Number
+                            // Large Glowing Number with luminous shadow aura
                             Row(
                                 verticalAlignment = Alignment.Bottom,
                                 horizontalArrangement = Arrangement.Center
                             ) {
+                                val numberGlow = Shadow(
+                                    color = ElectricCyan.copy(alpha = 0.75f),
+                                    offset = Offset(0f, 0f),
+                                    blurRadius = 26f
+                                )
+                                val unitGlow = Shadow(
+                                    color = ElectricCyan.copy(alpha = 0.45f),
+                                    offset = Offset(0f, 0f),
+                                    blurRadius = 14f
+                                )
+
                                 if (lastTwoConsumption.hasEnoughData && lastTwoConsumption.avgConsumption != null) {
                                     Text(
                                         text = String.format(Locale.US, "%.1f", lastTwoConsumption.avgConsumption),
                                         fontSize = 54.sp,
                                         fontWeight = FontWeight.Black,
-                                        color = Color.White
+                                        color = Color.White,
+                                        style = TextStyle(shadow = numberGlow)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
@@ -447,16 +462,17 @@ fun HomeScreen(
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = ElectricCyan,
+                                        style = TextStyle(shadow = unitGlow),
                                         modifier = Modifier.padding(bottom = 10.dp)
                                     )
                                 } else {
+                                    val isVal = monthConsumption != null && monthConsumption > 0.0
                                     Text(
-                                        text = if (monthConsumption != null && monthConsumption > 0.0) {
-                                            String.format(Locale.US, "%.1f", monthConsumption)
-                                        } else "—",
-                                        fontSize = 46.sp,
+                                        text = if (isVal) String.format(Locale.US, "%.1f", monthConsumption) else "—",
+                                        fontSize = 48.sp,
                                         fontWeight = FontWeight.Black,
-                                        color = Color.White
+                                        color = Color.White,
+                                        style = TextStyle(shadow = numberGlow)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
@@ -464,12 +480,13 @@ fun HomeScreen(
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = SoftBlue,
+                                        style = TextStyle(shadow = unitGlow),
                                         modifier = Modifier.padding(bottom = 8.dp)
                                     )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             // Subtitle with distance and energy info
                             if (lastTwoConsumption.hasEnoughData) {
@@ -802,21 +819,64 @@ fun HomeScreen(
                             color = BatteryGreen
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Button 3: "Бортовой журнал • Добавить расход" (Sleek dark glass with soft blue border)
+                    OutlinedButton(
+                        onClick = { showAddExpenseDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
+                            .border(
+                                width = 1.2.dp,
+                                brush = Brush.linearGradient(
+                                    listOf(
+                                        SoftBlue.copy(alpha = 0.7f),
+                                        Color.White.copy(alpha = 0.3f),
+                                        ElectricCyan.copy(alpha = 0.4f)
+                                    )
+                                ),
+                                shape = RoundedCornerShape(18.dp)
+                            )
+                            .testTag("add_expense_button"),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = SoftBlue
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ReceiptLong,
+                            contentDescription = null,
+                            tint = SoftBlue,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Бортовой журнал • Добавить расход",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SoftBlue
+                        )
+                    }
                 }
             }
 
-            // 6. Recent Sessions Header (Only 3-5 sessions, with "Вся история →" button)
+            // 6. Recent Session Header (Compact: strictly only 1 latest charge)
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp),
+                        .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = strings.recentCharges,
-                        fontSize = 17.sp,
+                        text = "Последняя зарядка",
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
@@ -824,20 +884,20 @@ fun HomeScreen(
                     if (onNavigateToHistory != null) {
                         TextButton(
                             onClick = onNavigateToHistory,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 text = "Вся история",
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = SoftBlue
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
                                 tint = SoftBlue,
-                                modifier = Modifier.size(15.dp)
+                                modifier = Modifier.size(13.dp)
                             )
                         }
                     }
@@ -849,25 +909,26 @@ fun HomeScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 24.dp),
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = strings.noRecentCharges,
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 18.sp,
+                            lineHeight = 16.sp,
                             textAlign = TextAlign.Center
                         )
                     }
                 }
             } else {
-                items(recentSessions.take(4)) { session ->
-                    Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 5.dp)) {
+                item {
+                    val latest = recentSessions.first()
+                    Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
                         RecentSessionCard(
-                            session = session,
+                            session = latest,
                             currency = currency,
-                            onClick = { editingSession = session }
+                            onClick = { editingSession = latest }
                         )
                     }
                 }
@@ -1156,6 +1217,20 @@ fun HomeScreen(
             onSellCar = { carToSell ->
                 onDeleteCar?.invoke(carToSell)
                 showCarPassportDialog = false
+            }
+        )
+    }
+
+    // Add Expense Dialog
+    if (showAddExpenseDialog) {
+        AddEditExpenseDialog(
+            defaultOdometer = activeCar?.initialOdometer,
+            topCategories = topExpenseCategories,
+            currency = currency,
+            onDismiss = { showAddExpenseDialog = false },
+            onSave = { cat, amt, odo, comm ->
+                onAddExpense?.invoke(cat, amt, odo, comm)
+                showAddExpenseDialog = false
             }
         )
     }

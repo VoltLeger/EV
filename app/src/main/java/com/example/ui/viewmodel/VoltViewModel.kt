@@ -9,6 +9,7 @@ import com.example.data.local.seedDefaultData
 import com.example.data.model.AppSettings
 import com.example.data.model.Award
 import com.example.data.model.Car
+import com.example.data.model.CarExpense
 import com.example.data.model.ChargingSession
 import com.example.data.model.Operator
 import com.example.data.model.Tag
@@ -100,6 +101,31 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
             started = SharingStarted.Eagerly,
             initialValue = emptyList()
         )
+
+    val allExpenses: StateFlow<List<CarExpense>> = repository.allExpenses.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = emptyList()
+    )
+
+    val carExpenses: StateFlow<List<CarExpense>> = combine(allExpenses, activeCar) { expenses, car ->
+        if (car == null) expenses else expenses.filter { it.carId == car.id }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = emptyList()
+    )
+
+    val topExpenseCategories: StateFlow<List<String>> = carExpenses.map { list ->
+        val counts = list.groupingBy { it.category }.eachCount()
+        val sortedFromUser = counts.entries.sortedByDescending { it.value }.map { it.key }
+        val defaults = listOf("Мойка", "ТО", "Страховка", "Шиномонтаж", "Парковка", "Омывайка и химия", "Ремонт", "Тюнинг", "Штрафы", "Другое")
+        (sortedFromUser + defaults).distinct().take(5)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = listOf("Мойка", "ТО", "Страховка", "Шиномонтаж", "Парковка")
+    )
 
     // Current month consumption:
     val monthAvgConsumption: StateFlow<Double?> = combine(allSessions, activeCar) { sessions, car ->
@@ -556,6 +582,41 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteSession(session: ChargingSession) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteSession(session)
+        }
+    }
+
+    fun addExpense(
+        category: String,
+        amount: Double,
+        odometer: Double? = null,
+        comment: String? = null,
+        currency: String = settings.value.currency,
+        timestamp: Long = System.currentTimeMillis()
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val car = activeCar.value ?: allCars.value.firstOrNull() ?: return@launch
+            val exp = CarExpense(
+                carId = car.id,
+                category = category.trim(),
+                amount = amount,
+                currency = currency,
+                timestamp = timestamp,
+                odometer = odometer,
+                comment = comment?.trim()?.ifBlank { null }
+            )
+            repository.insertExpense(exp)
+        }
+    }
+
+    fun updateExpense(expense: CarExpense) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.updateExpense(expense)
+        }
+    }
+
+    fun deleteExpense(expense: CarExpense) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.deleteExpense(expense)
         }
     }
 

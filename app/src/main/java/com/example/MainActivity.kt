@@ -147,6 +147,8 @@ class MainActivity : FragmentActivity() {
             val operators by viewModel.allOperators.collectAsState()
             val tags by viewModel.allTags.collectAsState()
             val userProfile by viewModel.userProfile.collectAsState()
+            val carExpenses by viewModel.carExpenses.collectAsState()
+            val topExpenseCategories by viewModel.topExpenseCategories.collectAsState()
 
             VoltLedgerTheme(
                 themeSetting = settings.theme,
@@ -468,16 +470,30 @@ class MainActivity : FragmentActivity() {
                                                 onUpdateCar = { viewModel.updateCar(it) },
                                                 onDeleteCar = { viewModel.deleteCar(it) },
                                                 onUpdateSession = { viewModel.updateSession(it) },
-                                                onDeleteSession = { viewModel.deleteSession(it) }
+                                                onDeleteSession = { viewModel.deleteSession(it) },
+                                                onAddExpense = { category, amount, odometer, comment ->
+                                                    viewModel.addExpense(category, amount, odometer, comment)
+                                                },
+                                                topExpenseCategories = topExpenseCategories
                                             )
                                             1 -> HistoryScreen(
                                                 sessions = allSessions.filter { it.carId == (activeCar?.id ?: 0L) },
                                                 onUpdateSession = { viewModel.updateSession(it) },
-                                                onDeleteSession = { viewModel.deleteSession(it) }
+                                                onDeleteSession = { viewModel.deleteSession(it) },
+                                                expenses = carExpenses.filter { it.carId == (activeCar?.id ?: 0L) },
+                                                onAddExpense = { category, amount, odometer, comment ->
+                                                    viewModel.addExpense(category, amount, odometer, comment)
+                                                },
+                                                onUpdateExpense = { viewModel.updateExpense(it) },
+                                                onDeleteExpense = { viewModel.deleteExpense(it) },
+                                                topCategories = topExpenseCategories,
+                                                defaultOdometer = activeCar?.initialOdometer,
+                                                activeCar = activeCar
                                             )
                                             2 -> StatisticsScreen(
                                                 activeCar = activeCar,
-                                                allSessions = allSessions
+                                                allSessions = allSessions,
+                                                carExpenses = carExpenses.filter { it.carId == (activeCar?.id ?: 0L) }
                                             )
                                             3 -> SettingsScreen(
                                                 settings = settings,

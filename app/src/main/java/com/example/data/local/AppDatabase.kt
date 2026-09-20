@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.data.model.Car
+import com.example.data.model.CarExpense
 import com.example.data.model.ChargingSession
 import com.example.data.model.Operator
 import com.example.data.model.Tag
@@ -12,8 +13,8 @@ import com.example.data.model.UserProfile
 import com.example.util.DefaultTariffsLoader
 
 @Database(
-    entities = [Car::class, ChargingSession::class, Operator::class, Tag::class, UserProfile::class],
-    version = 7,
+    entities = [Car::class, ChargingSession::class, Operator::class, Tag::class, UserProfile::class, CarExpense::class],
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -22,6 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun operatorDao(): OperatorDao
     abstract fun tagDao(): TagDao
     abstract fun userProfileDao(): UserProfileDao
+    abstract fun carExpenseDao(): CarExpenseDao
 
     companion object {
         @Volatile

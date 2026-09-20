@@ -4,6 +4,7 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.SettingsManager
 import com.example.data.model.AppSettings
 import com.example.data.model.Car
+import com.example.data.model.CarExpense
 import com.example.data.model.ChargingSession
 import com.example.data.model.Operator
 import com.example.data.model.Tag
@@ -21,6 +22,19 @@ class VoltRepository(
     val appSettings: Flow<AppSettings> = settingsManager.settingsFlow
     val activeSession: Flow<ChargingSession?> = db.chargingSessionDao().getActiveSession()
     val userProfile: Flow<UserProfile?> = db.userProfileDao().getUserProfile()
+    val allExpenses: Flow<List<CarExpense>> = db.carExpenseDao().getAllExpenses()
+
+    fun getExpensesForCar(carId: Long): Flow<List<CarExpense>> =
+        db.carExpenseDao().getExpensesForCar(carId)
+
+    suspend fun insertExpense(expense: CarExpense): Long =
+        db.carExpenseDao().insertExpense(expense)
+
+    suspend fun updateExpense(expense: CarExpense) =
+        db.carExpenseDao().updateExpense(expense)
+
+    suspend fun deleteExpense(expense: CarExpense) =
+        db.carExpenseDao().deleteExpense(expense)
 
     suspend fun getOrCreateUserProfile(): UserProfile {
         val existing = db.userProfileDao().getUserProfileDirect()
