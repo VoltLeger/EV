@@ -56,7 +56,7 @@ fun OnboardingScreen(
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
-    var carName by remember { mutableStateOf("") }
+    var carName by remember { mutableStateOf("Мой Электромобиль") }
     var capacityText by remember { mutableStateOf("70.0") }
     var passportText by remember { mutableStateOf("16.0") }
     var odometerText by remember { mutableStateOf("15000") }

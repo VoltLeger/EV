@@ -60,16 +60,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.data.model.Car
 import com.example.data.model.ChargingSession
 import com.example.data.model.UserProfile
 import com.example.ui.components.ActiveChargingCard
+import com.example.ui.components.CarPassportDialog
 import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.components.StationTypeBadge
 import com.example.ui.components.TagBadge
@@ -103,11 +107,13 @@ fun HomeScreen(
     onDeleteSession: ((ChargingSession) -> Unit)? = null,
     userProfile: UserProfile? = null,
     onOpenProfile: (() -> Unit)? = null,
+    onUpdateCar: ((Car) -> Unit)? = null,
+    onDeleteCar: ((Car) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
     val currency = LocalCurrency.current
-    var carMenuExpanded by remember { mutableStateOf(false) }
+    var showCarPassportDialog by remember { mutableStateOf(false) }
 
     // Session Edit & Delete state
     var editingSession by remember { mutableStateOf<ChargingSession?>(null) }
@@ -178,7 +184,7 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Vehicle selector
+                        // Vehicle selector / Car Passport
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -195,41 +201,51 @@ fun HomeScreen(
                                     ),
                                     RoundedCornerShape(16.dp)
                                 )
-                                .clickable { if (allCars.size > 1) carMenuExpanded = true }
+                                .clickable { showCarPassportDialog = true }
                                 .padding(horizontal = 12.dp, vertical = 8.dp)
-                                .testTag("car_selector_dropdown_button")
+                                .testTag("car_passport_button")
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(10.dp))
                                     .background(SoftBlue.copy(alpha = 0.25f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.DirectionsCar,
-                                    contentDescription = null,
-                                    tint = SoftBlue,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                if (!activeCar?.photoUri.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = activeCar.photoUri,
+                                        contentDescription = "Фото ${activeCar.name}",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(RoundedCornerShape(10.dp))
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.DirectionsCar,
+                                        contentDescription = "Паспорт авто",
+                                        tint = SoftBlue,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                             Spacer(modifier = Modifier.width(10.dp))
-                            Column {
+                            Column(modifier = Modifier.weight(1f, fill = false)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = activeCar?.name ?: strings.currentVehicle,
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onBackground
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
-                                    if (allCars.size > 1) {
-                                        Icon(
-                                            imageVector = Icons.Default.KeyboardArrowDown,
-                                            contentDescription = "Switch Car",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "📋",
+                                        fontSize = 12.sp
+                                    )
                                 }
                                 Text(
                                     text = "${activeCar?.initialOdometer?.toInt() ?: 0} км",
@@ -295,25 +311,11 @@ fun HomeScreen(
                                 VoltAvatar(
                                     avatarEffect = userProfile?.avatarEffect ?: "neon_cyan",
                                     avatarIcon = userProfile?.avatarIcon ?: "bolt",
+                                    imageUri = activeCar?.photoUri,
                                     size = 42.dp,
                                     onClick = onOpenProfile
                                 )
                             }
-                        }
-                    }
-
-                    DropdownMenu(
-                        expanded = carMenuExpanded,
-                        onDismissRequest = { carMenuExpanded = false }
-                    ) {
-                        allCars.forEach { car ->
-                            DropdownMenuItem(
-                                text = { Text(car.name + if (car.id == activeCar?.id) " (✓)" else "") },
-                                onClick = {
-                                    onSelectCar(car.id)
-                                    carMenuExpanded = false
-                                }
-                            )
                         }
                     }
                 }
@@ -675,94 +677,6 @@ fun HomeScreen(
                                 onCompleteClick = { onCompleteChargeClick(activeSession) },
                                 onCancelClick = { onCancelActiveCharge(activeSession) }
                             )
-                        }
-                    }
-                }
-            }
-
-            // 4b. Hall of Fame / Pilot Awards Card (Tap to open Hall of Fame)
-            if (onOpenProfile != null) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 4.dp)
-                    ) {
-                        VoltCard(
-                            onClick = onOpenProfile,
-                            modifier = Modifier.fillMaxWidth(),
-                            borderColor = ElectricCyan.copy(alpha = 0.6f)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(42.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                Brush.linearGradient(
-                                                    listOf(
-                                                        ElectricCyan.copy(alpha = 0.25f),
-                                                        SoftBlue.copy(alpha = 0.15f)
-                                                    )
-                                                )
-                                            )
-                                            .border(1.dp, ElectricCyan.copy(alpha = 0.5f), CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.EmojiEvents,
-                                            contentDescription = null,
-                                            tint = ElectricCyan,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            Text(
-                                                text = "Зал славы и Награды",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 15.sp,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .background(ElectricCyan.copy(alpha = 0.2f))
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                                            ) {
-                                                Text(
-                                                    text = "XP",
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.ExtraBold,
-                                                    color = ElectricCyan
-                                                )
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = "${userProfile?.displayName ?: "Пилот EV"} • Достижения и рекорды",
-                                            fontSize = 12.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    tint = ElectricCyan,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
                         }
                     }
                 }
@@ -1203,6 +1117,24 @@ fun HomeScreen(
             }
         )
     }
+
+    // Car Passport Dialog
+    if (showCarPassportDialog && activeCar != null) {
+        CarPassportDialog(
+            car = activeCar,
+            sessions = recentSessions,
+            currency = currency,
+            onDismiss = { showCarPassportDialog = false },
+            onSaveCar = { updatedCar ->
+                onUpdateCar?.invoke(updatedCar)
+                showCarPassportDialog = false
+            },
+            onSellCar = { carToSell ->
+                onDeleteCar?.invoke(carToSell)
+                showCarPassportDialog = false
+            }
+        )
+    }
 }
 
 @Composable
@@ -1230,12 +1162,15 @@ fun RecentSessionCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(7.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(badgeColor.copy(alpha = 0.2f))
-                            .border(1.dp, badgeColor, RoundedCornerShape(7.dp))
+                            .border(1.dp, badgeColor, RoundedCornerShape(8.dp))
                             .padding(horizontal = 7.dp, vertical = 2.dp)
                     ) {
                         Text(
@@ -1250,7 +1185,9 @@ fun RecentSessionCard(
                         text = session.operatorName.ifEmpty { "Станция зарядки" },
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1283,13 +1220,17 @@ fun RecentSessionCard(
                     text = "${session.startSoc.toInt()}% → ${session.endSoc.toInt()}% " +
                             if (session.kwhDeliveredByStation > 0) "(+${String.format(Locale.getDefault(), "%.1f", session.kwhDeliveredByStation)} кВт·ч)" else "",
                     fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)
                 )
 
                 Text(
                     text = formatDate(session.startTime),
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End
                 )
             }
 

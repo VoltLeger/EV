@@ -365,6 +365,48 @@ object EVCalculator {
     }
 
     /**
+     * Calculates average consumption across the last three charging sessions (two distance intervals).
+     */
+    fun calculateLastThreeChargesConsumption(completedSessions: List<ChargingSession>): LastThreeChargesConsumption {
+        val sorted = completedSessions.filter { it.status == "completed" }
+            .sortedByDescending { it.endTime ?: it.startTime }
+
+        if (sorted.size < 2) {
+            val single = sorted.firstOrNull()
+            return LastThreeChargesConsumption(
+                avgConsumption = null,
+                distanceKm = 0.0,
+                totalKwh = single?.kwhDeliveredByStation ?: 0.0,
+                chargesCount = sorted.size,
+                hasEnoughData = false
+            )
+        }
+
+        val takeCount = if (sorted.size >= 3) 3 else 2
+        val recentList = sorted.take(takeCount)
+
+        val latest = recentList.first()
+        val oldest = recentList.last()
+        val distance = (latest.startOdometer - oldest.startOdometer).coerceAtLeast(0.0)
+
+        // The energy consumed between oldest and latest is sum of charges excluding oldest (or all charges in interval)
+        // More precisely: energy added during the interval is sum of charges from index 0 until takeCount - 1
+        val energyDeliveredInInterval = recentList.subList(0, takeCount - 1).sumOf { it.kwhDeliveredByStation }
+
+        val consumption = if (distance >= 5.0 && energyDeliveredInInterval > 0.0) {
+            (energyDeliveredInInterval / distance) * 100.0
+        } else null
+
+        return LastThreeChargesConsumption(
+            avgConsumption = consumption,
+            distanceKm = distance,
+            totalKwh = energyDeliveredInInterval,
+            chargesCount = takeCount,
+            hasEnoughData = consumption != null
+        )
+    }
+
+    /**
      * Calculates average consumption between the last two charging sessions.
      */
     fun calculateLastTwoChargesConsumption(completedSessions: List<ChargingSession>): LastTwoChargesConsumption {
@@ -420,6 +462,14 @@ data class LastTwoChargesConsumption(
     val distanceKm: Double,
     val totalKwh: Double,
     val lastChargeKwh: Double?,
+    val hasEnoughData: Boolean
+)
+
+data class LastThreeChargesConsumption(
+    val avgConsumption: Double?,
+    val distanceKm: Double,
+    val totalKwh: Double,
+    val chargesCount: Int,
     val hasEnoughData: Boolean
 )
 

@@ -58,6 +58,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.ChargingSession
@@ -582,7 +583,10 @@ fun HistorySessionItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false).padding(end = 12.dp)
+                ) {
                     // Modern clean color badge
                     Box(
                         modifier = Modifier
@@ -599,17 +603,21 @@ fun HistorySessionItemCard(
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
                         Text(
                             text = session.operatorName.ifEmpty { "Зарядная станция" },
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = formatDate(session.startTime),
                             fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -638,7 +646,10 @@ fun HistorySessionItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // SoC & kWh
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.ElectricBolt,
                         contentDescription = null,
@@ -650,7 +661,9 @@ fun HistorySessionItemCard(
                         text = "${session.startSoc.toInt()}% → ${session.endSoc.toInt()}% (+${String.format(Locale.US, "%.1f", session.kwhDeliveredByStation)} кВт·ч)",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -676,14 +689,16 @@ fun HistorySessionItemCard(
                 Spacer(modifier = Modifier.height(6.dp))
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .background(SoftBlue.copy(alpha = 0.15f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = session.operatorComment,
                         fontSize = 11.sp,
-                        color = SoftBlue
+                        color = SoftBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

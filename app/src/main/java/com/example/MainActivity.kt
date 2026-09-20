@@ -59,6 +59,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -279,7 +280,7 @@ class MainActivity : FragmentActivity() {
                         composable("splash") {
                             SplashScreen(
                                 onNavigateNext = {
-                                    if (settings.onboardingCompleted && allCars.isNotEmpty()) {
+                                    if (allCars.isNotEmpty() || settings.onboardingCompleted) {
                                         navController.navigate("main") {
                                             popUpTo("splash") { inclusive = true }
                                         }
@@ -312,10 +313,11 @@ class MainActivity : FragmentActivity() {
                             Scaffold(
                                 bottomBar = {
                                     NavigationBar(
-                                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
                                         tonalElevation = 0.dp,
                                         modifier = Modifier
                                             .fillMaxWidth()
+                                            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                                             .border(
                                                 width = 1.dp,
                                                 brush = Brush.verticalGradient(
@@ -324,9 +326,8 @@ class MainActivity : FragmentActivity() {
                                                         Color.White.copy(alpha = 0.05f)
                                                     )
                                                 ),
-                                                shape = androidx.compose.ui.graphics.RectangleShape
+                                                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
                                             )
-                                            .windowInsetsPadding(WindowInsets.navigationBars)
                                             .testTag("bottom_nav_bar")
                                     ) {
                                         // Tab 0: Home
@@ -464,6 +465,8 @@ class MainActivity : FragmentActivity() {
                                                 },
                                                 userProfile = userProfile,
                                                 onOpenProfile = { showProfileAwardsDialog = true },
+                                                onUpdateCar = { viewModel.updateCar(it) },
+                                                onDeleteCar = { viewModel.deleteCar(it) },
                                                 onUpdateSession = { viewModel.updateSession(it) },
                                                 onDeleteSession = { viewModel.deleteSession(it) }
                                             )
@@ -499,8 +502,11 @@ class MainActivity : FragmentActivity() {
                                                 onUpdateUnfinishedHours = { viewModel.updateUnfinishedHours(it) },
                                                 onUpdateNotifyWeekly = { viewModel.updateNotifyWeekly(it) },
                                                 onUpdateNotifyMonthly = { viewModel.updateNotifyMonthly(it) },
+                                                onUpdateNotifyAchievements = { viewModel.updateNotifyAchievements(it) },
                                                 onSendTestNotification = { viewModel.sendTestNotification() },
                                                 onTestDcNotification = { viewModel.testDcNotification() },
+                                                onTestAchievementUnlocked = { viewModel.testAchievementUnlockedNotification() },
+                                                onTestAchievementProgress = { viewModel.testAchievementProgressNotification() },
                                                 onUpdatePinSettings = { enabled, pin -> viewModel.updatePinSettings(enabled, pin) },
                                                 onUpdateBiometricSettings = { enabled -> viewModel.updateBiometricSettings(enabled) },
                                                 onExportCsv = { viewModel.exportCsvData() },
@@ -552,7 +558,7 @@ class MainActivity : FragmentActivity() {
                                         sessionToFinish = null
                                         navController.popBackStack()
                                     },
-                                    onComplete = { endSoc, kwhDelivered, kwhReceived, penalty, fixed, endTime ->
+                                    onComplete = { endSoc, kwhDelivered, kwhReceived, penalty, fixed, endTime, comment ->
                                         navController.popBackStack()
                                         sessionToFinish = null
                                         viewModel.finishCharging(
@@ -562,7 +568,8 @@ class MainActivity : FragmentActivity() {
                                             kwhReceived = kwhReceived,
                                             penaltyCost = penalty,
                                             fixedAmount = fixed,
-                                            endTime = endTime
+                                            endTime = endTime,
+                                            comment = comment
                                         )
                                     }
                                 )

@@ -102,6 +102,14 @@ object CsvJsonBackupHelper {
             obj.put("currentSoc", c.currentSoc)
             obj.put("passportConsumption", c.passportConsumption)
             obj.put("createdAt", c.createdAt)
+            if (c.licensePlate != null) obj.put("licensePlate", c.licensePlate)
+            if (c.purchaseDate != null) obj.put("purchaseDate", c.purchaseDate)
+            if (c.purchasePrice != null) obj.put("purchasePrice", c.purchasePrice)
+            if (c.manufactureYear != null) obj.put("manufactureYear", c.manufactureYear)
+            if (c.vin != null) obj.put("vin", c.vin)
+            if (c.registrationNumber != null) obj.put("registrationNumber", c.registrationNumber)
+            if (c.insuranceNumber != null) obj.put("insuranceNumber", c.insuranceNumber)
+            if (c.notes != null) obj.put("notes", c.notes)
             carsArray.put(obj)
         }
         root.put("cars", carsArray)
@@ -152,7 +160,16 @@ object CsvJsonBackupHelper {
                         initialOdometer = obj.optDouble("initialOdometer", 0.0),
                         currentSoc = obj.optDouble("currentSoc", 50.0),
                         passportConsumption = obj.optDouble("passportConsumption", 16.0),
-                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                        isActive = obj.optBoolean("isActive", true),
+                        licensePlate = if (obj.has("licensePlate")) obj.optString("licensePlate") else null,
+                        purchaseDate = if (obj.has("purchaseDate")) obj.optString("purchaseDate") else null,
+                        purchasePrice = if (obj.has("purchasePrice")) obj.optDouble("purchasePrice") else null,
+                        manufactureYear = if (obj.has("manufactureYear")) obj.optInt("manufactureYear") else null,
+                        vin = if (obj.has("vin")) obj.optString("vin") else null,
+                        registrationNumber = if (obj.has("registrationNumber")) obj.optString("registrationNumber") else null,
+                        insuranceNumber = if (obj.has("insuranceNumber")) obj.optString("insuranceNumber") else null,
+                        notes = if (obj.has("notes")) obj.optString("notes") else null
                     )
                 )
             }

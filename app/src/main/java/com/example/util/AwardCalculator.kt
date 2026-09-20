@@ -51,6 +51,20 @@ object AwardCalculator {
         // 7. Completed sessions count
         val sessionsCount = completed.size.toDouble()
 
+        // 8. BatteryFly sessions count ("Бабочка")
+        val batteryFlyCount = completed.count {
+            it.operatorName.contains("BatteryFly", ignoreCase = true) ||
+            it.operatorName.contains("Бабочк", ignoreCase = true) ||
+            it.operatorComment?.contains("BatteryFly", ignoreCase = true) == true
+        }.toDouble()
+
+        // 9. Malanka sessions count
+        val malankaCount = completed.count {
+            it.operatorName.contains("Malanka", ignoreCase = true) ||
+            it.operatorName.contains("Маланк", ignoreCase = true) ||
+            it.operatorComment?.contains("Malanka", ignoreCase = true) == true
+        }.toDouble()
+
         return listOf(
             Award(
                 id = "ENERGY_500",
@@ -163,6 +177,34 @@ object AwardCalculator {
                 avatarEffectName = "Алмазный Пульсар",
                 xpReward = 400,
                 iconKey = "trophy"
+            ),
+            Award(
+                id = "BATTERY_FLY_3",
+                title = "Повелитель Бабочки",
+                description = "Совершить 3 зарядки в сети BatteryFly",
+                category = AwardCategory.NETWORK,
+                currentProgress = batteryFlyCount,
+                maxProgress = 3.0,
+                unit = "зарядок",
+                isUnlocked = batteryFlyCount >= 3.0,
+                avatarEffectReward = "cyan_pulse",
+                avatarEffectName = "Циановый Пульс",
+                xpReward = 300,
+                iconKey = "station"
+            ),
+            Award(
+                id = "MALANKA_3",
+                title = "Маланка Драйв",
+                description = "Совершить 3 зарядки в сети Malanka",
+                category = AwardCategory.NETWORK,
+                currentProgress = malankaCount,
+                maxProgress = 3.0,
+                unit = "зарядок",
+                isUnlocked = malankaCount >= 3.0,
+                avatarEffectReward = "green_spark",
+                avatarEffectName = "Зеленая Искра",
+                xpReward = 300,
+                iconKey = "bolt"
             )
         )
     }

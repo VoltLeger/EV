@@ -63,6 +63,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Car
@@ -313,16 +314,19 @@ fun StartChargingScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f).padding(end = 8.dp)
+                            ) {
                                 // Simplified Color Tag
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
+                                        .clip(RoundedCornerShape(8.dp))
                                         .background(tagColor.copy(alpha = 0.25f))
                                         .border(
                                             width = if (nightTariffApplied) 1.5.dp else 1.dp,
                                             color = if (nightTariffApplied) Color.White else tagColor,
-                                            shape = RoundedCornerShape(6.dp)
+                                            shape = RoundedCornerShape(8.dp)
                                         )
                                         .padding(horizontal = 7.dp, vertical = 3.dp)
                                 ) {
@@ -334,19 +338,23 @@ fun StartChargingScreen(
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Column {
+                                Column(modifier = Modifier.weight(1f, fill = false)) {
                                     Text(
                                         text = selectedOperator?.name ?: "Выберите оператора",
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 15.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     if (nightTariffApplied) {
                                         Text(
                                             text = "🌙 Ночной тариф активен",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = ElectricCyan
+                                            color = ElectricCyan,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -378,18 +386,33 @@ fun StartChargingScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                        ) {
                                             Box(
                                                 modifier = Modifier
                                                     .size(10.dp)
-                                                    .clip(RoundedCornerShape(3.dp))
+                                                    .clip(RoundedCornerShape(5.dp))
                                                     .background(opColor)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Column {
-                                                Text(op.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                            Column(modifier = Modifier.weight(1f, fill = false)) {
+                                                Text(
+                                                    text = op.name,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    fontSize = 14.sp,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
                                                 if (nightPrice != null) {
-                                                    Text("Стандартный тариф (день)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    Text(
+                                                        text = "Стандартный тариф (день)",
+                                                        fontSize = 11.sp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
                                                 }
                                             }
                                         }

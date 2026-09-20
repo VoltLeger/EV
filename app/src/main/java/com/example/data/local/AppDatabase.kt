@@ -13,7 +13,7 @@ import com.example.util.DefaultTariffsLoader
 
 @Database(
     entities = [Car::class, ChargingSession::class, Operator::class, Tag::class, UserProfile::class],
-    version = 5,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -46,4 +46,17 @@ abstract class AppDatabase : RoomDatabase() {
 
 suspend fun seedDefaultData(context: Context, db: AppDatabase) {
     DefaultTariffsLoader.syncTariffsAndCleanDuplicates(context, db)
+    if (db.carDao().countCars() == 0) {
+        db.carDao().insertCar(
+            Car(
+                name = "Мой Электромобиль",
+                declaredCapacityKwh = 70.0,
+                usableCapacityKwh = 66.5,
+                initialOdometer = 15000.0,
+                currentSoc = 80.0,
+                passportConsumption = 16.0,
+                isActive = true
+            )
+        )
+    }
 }

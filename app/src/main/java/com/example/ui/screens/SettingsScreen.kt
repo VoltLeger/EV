@@ -26,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.FileDownload
@@ -59,11 +60,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.data.model.AppSettings
 import com.example.data.model.Car
 import com.example.data.model.Operator
@@ -105,8 +109,11 @@ fun SettingsScreen(
     onUpdateUnfinishedHours: (Int) -> Unit,
     onUpdateNotifyWeekly: (Boolean) -> Unit,
     onUpdateNotifyMonthly: (Boolean) -> Unit,
+    onUpdateNotifyAchievements: (Boolean) -> Unit = {},
     onSendTestNotification: () -> Unit,
     onTestDcNotification: () -> Unit = {},
+    onTestAchievementUnlocked: () -> Unit = {},
+    onTestAchievementProgress: () -> Unit = {},
     onUpdatePinSettings: (Boolean, String) -> Unit = { _, _ -> },
     onUpdateBiometricSettings: (Boolean) -> Unit = {},
     onExportCsv: () -> String,
@@ -134,64 +141,6 @@ fun SettingsScreen(
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // Section 0: Pilot Profile & Awards Banner
-            if (onOpenProfile != null) {
-                item {
-                    VoltCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpenProfile() },
-                        borderColor = ElectricCyan.copy(alpha = 0.5f)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                VoltAvatar(
-                                    avatarEffect = userProfile?.avatarEffect ?: "neon_cyan",
-                                    avatarIcon = userProfile?.avatarIcon ?: "bolt",
-                                    size = 48.dp,
-                                    showGlow = true
-                                )
-                                Spacer(modifier = Modifier.width(14.dp))
-                                Column {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Text(
-                                            text = userProfile?.displayName ?: "Пилот EV",
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = userProfile?.callsign ?: "[VOLT-0001]",
-                                            fontSize = 11.sp,
-                                            color = ElectricCyan,
-                                            fontWeight = FontWeight.ExtraBold
-                                        )
-                                    }
-                                    Text(
-                                        text = "Зал Славы и Награды • Нажмите для просмотра",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-
-                            Icon(
-                                imageVector = Icons.Default.EmojiEvents,
-                                contentDescription = null,
-                                tint = BatteryOrange,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                }
-            }
             // Section 1: Vehicles
             item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
@@ -218,37 +167,72 @@ fun SettingsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(14.dp))
                                 .background(if (isActive) SoftBlue.copy(alpha = 0.15f) else Color.Transparent)
                                 .clickable { onSelectCar(car.id) }
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = car.name,
-                                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                                        fontSize = 15.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    if (isActive) {
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "✓ Активен",
-                                            fontSize = 12.sp,
-                                            color = SoftBlue,
-                                            fontWeight = FontWeight.SemiBold
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(SoftBlue.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (!car.photoUri.isNullOrBlank()) {
+                                        AsyncImage(
+                                            model = car.photoUri,
+                                            contentDescription = "Фото ${car.name}",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(10.dp))
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.DirectionsCar,
+                                            contentDescription = null,
+                                            tint = SoftBlue,
+                                            modifier = Modifier.size(20.dp)
                                         )
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Ёмкость: ${car.declaredCapacityKwh.toInt()} кВт·ч (полезная: ${String.format(Locale.getDefault(), "%.1f", car.usableCapacityKwh)})",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f, fill = false)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = car.name,
+                                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                                            fontSize = 15.sp,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (isActive) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "✓",
+                                                fontSize = 12.sp,
+                                                color = SoftBlue,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "${car.declaredCapacityKwh.toInt()} кВт·ч • ${car.initialOdometer.toInt()} км",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
 
                             if (allCars.size > 1 && !isActive) {
@@ -323,17 +307,31 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                                     val nameDisplay = if (op.subType.isNotBlank()) "${op.name} (${op.subType})" else op.name
-                                    Text(text = nameDisplay, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                    Text(
+                                        text = nameDisplay,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                     val nightStr = if (op.nightPriceAc != null) " | Ночь: ${String.format(Locale.US, "%.2f", op.nightPriceAc)}" else ""
                                     Text(
                                         text = "Тариф: ${String.format(Locale.US, "%.2f", op.priceAc)}$nightStr $currency",
                                         fontSize = 12.sp,
-                                        color = ElectricCyan
+                                        color = ElectricCyan,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     if (op.comment.isNotBlank()) {
-                                        Text(text = op.comment, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(
+                                            text = op.comment,
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
                                     }
                                 }
 
@@ -344,13 +342,11 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.Edit, contentDescription = "Edit", tint = SoftBlue, modifier = Modifier.size(18.dp))
                                     }
-                                    if (!op.isBuiltin) {
-                                        IconButton(
-                                            onClick = { operatorToDelete = op },
-                                            modifier = Modifier.size(32.dp)
-                                        ) {
-                                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                                        }
+                                    IconButton(
+                                        onClick = { operatorToDelete = op },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                                     }
                                 }
                             }
@@ -409,19 +405,29 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = op.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text(
+                                        text = op.name,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                     val nightStr = if (op.nightPriceDc != null) " | Ночь: ${String.format(Locale.US, "%.2f", op.nightPriceDc)}" else ""
                                     Text(
                                         text = "Тариф: ${String.format(Locale.US, "%.2f", op.priceDc)}$nightStr $currency",
                                         fontSize = 12.sp,
-                                        color = ElectricCyan
+                                        color = ElectricCyan,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     if (op.penaltyIdlePerMin > 0) {
                                         Text(
                                             text = "Простой: ${String.format(Locale.US, "%.2f", op.penaltyIdlePerMin)}/мин после ${op.penaltyFreeMinutes} мин",
                                             fontSize = 11.sp,
-                                            color = BatteryGreen
+                                            color = BatteryGreen,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -433,13 +439,11 @@ fun SettingsScreen(
                                     ) {
                                         Icon(Icons.Default.Edit, contentDescription = "Edit", tint = SoftBlue, modifier = Modifier.size(18.dp))
                                     }
-                                    if (!op.isBuiltin) {
-                                        IconButton(
-                                            onClick = { operatorToDelete = op },
-                                            modifier = Modifier.size(32.dp)
-                                        ) {
-                                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                                        }
+                                    IconButton(
+                                        onClick = { operatorToDelete = op },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                                     }
                                 }
                             }
@@ -503,7 +507,7 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Theme selector: Dark, WRNC, Mint, AMOLED, Light, System (wrapped in FlowRow to prevent overflow)
+                    // Theme selector: Dark, Light, Mint, System (wrapped in FlowRow to prevent overflow)
                     Text(text = strings.theme, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(6.dp))
                     FlowRow(
@@ -513,14 +517,13 @@ fun SettingsScreen(
                     ) {
                         listOf(
                             "dark" to strings.themeDark,
-                            "wrnc" to strings.themeWrnc,
-                            "mint" to strings.themeMint,
-                            "amoled" to strings.themeAmoled,
                             "light" to strings.themeLight,
+                            "mint" to strings.themeMint,
                             "system" to strings.themeSystem
                         ).forEach { (mode, label) ->
+                            val isSelected = settings.theme == mode || ((settings.theme == "wrnc" || settings.theme == "amoled") && mode == "dark")
                             FilterChip(
-                                selected = settings.theme == mode,
+                                selected = isSelected,
                                 onClick = { onUpdateTheme(mode) },
                                 label = { Text(label, fontSize = 12.sp) },
                                 colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SoftBlue, selectedLabelColor = Color.White),
@@ -604,6 +607,24 @@ fun SettingsScreen(
                         )
                     }
 
+                    // Achievement notifications
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = strings.notifyAchievements, fontSize = 13.sp)
+                            Text(text = strings.notifyAchievementsDesc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = settings.notifyAchievements,
+                            onCheckedChange = { onUpdateNotifyAchievements(it) },
+                            enabled = settings.notificationsEnabled,
+                            colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue, checkedTrackColor = SoftBlue.copy(alpha = 0.4f))
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Row(
@@ -626,6 +647,29 @@ fun SettingsScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(text = "⚡ " + strings.testDcNotification, fontSize = 11.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onTestAchievementUnlocked,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(text = strings.testAchievementUnlocked, fontSize = 11.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = onTestAchievementProgress,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(text = strings.testAchievementProgress, fontSize = 11.sp)
                         }
                     }
                 }
@@ -1012,7 +1056,7 @@ fun SettingsScreen(
             },
             dismissButton = {
                 Row {
-                    if (isEditing && target != null && !target.isBuiltin) {
+                    if (isEditing && target != null) {
                         TextButton(
                             onClick = {
                                 val toDelete = target

@@ -246,11 +246,17 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         kwhReceived: Double?,
         penaltyCost: Double,
         fixedAmount: Double,
-        endTime: Long
+        endTime: Long,
+        comment: String? = null
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             val energyCost = kwhDelivered * session.pricePerKwh
             val totalCost = energyCost + penaltyCost + fixedAmount
+
+            val prevSessions = allSessions.value
+            val currentCars = allCars.value
+            val car = activeCar.value ?: currentCars.find { it.id == session.carId }
+            val prevAwards = AwardCalculator.calculateAwards(prevSessions, currentCars, car)
 
             val updatedSession = session.copy(
                 endSoc = endSoc,
@@ -260,13 +266,13 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                 penaltyCost = penaltyCost,
                 fixedAmount = fixedAmount,
                 totalCost = totalCost,
+                operatorComment = comment ?: session.operatorComment,
                 endTime = endTime,
                 status = "completed"
             )
             repository.updateSession(updatedSession)
 
             // Update car's current SOC and odometer
-            val car = activeCar.value ?: allCars.value.find { it.id == session.carId }
             if (car != null) {
                 val newOdo = maxOf(car.initialOdometer, session.startOdometer)
                 repository.updateCar(
@@ -275,6 +281,47 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                         initialOdometer = newOdo
                     )
                 )
+            }
+
+            // Check achievement progress and unlocks
+            val notifyOn = settings.value.notificationsEnabled && settings.value.notifyAchievements
+            if (notifyOn) {
+                val isEn = settings.value.language == "en"
+                val nextSessions = prevSessions.map { if (it.id == updatedSession.id) updatedSession else it }
+                val newAwards = AwardCalculator.calculateAwards(nextSessions, currentCars, car)
+
+                val newlyUnlocked = newAwards.filter { newAw ->
+                    val oldAw = prevAwards.find { it.id == newAw.id }
+                    newAw.isUnlocked && (oldAw == null || !oldAw.isUnlocked)
+                }
+
+                if (newlyUnlocked.isNotEmpty()) {
+                    for (aw in newlyUnlocked) {
+                        NotificationHelper.showAchievementUnlockedNotification(
+                            context = getApplication(),
+                            title = aw.title,
+                            description = aw.description,
+                            xpReward = aw.xpReward,
+                            isEn = isEn
+                        )
+                    }
+                } else {
+                    // Check if progress increased towards any achievement
+                    val progressAw = newAwards.firstOrNull { newAw ->
+                        val oldProgress = prevAwards.find { it.id == newAw.id }?.currentProgress ?: 0.0
+                        !newAw.isUnlocked && newAw.currentProgress > oldProgress && newAw.currentProgress > 0
+                    }
+                    if (progressAw != null) {
+                        NotificationHelper.showAchievementProgressNotification(
+                            context = getApplication(),
+                            title = progressAw.title,
+                            current = progressAw.currentProgress.toInt(),
+                            total = progressAw.maxProgress.toInt(),
+                            unit = progressAw.unit,
+                            isEn = isEn
+                        )
+                    }
+                }
             }
         }
     }
@@ -415,6 +462,35 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             settingsManager.updateNotifyMonthly(enabled)
         }
+    }
+
+    fun updateNotifyAchievements(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsManager.updateNotifyAchievements(enabled)
+        }
+    }
+
+    fun testAchievementUnlockedNotification() {
+        val isEn = settings.value.language == "en"
+        NotificationHelper.showAchievementUnlockedNotification(
+            context = getApplication(),
+            title = if (isEn) "DC Lightning" else "Молния DC",
+            description = if (isEn) "Completed 3 DC fast charges" else "Провести 3 скоростные зарядки постоянным током",
+            xpReward = 350,
+            isEn = isEn
+        )
+    }
+
+    fun testAchievementProgressNotification() {
+        val isEn = settings.value.language == "en"
+        NotificationHelper.showAchievementProgressNotification(
+            context = getApplication(),
+            title = if (isEn) "BatteryFly Master" else "Повелитель Бабочки",
+            current = 1,
+            total = 3,
+            unit = if (isEn) "charges" else "зарядок на Бабочке",
+            isEn = isEn
+        )
     }
 
     fun sendTestNotification() {

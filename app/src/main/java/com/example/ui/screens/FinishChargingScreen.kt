@@ -14,13 +14,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -75,7 +78,8 @@ fun FinishChargingScreen(
         kwhReceived: Double?,
         penaltyCost: Double,
         fixedAmount: Double,
-        endTime: Long
+        endTime: Long,
+        comment: String?
     ) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -85,13 +89,45 @@ fun FinishChargingScreen(
     val now = remember { System.currentTimeMillis() }
     var isSubmitting by remember { mutableStateOf(false) }
 
+    val isHomeCharging = remember(session.operatorName, session.stationType, session.operatorComment) {
+        session.operatorName.contains("Дом", ignoreCase = true) ||
+                session.stationType.equals("Home", ignoreCase = true) ||
+                session.operatorComment?.contains("Счётчик", ignoreCase = true) == true
+    }
+
+    // Check if initial meter reading was saved in operator comment
+    val initialMeterFromSession = remember(session.operatorComment) {
+        val comment = session.operatorComment ?: ""
+        Regex("""(?:Счётчик|Счетчик|Meter):\s*([0-9]+(?:\.[0-9]+)?)""", RegexOption.IGNORE_CASE)
+            .find(comment)?.groupValues?.get(1)?.toDoubleOrNull()
+    }
+
+    var initialMeterText by remember {
+        mutableStateOf(initialMeterFromSession?.let { String.format(Locale.US, "%.1f", it) } ?: "")
+    }
+    var finalMeterText by remember { mutableStateOf("") }
+
     var endSocText by remember { mutableStateOf("90") }
-    var kwhDeliveredText by remember { mutableStateOf("35.0") }
+    var kwhDeliveredText by remember { mutableStateOf(if (isHomeCharging && initialMeterFromSession != null) "" else "35.0") }
     var kwhReceivedText by remember { mutableStateOf("") }
     var energyCostText by remember { mutableStateOf("") }
     var penaltyCostText by remember { mutableStateOf("0.00") }
     var fixedAmountText by remember { mutableStateOf("0.00") }
     var totalCostText by remember { mutableStateOf("") }
+
+    // Meter delta calculation
+    val startMeterVal = initialMeterText.toDoubleOrNull()
+    val endMeterVal = finalMeterText.toDoubleOrNull()
+    val meterCalculatedKwh = if (startMeterVal != null && endMeterVal != null && endMeterVal >= startMeterVal) {
+        endMeterVal - startMeterVal
+    } else null
+
+    // Automatically sync calculated meter consumption into delivered kWh field
+    LaunchedEffect(meterCalculatedKwh) {
+        if (meterCalculatedKwh != null && meterCalculatedKwh > 0.0) {
+            kwhDeliveredText = String.format(Locale.US, "%.2f", meterCalculatedKwh)
+        }
+    }
 
     // Check suggested penalty from operator rules
     val suggestedPenalty = remember {
@@ -186,6 +222,127 @@ fun FinishChargingScreen(
                 }
             }
 
+            // 1b. Dedicated Home Electricity Meter Reading Card
+            if (isHomeCharging || initialMeterFromSession != null) {
+                Spacer(modifier = Modifier.height(14.dp))
+                VoltCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    borderColor = ElectricCyan.copy(alpha = 0.65f)
+                ) {
+                    Column(modifier = Modifier.padding(2.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(ElectricCyan.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ElectricBolt,
+                                    contentDescription = null,
+                                    tint = ElectricCyan,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Показания электросчётчика",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Расчёт затраченного электричества по счётчику",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = initialMeterText,
+                                onValueChange = { initialMeterText = it },
+                                label = { Text("Начальные (кВт·ч)") },
+                                placeholder = { Text("0.0") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("meter_start_input"),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            OutlinedTextField(
+                                value = finalMeterText,
+                                onValueChange = { finalMeterText = it },
+                                label = { Text("Конечные (кВт·ч)") },
+                                placeholder = { Text("0.0") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("meter_end_input"),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+
+                        if (meterCalculatedKwh != null && meterCalculatedKwh > 0.0) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(BatteryGreen.copy(alpha = 0.15f))
+                                    .border(1.dp, BatteryGreen.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = BatteryGreen,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Расход по счётчику:",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                Text(
+                                    text = "+${String.format(Locale.US, "%.2f", meterCalculatedKwh)} кВт·ч",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = BatteryGreen
+                                )
+                            }
+                        } else if (startMeterVal != null && endMeterVal != null && endMeterVal < startMeterVal) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Конечные показания не могут быть меньше начальных",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // End SoC & Delivered kWh Row
@@ -205,7 +362,7 @@ fun FinishChargingScreen(
                 OutlinedTextField(
                     value = kwhDeliveredText,
                     onValueChange = { kwhDeliveredText = it },
-                    label = { Text(strings.deliveredByStation) },
+                    label = { Text(if (isHomeCharging) "Израсходовано (кВт·ч)" else strings.deliveredByStation) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier
@@ -383,13 +540,17 @@ fun FinishChargingScreen(
                 onClick = {
                     if (isFormValid && !isSubmitting) {
                         isSubmitting = true
+                        val meterComment = if (startMeterVal != null && endMeterVal != null && endMeterVal >= startMeterVal) {
+                            "Счётчик: ${initialMeterText.trim()} → ${finalMeterText.trim()} (${String.format(Locale.US, "%.2f", meterCalculatedKwh ?: deliveredVal)} кВт·ч)"
+                        } else session.operatorComment
                         onComplete(
                             endSocVal,
                             deliveredVal,
                             receivedVal,
                             penaltyVal,
                             fixedVal,
-                            now
+                            now,
+                            meterComment
                         )
                     }
                 },

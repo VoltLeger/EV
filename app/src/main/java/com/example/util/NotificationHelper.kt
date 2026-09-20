@@ -92,4 +92,39 @@ object NotificationHelper {
         }
         showNotification(context, 1002, title, message)
     }
+
+    fun showAchievementUnlockedNotification(
+        context: Context,
+        title: String,
+        description: String,
+        xpReward: Int,
+        isEn: Boolean = false
+    ) {
+        val notifTitle = if (isEn) "🏆 Achievement Unlocked: $title" else "🏆 Награда разблокирована: $title"
+        val notifMsg = if (isEn) {
+            "$description (+$xpReward XP)"
+        } else {
+            "$description (+ $xpReward XP)"
+        }
+        showNotification(context, 1004, notifTitle, notifMsg)
+    }
+
+    fun showAchievementProgressNotification(
+        context: Context,
+        title: String,
+        current: Int,
+        total: Int,
+        unit: String = "зарядок",
+        isEn: Boolean = false
+    ) {
+        val notifTitle = if (isEn) "🎯 Achievement Progress: $title" else "🎯 Прогресс достижения: $title"
+        val remaining = (total - current).coerceAtLeast(0)
+        val notifMsg = if (isEn) {
+            "Done $current of $total $unit! $remaining left to unlock."
+        } else {
+            val remainingText = if (remaining > 0) ", осталось ещё $remaining" else ""
+            "Сделана $current из $total $unit ($title)$remainingText!"
+        }
+        showNotification(context, 1005, notifTitle, notifMsg)
+    }
 }

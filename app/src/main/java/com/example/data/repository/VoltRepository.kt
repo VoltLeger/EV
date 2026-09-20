@@ -96,6 +96,7 @@ class VoltRepository(
     suspend fun updateUnfinishedHours(hours: Int) = settingsManager.updateUnfinishedHours(hours)
     suspend fun updateNotifyWeekly(enabled: Boolean) = settingsManager.updateNotifyWeekly(enabled)
     suspend fun updateNotifyMonthly(enabled: Boolean) = settingsManager.updateNotifyMonthly(enabled)
+    suspend fun updateNotifyAchievements(enabled: Boolean) = settingsManager.updateNotifyAchievements(enabled)
     suspend fun setOnboardingCompleted(completed: Boolean) = settingsManager.setOnboardingCompleted(completed)
     suspend fun updatePinSettings(enabled: Boolean, pin: String) = settingsManager.updatePinSettings(enabled, pin)
     suspend fun updateBiometricSettings(enabled: Boolean) = settingsManager.updateBiometricSettings(enabled)

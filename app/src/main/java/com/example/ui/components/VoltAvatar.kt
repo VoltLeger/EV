@@ -41,10 +41,15 @@ import com.example.ui.theme.BatteryOrange
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.SoftBlue
 
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.fillMaxSize
+import coil.compose.AsyncImage
+
 @Composable
 fun VoltAvatar(
     avatarEffect: String,
     avatarIcon: String = "bolt",
+    imageUri: String? = null,
     size: Dp = 56.dp,
     showGlow: Boolean = true,
     onClick: (() -> Unit)? = null,
@@ -182,22 +187,33 @@ fun VoltAvatar(
                     shape = CircleShape
                 )
         ) {
-            val iconVector = when (avatarIcon) {
-                "car" -> Icons.Default.DirectionsCar
-                "speed" -> Icons.Default.Speed
-                "leaf" -> Icons.Default.EnergySavingsLeaf
-                "star" -> Icons.Default.Star
-                "trophy" -> Icons.Default.EmojiEvents
-                "flash" -> Icons.Default.FlashOn
-                else -> Icons.Default.ElectricBolt
-            }
+            if (!imageUri.isNullOrBlank()) {
+                AsyncImage(
+                    model = imageUri,
+                    contentDescription = "Аватар Пилота",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                )
+            } else {
+                val iconVector = when (avatarIcon) {
+                    "car" -> Icons.Default.DirectionsCar
+                    "speed" -> Icons.Default.Speed
+                    "leaf" -> Icons.Default.EnergySavingsLeaf
+                    "star" -> Icons.Default.Star
+                    "trophy" -> Icons.Default.EmojiEvents
+                    "flash" -> Icons.Default.FlashOn
+                    else -> Icons.Default.ElectricBolt
+                }
 
-            Icon(
-                imageVector = iconVector,
-                contentDescription = "Аватар Пилота",
-                tint = primaryColor,
-                modifier = Modifier.size(size * 0.42f)
-            )
+                Icon(
+                    imageVector = iconVector,
+                    contentDescription = "Аватар Пилота",
+                    tint = primaryColor,
+                    modifier = Modifier.size(size * 0.42f)
+                )
+            }
         }
     }
 }

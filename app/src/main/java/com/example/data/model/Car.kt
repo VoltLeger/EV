@@ -20,5 +20,15 @@ data class Car(
     val currentSoc: Double,
     val passportConsumption: Double = 16.0,
     val createdAt: Long = System.currentTimeMillis(),
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    // Car Passport additional fields
+    val licensePlate: String? = null,
+    val purchaseDate: String? = null,
+    val purchasePrice: Double? = null,
+    val manufactureYear: Int? = null,
+    val vin: String? = null,
+    val registrationNumber: String? = null,
+    val insuranceNumber: String? = null,
+    val notes: String? = null,
+    val photoUri: String? = null
 )

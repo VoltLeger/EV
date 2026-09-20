@@ -26,6 +26,7 @@ class SettingsManager(private val context: Context) {
         val KEY_UNFINISHED_HOURS = intPreferencesKey("unfinished_hours")
         val KEY_NOTIFY_WEEKLY = booleanPreferencesKey("notify_weekly")
         val KEY_NOTIFY_MONTHLY = booleanPreferencesKey("notify_monthly")
+        val KEY_NOTIFY_ACHIEVEMENTS = booleanPreferencesKey("notify_achievements")
         val KEY_SELECTED_CAR_ID = longPreferencesKey("selected_car_id")
         val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val KEY_PIN_ENABLED = booleanPreferencesKey("pin_enabled")
@@ -44,6 +45,7 @@ class SettingsManager(private val context: Context) {
             unfinishedHoursThreshold = prefs[KEY_UNFINISHED_HOURS] ?: 4,
             notifyWeekly = prefs[KEY_NOTIFY_WEEKLY] ?: true,
             notifyMonthly = prefs[KEY_NOTIFY_MONTHLY] ?: true,
+            notifyAchievements = prefs[KEY_NOTIFY_ACHIEVEMENTS] ?: true,
             selectedCarId = prefs[KEY_SELECTED_CAR_ID] ?: 0L,
             onboardingCompleted = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
             pinEnabled = prefs[KEY_PIN_ENABLED] ?: false,
@@ -86,6 +88,10 @@ class SettingsManager(private val context: Context) {
 
     suspend fun updateNotifyMonthly(enabled: Boolean) {
         context.dataStore.edit { it[KEY_NOTIFY_MONTHLY] = enabled }
+    }
+
+    suspend fun updateNotifyAchievements(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_NOTIFY_ACHIEVEMENTS] = enabled }
     }
 
     suspend fun updateSelectedCarId(carId: Long) {
