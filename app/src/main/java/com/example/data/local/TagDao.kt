@@ -31,4 +31,7 @@ interface TagDao {
 
     @Query("SELECT COUNT(*) FROM tags")
     suspend fun countTags(): Int
+
+    @Query("DELETE FROM tags")
+    suspend fun clearAll()
 }

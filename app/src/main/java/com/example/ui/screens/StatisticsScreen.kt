@@ -136,36 +136,44 @@ fun StatisticsScreen(
     }
 
     val carId = activeCar?.id ?: 0L
-    val completedSessions = allSessions.filter {
-        (carId == 0L || it.carId == carId) && it.status == "completed"
-    }.sortedBy { it.startTime }
+    val completedSessions = remember(allSessions, carId) {
+        allSessions.filter {
+            (carId == 0L || it.carId == carId) && it.status == "completed"
+        }.sortedBy { it.startTime }
+    }
 
-    val currentPeriodSessions = completedSessions.filter { it.startTime >= periodStartMillis }
+    val currentPeriodSessions = remember(completedSessions, periodStartMillis) {
+        completedSessions.filter { it.startTime >= periodStartMillis }
+    }
 
     // Car Expenses in current period
-    val currentPeriodExpenses = carExpenses.filter {
-        (carId == 0L || it.carId == carId) && it.timestamp >= periodStartMillis
+    val currentPeriodExpenses = remember(carExpenses, carId, periodStartMillis) {
+        carExpenses.filter {
+            (carId == 0L || it.carId == carId) && it.timestamp >= periodStartMillis
+        }
     }
-    val totalExpensesCost = currentPeriodExpenses.sumOf { it.amount }
+    val totalExpensesCost = remember(currentPeriodExpenses) { currentPeriodExpenses.sumOf { it.amount } }
 
     // Prior period comparison
-    val periodDuration = now - periodStartMillis
-    val priorPeriodSessions = completedSessions.filter {
-        it.startTime in (periodStartMillis - periodDuration) until periodStartMillis
+    val periodDuration = remember(periodStartMillis, now) { now - periodStartMillis }
+    val priorPeriodSessions = remember(completedSessions, periodStartMillis, periodDuration) {
+        completedSessions.filter {
+            it.startTime in (periodStartMillis - periodDuration) until periodStartMillis
+        }
     }
 
     // Totals
-    val totalDeliveredKwh = currentPeriodSessions.sumOf { it.kwhDeliveredByStation }
-    val totalCost = currentPeriodSessions.sumOf { it.totalCost }
-    val totalEnergyCost = currentPeriodSessions.sumOf { it.energyCost }
-    val totalPenaltyCost = currentPeriodSessions.sumOf { it.penaltyCost }
+    val totalDeliveredKwh = remember(currentPeriodSessions) { currentPeriodSessions.sumOf { it.kwhDeliveredByStation } }
+    val totalCost = remember(currentPeriodSessions) { currentPeriodSessions.sumOf { it.totalCost } }
+    val totalEnergyCost = remember(currentPeriodSessions) { currentPeriodSessions.sumOf { it.energyCost } }
+    val totalPenaltyCost = remember(currentPeriodSessions) { currentPeriodSessions.sumOf { it.penaltyCost } }
 
     // Total Car Spending (Charging + Maintenance & Other Expenses)
     val totalCarSpend = totalCost + totalExpensesCost
 
     // Distance in period
-    val minOdo = currentPeriodSessions.minOfOrNull { it.startOdometer } ?: 0.0
-    val maxOdo = currentPeriodSessions.maxOfOrNull { it.startOdometer } ?: 0.0
+    val minOdo = remember(currentPeriodSessions) { currentPeriodSessions.minOfOrNull { it.startOdometer } ?: 0.0 }
+    val maxOdo = remember(currentPeriodSessions) { currentPeriodSessions.maxOfOrNull { it.startOdometer } ?: 0.0 }
     val periodDistanceKm = (maxOdo - minOdo).coerceAtLeast(0.0)
 
     val costPerKm = if (periodDistanceKm > 0) totalCost / periodDistanceKm else 0.0
@@ -176,21 +184,21 @@ fun StatisticsScreen(
     val totalCostPer100Km = totalCostPerKm * 100.0
 
     // Prior period total spent comparison
-    val priorTotalCost = priorPeriodSessions.sumOf { it.totalCost }
+    val priorTotalCost = remember(priorPeriodSessions) { priorPeriodSessions.sumOf { it.totalCost } }
     val spentDiffPercent = if (priorTotalCost > 0) {
         ((totalCost - priorTotalCost) / priorTotalCost) * 100.0
     } else 0.0
 
     // Free charges savings
-    val freeSessions = currentPeriodSessions.filter { it.isFreeCharge || it.pricePerKwh <= 0.0001 }
+    val freeSessions = remember(currentPeriodSessions) { currentPeriodSessions.filter { it.isFreeCharge || it.pricePerKwh <= 0.0001 } }
     val freeChargesCount = freeSessions.size
-    val moneySaved = freeSessions.sumOf { it.kwhDeliveredByStation * 0.73 }
+    val moneySaved = remember(freeSessions) { freeSessions.sumOf { it.kwhDeliveredByStation * 0.73 } }
 
     // AC vs DC breakdown
-    val acSessions = currentPeriodSessions.filter { it.stationType.equals("AC", ignoreCase = true) }
-    val dcSessions = currentPeriodSessions.filter { it.stationType.equals("DC", ignoreCase = true) }
-    val acCost = acSessions.sumOf { it.totalCost }
-    val dcCost = dcSessions.sumOf { it.totalCost }
+    val acSessions = remember(currentPeriodSessions) { currentPeriodSessions.filter { it.stationType.equals("AC", ignoreCase = true) } }
+    val dcSessions = remember(currentPeriodSessions) { currentPeriodSessions.filter { it.stationType.equals("DC", ignoreCase = true) } }
+    val acCost = remember(acSessions) { acSessions.sumOf { it.totalCost } }
+    val dcCost = remember(dcSessions) { dcSessions.sumOf { it.totalCost } }
 
     // Average consumption in period
     val periodConsumption = if (periodDistanceKm > 0 && totalDeliveredKwh > 0) {

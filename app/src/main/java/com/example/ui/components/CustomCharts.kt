@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,9 +74,9 @@ fun ConsumptionLineChart(
         return
     }
 
-    val maxVal = (points.maxOfOrNull { it.value } ?: 10f).coerceAtLeast(10f) * 1.15f
-    val minVal = (points.minOfOrNull { it.value } ?: 0f).coerceAtLeast(0f) * 0.85f
-    val range = (maxVal - minVal).coerceAtLeast(1f)
+    val maxVal = remember(points) { (points.maxOfOrNull { it.value } ?: 10f).coerceAtLeast(10f) * 1.15f }
+    val minVal = remember(points) { (points.minOfOrNull { it.value } ?: 0f).coerceAtLeast(0f) * 0.85f }
+    val range = remember(maxVal, minVal) { (maxVal - minVal).coerceAtLeast(1f) }
 
     Column(modifier = modifier) {
         Box(
@@ -179,7 +180,7 @@ fun ExpensesBarChart(
         return
     }
 
-    val maxTotal = items.maxOfOrNull { it.energyCost + it.penaltyCost }?.coerceAtLeast(1f) ?: 10f
+    val maxTotal = remember(items) { items.maxOfOrNull { it.energyCost + it.penaltyCost }?.coerceAtLeast(1f) ?: 10f }
 
     Column(modifier = modifier) {
         Box(
@@ -250,7 +251,7 @@ fun DonutBreakdownChart(
         return
     }
 
-    val total = slices.sumOf { it.value.toDouble() }.toFloat().coerceAtLeast(1f)
+    val total = remember(slices) { slices.sumOf { it.value.toDouble() }.toFloat().coerceAtLeast(1f) }
 
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(

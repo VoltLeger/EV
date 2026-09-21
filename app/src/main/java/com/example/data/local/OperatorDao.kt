@@ -37,4 +37,7 @@ interface OperatorDao {
 
     @Query("SELECT COUNT(*) FROM operators")
     suspend fun countOperators(): Int
+
+    @Query("DELETE FROM operators")
+    suspend fun clearAll()
 }

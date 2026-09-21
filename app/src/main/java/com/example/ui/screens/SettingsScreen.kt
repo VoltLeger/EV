@@ -2,6 +2,13 @@ package com.example.ui.screens
 
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,20 +32,28 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Sync
 import android.widget.Toast
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -82,7 +97,6 @@ import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.LocalCurrency
 import com.example.ui.theme.SoftBlue
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -122,6 +136,11 @@ fun SettingsScreen(
     onRefreshTariffs: () -> Unit = {},
     userProfile: UserProfile? = null,
     onOpenProfile: (() -> Unit)? = null,
+    onUpdateUserEmail: (String) -> Unit = {},
+    onUpdateGithubToken: (String) -> Unit = {},
+    onBackupToCloud: ((Boolean, String) -> Unit) -> Unit = {},
+    onRestoreFromCloud: (String, Boolean, (Boolean, String) -> Unit) -> Unit = { _, _, _ -> },
+    onSendEmailBackup: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -134,6 +153,52 @@ fun SettingsScreen(
     var operatorToDelete by remember { mutableStateOf<Operator?>(null) }
     var showImportJsonDialog by remember { mutableStateOf(false) }
     var importJsonText by remember { mutableStateOf("") }
+    var showEmailDialog by remember { mutableStateOf(false) }
+    var emailInput by remember(userProfile?.email) { mutableStateOf(userProfile?.email ?: "") }
+    var showGithubTokenDialog by remember { mutableStateOf(false) }
+    var githubTokenInput by remember(userProfile?.githubToken) { mutableStateOf(userProfile?.githubToken ?: "") }
+    var showCloudRestoreDialog by remember { mutableStateOf(false) }
+    var cloudGistIdInput by remember { mutableStateOf("") }
+    var cloudRestoreReplace by remember { mutableStateOf(false) }
+    var isCloudSyncing by remember { mutableStateOf(false) }
+    var showPhoneTransferAdviceDialog by remember { mutableStateOf(false) }
+    var showGistSection by remember { mutableStateOf(false) }
+
+    val createDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val json = onExportJson()
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    stream.write(json.toByteArray(Charsets.UTF_8))
+                }
+                Toast.makeText(context, "Файл резервной копии успешно сохранён!", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Ошибка сохранения: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val openDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val content = context.contentResolver.openInputStream(uri)?.use { stream ->
+                    stream.bufferedReader().readText()
+                }
+                if (!content.isNullOrBlank()) {
+                    onImportJson(content)
+                    Toast.makeText(context, "Резервная копия успешно восстановлена!", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(context, "Выбранный файл пуст", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Ошибка чтения: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     LiquidGlassBackground(modifier = modifier) {
         LazyColumn(
@@ -795,60 +860,337 @@ fun SettingsScreen(
                 }
             }
 
-            // Section 6: Data & Backup
+            // Section 6: Google Drive & Cloud Backup
             item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = strings.dataSection,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Google Диск и Резервные копии",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Простое сохранение и перенос всех данных",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(onClick = { showPhoneTransferAdviceDialog = true }) {
+                            Icon(Icons.Default.HelpOutline, contentDescription = "Инструкция по переносу", tint = SoftBlue)
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Export CSV
-                    Button(
+                    // Primary Google Drive Card (Simple 1-tap UX)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(ElectricCyan.copy(alpha = 0.08f))
+                            .border(1.dp, ElectricCyan.copy(alpha = 0.28f), RoundedCornerShape(14.dp))
+                            .padding(14.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.CloudUpload, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Google Диск (Рекомендуется)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = ElectricCyan)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Сохраняйте базу со всеми авто, зарядками и тарифами в ваше облако Google или восстанавливайте в 1 клик без сложных настроек.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault()).format(Date())
+                                        createDocumentLauncher.launch("voltledger_backup_$timeStamp.json")
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan)
+                                ) {
+                                    Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Black)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("На Google Диск", fontSize = 11.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        openDocumentLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = SoftBlue)
+                                ) {
+                                    Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("С Google Диска", fontSize = 11.sp)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            OutlinedButton(
+                                onClick = {
+                                    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault()).format(Date())
+                                    val json = onExportJson()
+                                    shareBackupFile(context, json, "voltledger_backup_$timeStamp.json")
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp), tint = SoftBlue)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Поделиться файлом (Google Диск / Мессенджер)", fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Email Backup Section
+                    val hasEmail = !userProfile?.email.isNullOrBlank()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (hasEmail) BatteryGreen.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                            .border(1.dp, if (hasEmail) BatteryGreen.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (hasEmail) BatteryGreen.copy(alpha = 0.2f) else SoftBlue.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (hasEmail) Icons.Default.CheckCircle else Icons.Default.Email,
+                                    contentDescription = null,
+                                    tint = if (hasEmail) BatteryGreen else SoftBlue,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = if (hasEmail) userProfile?.email.orEmpty() else "E-mail не привязан",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = if (hasEmail) "Основной адрес для копий" else "Привяжите для защиты и отправки копий",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        TextButton(
+                            onClick = {
+                                emailInput = userProfile?.email ?: ""
+                                showEmailDialog = true
+                            }
+                        ) {
+                            Text(if (hasEmail) "Изменить" else "Привязать", fontSize = 12.sp, color = SoftBlue)
+                        }
+                    }
+
+                    if (hasEmail) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                onSendEmailBackup(userProfile?.email.orEmpty())
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp), tint = SoftBlue)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Отправить копию на e-mail", fontSize = 11.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Export CSV button
+                    OutlinedButton(
                         onClick = {
                             val csv = onExportCsv()
                             shareText(context, csv, "VoltLedger_export.csv")
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftBlue)
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = strings.exportCsv)
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Export JSON Full Backup
-                    OutlinedButton(
-                        onClick = {
-                            val json = onExportJson()
-                            shareText(context, json, "VoltLedger_backup.json")
-                        },
-                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = strings.exportJson)
+                        Text(text = strings.exportCsv, fontSize = 12.sp)
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Import JSON
-                    OutlinedButton(
-                        onClick = { showImportJsonDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                    // Collapsible Developer / Advanced Section (GitHub Gist)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showGistSection = !showGistSection }
+                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = strings.importData)
+                        Text(
+                            text = "Дополнительно: GitHub Gist и ручной JSON",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = if (showGistSection) "Скрыть ▲" else "Настроить ▼",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SoftBlue
+                        )
+                    }
+
+                    if (showGistSection) {
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        if (!userProfile?.backupGistId.isNullOrBlank()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Gist ID: ${userProfile?.backupGistId?.take(10)}...",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (userProfile?.lastBackupAt != null) {
+                                    val fmt = SimpleDateFormat("dd.MM.yy HH:mm", Locale.getDefault()).format(Date(userProfile.lastBackupAt))
+                                    Text(text = "Копия: $fmt", fontSize = 11.sp, color = BatteryGreen)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+
+                        // GitHub Token Status Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (userProfile?.githubToken.isNullOrBlank()) "Токен GitHub: не указан" else "Токен GitHub: подключен ✓",
+                                fontSize = 11.sp,
+                                color = if (userProfile?.githubToken.isNullOrBlank()) MaterialTheme.colorScheme.onSurfaceVariant else BatteryGreen
+                            )
+                            TextButton(
+                                onClick = {
+                                    githubTokenInput = userProfile?.githubToken ?: ""
+                                    showGithubTokenDialog = true
+                                }
+                            ) {
+                                Text(if (userProfile?.githubToken.isNullOrBlank()) "Настроить" else "Изменить", fontSize = 11.sp, color = SoftBlue)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Gist buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    if (userProfile?.githubToken.isNullOrBlank()) {
+                                        githubTokenInput = ""
+                                        showGithubTokenDialog = true
+                                    } else {
+                                        isCloudSyncing = true
+                                        onBackupToCloud { success, msg ->
+                                            isCloudSyncing = false
+                                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                enabled = !isCloudSyncing,
+                                colors = ButtonDefaults.buttonColors(containerColor = SoftBlue)
+                            ) {
+                                if (isCloudSyncing) {
+                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), color = Color.White, strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                } else {
+                                    Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                }
+                                Text("В Gist", fontSize = 11.sp)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    cloudGistIdInput = userProfile?.backupGistId ?: ""
+                                    showCloudRestoreDialog = true
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Из Gist", fontSize = 11.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Manual JSON import button
+                        OutlinedButton(
+                            onClick = { showImportJsonDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Вставить текст JSON вручную", fontSize = 11.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Phone transfer advice link
+                    TextButton(
+                        onClick = { showPhoneTransferAdviceDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(16.dp), tint = ElectricCyan)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Рекомендации при смене телефона", fontSize = 12.sp, color = ElectricCyan)
                     }
                 }
             }
@@ -862,7 +1204,7 @@ fun SettingsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "VoltLedger v2.0",
+                        text = "VoltLedger v2.2.0",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1139,6 +1481,266 @@ fun SettingsScreen(
             }
         )
     }
+
+    // Dialog: Bind Email
+    if (showEmailDialog) {
+        AlertDialog(
+            onDismissRequest = { showEmailDialog = false },
+            title = { Text("Привязка E-mail") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Укажите адрес электронной почты для отправки резервных копий, инструкций и быстрого восстановления аккаунта на других устройствах.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = emailInput,
+                        onValueChange = { emailInput = it },
+                        label = { Text("Электронная почта") },
+                        placeholder = { Text("pilot@example.com") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val clean = emailInput.trim()
+                    if (clean.contains("@") && clean.contains(".")) {
+                        onUpdateUserEmail(clean)
+                        showEmailDialog = false
+                        Toast.makeText(context, "E-mail успешно сохранён", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Введите корректный E-mail", Toast.LENGTH_SHORT).show()
+                    }
+                }) {
+                    Text("Сохранить")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEmailDialog = false }) { Text(strings.cancel) }
+            }
+        )
+    }
+
+    // Dialog: GitHub Token Configuration
+    if (showGithubTokenDialog) {
+        AlertDialog(
+            onDismissRequest = { showGithubTokenDialog = false },
+            title = { Text("Токен GitHub (Gist)") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Для синхронизации с приватным GitHub Gist требуется Personal Access Token (PAT) с правом «gist». Он хранится только локально на вашем смартфоне.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = githubTokenInput,
+                        onValueChange = { githubTokenInput = it.trim() },
+                        label = { Text("GitHub Token (ghp_...)") },
+                        placeholder = { Text("ghp_1234567890abcdef...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = "Совет: если у вас нет токена, вы можете отправлять резервные копии на свою почту с помощью кнопки «Отправить копию на e-mail».",
+                        fontSize = 11.sp,
+                        color = SoftBlue
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val clean = githubTokenInput.trim()
+                        onUpdateGithubToken(clean)
+                        showGithubTokenDialog = false
+                        if (clean.isNotBlank()) {
+                            Toast.makeText(context, "GitHub Token сохранён", Toast.LENGTH_SHORT).show()
+                            // Also proceed to upload
+                            isCloudSyncing = true
+                            onBackupToCloud { success, msg ->
+                                isCloudSyncing = false
+                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                ) {
+                    Text("Сохранить и выгрузить")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGithubTokenDialog = false }) { Text(strings.cancel) }
+            }
+        )
+    }
+
+    // Dialog: Cloud Restore (GitHub Gist)
+    if (showCloudRestoreDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!isCloudSyncing) showCloudRestoreDialog = false },
+            title = { Text("Восстановление из облака") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Введите Gist ID (из письма или сохранённый ранее). Все автомобили, зарядки, расходы и профиль будут загружены.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = cloudGistIdInput,
+                        onValueChange = { cloudGistIdInput = it.trim() },
+                        label = { Text("GitHub Gist ID") },
+                        placeholder = { Text("напр. 3fa910bc44e7...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Заменить существующие данные", fontSize = 13.sp)
+                            Text(
+                                if (cloudRestoreReplace) "База данных будет полностью перезаписана" else "Данные будут объединены с текущими",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = cloudRestoreReplace,
+                            onCheckedChange = { cloudRestoreReplace = it },
+                            colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val cleanId = cloudGistIdInput.trim()
+                        if (cleanId.isNotBlank()) {
+                            isCloudSyncing = true
+                            onRestoreFromCloud(cleanId, cloudRestoreReplace) { success, msg ->
+                                isCloudSyncing = false
+                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                if (success) {
+                                    showCloudRestoreDialog = false
+                                }
+                            }
+                        }
+                    },
+                    enabled = cloudGistIdInput.isNotBlank() && !isCloudSyncing
+                ) {
+                    if (isCloudSyncing) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Text("Восстановить")
+                }
+            },
+            dismissButton = {
+                if (!isCloudSyncing) {
+                    TextButton(onClick = { showCloudRestoreDialog = false }) { Text(strings.cancel) }
+                }
+            }
+        )
+    }
+
+    // Dialog: Phone Transfer Recommendations
+    if (showPhoneTransferAdviceDialog) {
+        AlertDialog(
+            onDismissRequest = { showPhoneTransferAdviceDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.PhoneAndroid, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Перенос на новый телефон", fontSize = 17.sp)
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "VoltLedger хранит все данные локально на вашем устройстве, обеспечивая максимальную скорость и конфиденциальность. Для быстрого переноса на новый телефон:",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Step 1 Card: Google Drive
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(ElectricCyan.copy(alpha = 0.1f))
+                            .border(1.dp, ElectricCyan.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                            .padding(10.dp)
+                    ) {
+                        Column {
+                            Text("1. Резервная копия на Google Диск (Рекомендуется)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = ElectricCyan)
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                "В разделе «Google Диск и Резервные копии» нажмите «На Google Диск» или «Поделиться файлом» -> выберите Google Диск. Файл с полной базой ваших авто и зарядок сохранится в вашем личном облаке.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    // Step 2 Card: Restore
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(BatteryGreen.copy(alpha = 0.1f))
+                            .border(1.dp, BatteryGreen.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                            .padding(10.dp)
+                    ) {
+                        Column {
+                            Text("2. Восстановление на новом телефоне", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = BatteryGreen)
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                "Установите VoltLedger на новый телефон, зайдите в Настройки -> «С Google Диска» и выберите ранее сохранённый файл бэкапа. Все автомобили, зарядки, расходы и настройки мгновенно восстановятся.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    // Step 3 Card: Alternative methods
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                            .padding(10.dp)
+                    ) {
+                        Column {
+                            Text("3. Дополнительные способы (E-mail / GitHub)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SoftBlue)
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                "Вы также можете привязать E-mail и отправить копию базы себе на почту в 1 клик, либо настроить облачный Gist ID от GitHub.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showPhoneTransferAdviceDialog = false }) {
+                    Text("Понятно")
+                }
+            }
+        )
+    }
 }
 
 fun shareText(context: Context, text: String, fileName: String) {
@@ -1148,4 +1750,22 @@ fun shareText(context: Context, text: String, fileName: String) {
         putExtra(Intent.EXTRA_TEXT, text)
     }
     context.startActivity(Intent.createChooser(intent, "Share $fileName"))
+}
+
+fun shareBackupFile(context: Context, json: String, fileName: String) {
+    try {
+        val cacheDir = File(context.cacheDir, "backups").apply { mkdirs() }
+        val file = File(cacheDir, fileName)
+        file.writeText(json, Charsets.UTF_8)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/json"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, fileName)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Сохранить на Google Диск / Поделиться"))
+    } catch (e: Exception) {
+        shareText(context, json, fileName)
+    }
 }

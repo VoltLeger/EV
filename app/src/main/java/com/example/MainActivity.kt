@@ -438,6 +438,14 @@ class MainActivity : FragmentActivity() {
                                     }
                                 }
                             ) { innerPadding ->
+                                val activeCarId = activeCar?.id ?: 0L
+                                val activeCarSessions = remember(allSessions, activeCarId) {
+                                    allSessions.filter { it.carId == activeCarId }
+                                }
+                                val activeCarExpenses = remember(carExpenses, activeCarId) {
+                                    carExpenses.filter { it.carId == activeCarId }
+                                }
+
                                 Box(modifier = Modifier.padding(innerPadding)) {
                                     AnimatedContent(
                                         targetState = selectedTab,
@@ -450,7 +458,7 @@ class MainActivity : FragmentActivity() {
                                                 allCars = allCars,
                                                 activeSession = activeSession,
                                                 monthConsumption = monthAvgConsumption,
-                                                recentSessions = allSessions.filter { it.carId == (activeCar?.id ?: 0L) },
+                                                recentSessions = activeCarSessions,
                                                 onSelectCar = { viewModel.selectCar(it) },
                                                 onAddChargeClick = { navController.navigate("start_charging") },
                                                 onCalculateRangeClick = { showRangeForecastDialog = true },
@@ -477,10 +485,10 @@ class MainActivity : FragmentActivity() {
                                                 topExpenseCategories = topExpenseCategories
                                             )
                                             1 -> HistoryScreen(
-                                                sessions = allSessions.filter { it.carId == (activeCar?.id ?: 0L) },
+                                                sessions = activeCarSessions,
                                                 onUpdateSession = { viewModel.updateSession(it) },
                                                 onDeleteSession = { viewModel.deleteSession(it) },
-                                                expenses = carExpenses.filter { it.carId == (activeCar?.id ?: 0L) },
+                                                expenses = activeCarExpenses,
                                                 onAddExpense = { category, amount, odometer, comment ->
                                                     viewModel.addExpense(category, amount, odometer, comment)
                                                 },
@@ -493,7 +501,7 @@ class MainActivity : FragmentActivity() {
                                             2 -> StatisticsScreen(
                                                 activeCar = activeCar,
                                                 allSessions = allSessions,
-                                                carExpenses = carExpenses.filter { it.carId == (activeCar?.id ?: 0L) }
+                                                carExpenses = activeCarExpenses
                                             )
                                             3 -> SettingsScreen(
                                                 settings = settings,
@@ -530,7 +538,20 @@ class MainActivity : FragmentActivity() {
                                                 onImportJson = { viewModel.importBackupJson(it, replace = false) },
                                                 onRefreshTariffs = { viewModel.refreshTariffsFromFile() },
                                                 userProfile = userProfile,
-                                                onOpenProfile = { showProfileAwardsDialog = true }
+                                                onOpenProfile = { showProfileAwardsDialog = true },
+                                                onUpdateUserEmail = { viewModel.updateUserEmail(it) },
+                                                onUpdateGithubToken = { viewModel.updateGithubToken(it) },
+                                                onBackupToCloud = { onDone -> viewModel.backupToCloud(onDone) },
+                                                onRestoreFromCloud = { gistId, replace, onDone -> viewModel.restoreFromCloud(gistId, replace, onDone) },
+                                                onSendEmailBackup = { email ->
+                                                    val backupJson = viewModel.exportJsonBackup()
+                                                    com.example.util.EmailBackupHelper.sendBackupByEmail(
+                                                        context = this@MainActivity,
+                                                        email = email,
+                                                        backupJson = backupJson,
+                                                        gistId = userProfile.backupGistId
+                                                    )
+                                                }
                                             )
                                         }
                                     }

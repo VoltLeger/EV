@@ -18,5 +18,9 @@ data class UserProfile(
     val totalXp: Long = 0,
     val rankTier: String = "Новичок", // "Новичок", "Энерджи-Драйвер", "Мастер Киловатт", "Гроссмейстер Вольт"
     val createdAt: Long = System.currentTimeMillis(),
-    val lastActiveAt: Long = System.currentTimeMillis()
+    val lastActiveAt: Long = System.currentTimeMillis(),
+    val email: String? = null,
+    val lastBackupAt: Long? = null,
+    val backupGistId: String? = null,
+    val githubToken: String? = null
 )

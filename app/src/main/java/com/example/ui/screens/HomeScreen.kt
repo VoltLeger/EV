@@ -138,28 +138,34 @@ fun HomeScreen(
     val carSoc = activeCar?.currentSoc ?: 80.0
 
     // Compute baseline consumption
-    val completedSessions = recentSessions.filter { it.status == "completed" }
-    val realAvg = monthConsumption ?: run {
-        val forecast = EVCalculator.calculateRangeForecast(completedSessions, usableCapacity, carSoc)
-        forecast.realConsumptionPer100Km
+    val completedSessions = remember(recentSessions) { recentSessions.filter { it.status == "completed" } }
+    val realAvg = remember(completedSessions, monthConsumption, usableCapacity, carSoc) {
+        monthConsumption ?: run {
+            val forecast = EVCalculator.calculateRangeForecast(completedSessions, usableCapacity, carSoc)
+            forecast.realConsumptionPer100Km
+        }
     }
 
     // Range with current car SOC for top vehicle bar pill
-    val currentSocRange = EVCalculator.calculateRangeForSoc(
-        usableCapacityKwh = usableCapacity,
-        socPercent = carSoc,
-        consumptionPer100Km = realAvg
-    )
-
-    // Departure forecast range if active session exists
-    val departureForecastRange = if (activeSession != null) {
-        val targetSoc = if (activeSession.endSoc > carSoc) activeSession.endSoc else 90.0
+    val currentSocRange = remember(usableCapacity, carSoc, realAvg) {
         EVCalculator.calculateRangeForSoc(
             usableCapacityKwh = usableCapacity,
-            socPercent = targetSoc,
+            socPercent = carSoc,
             consumptionPer100Km = realAvg
         )
-    } else null
+    }
+
+    // Departure forecast range if active session exists
+    val departureForecastRange = remember(activeSession, carSoc, usableCapacity, realAvg) {
+        if (activeSession != null) {
+            val targetSoc = if (activeSession.endSoc > carSoc) activeSession.endSoc else 90.0
+            EVCalculator.calculateRangeForSoc(
+                usableCapacityKwh = usableCapacity,
+                socPercent = targetSoc,
+                consumptionPer100Km = realAvg
+            )
+        } else null
+    }
 
     // Calculate Last Two Charges Consumption (Centerpiece 3D Card)
     val lastTwoConsumption = remember(completedSessions) {
@@ -167,13 +173,15 @@ fun HomeScreen(
     }
 
     // Lower block metrics
-    val lastSession = completedSessions.maxByOrNull { it.startTime }
-    val costPer100Km = if (lastSession != null && lastSession.kwhDeliveredByStation > 0 && lastSession.totalCost > 0) {
-        val pricePerKwh = lastSession.totalCost / lastSession.kwhDeliveredByStation
-        pricePerKwh * realAvg
-    } else if (monthConsumption != null && lastSession != null) {
-        lastSession.pricePerKwh * monthConsumption
-    } else null
+    val lastSession = remember(completedSessions) { completedSessions.maxByOrNull { it.startTime } }
+    val costPer100Km = remember(lastSession, realAvg, monthConsumption) {
+        if (lastSession != null && lastSession.kwhDeliveredByStation > 0 && lastSession.totalCost > 0) {
+            val pricePerKwh = lastSession.totalCost / lastSession.kwhDeliveredByStation
+            pricePerKwh * realAvg
+        } else if (monthConsumption != null && lastSession != null) {
+            lastSession.pricePerKwh * monthConsumption
+        } else null
+    }
 
     LiquidGlassBackground(modifier = modifier) {
         LazyColumn(
@@ -773,7 +781,7 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Button 2: "Домашняя зарядка (1 тап)" (Full width, sleek dark glass with mint border)
+                    // Button 2: "Домашняя зарядка" (Full width, sleek dark glass with mint border)
                     OutlinedButton(
                         onClick = {
                             if (onQuickHomeCharge != null) {
@@ -813,7 +821,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Домашняя зарядка (1 тап)",
+                            text = strings.homeChargeQuick,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = BatteryGreen
@@ -1028,7 +1036,7 @@ fun HomeScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = BatteryGreen),
                     modifier = Modifier.testTag("confirm_quick_home_charge_button")
                 ) {
-                    Text("Запустить (1 тап)", fontWeight = FontWeight.Bold)
+                    Text(if (strings.isEn) "Start" else "Запустить", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {

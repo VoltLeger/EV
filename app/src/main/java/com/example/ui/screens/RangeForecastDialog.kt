@@ -62,11 +62,13 @@ fun RangeForecastDialog(
     var sliderSoc by remember { mutableFloatStateOf(currentSoc) }
 
     val usableCapacity = car?.usableCapacityKwh ?: 60.0
-    val forecast = EVCalculator.calculateRangeForecast(
-        completedSessions = completedSessions,
-        usableCapacityKwh = usableCapacity,
-        remainingSoc = sliderSoc.toDouble()
-    )
+    val forecast = remember(completedSessions, usableCapacity, sliderSoc) {
+        EVCalculator.calculateRangeForecast(
+            completedSessions = completedSessions,
+            usableCapacityKwh = usableCapacity,
+            remainingSoc = sliderSoc.toDouble()
+        )
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(

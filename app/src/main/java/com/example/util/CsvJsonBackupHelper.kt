@@ -1,17 +1,22 @@
 package com.example.util
 
 import com.example.data.model.Car
+import com.example.data.model.CarExpense
 import com.example.data.model.ChargingSession
 import com.example.data.model.Operator
 import com.example.data.model.Tag
+import com.example.data.model.UserProfile
 import org.json.JSONArray
 import org.json.JSONObject
 
 data class BackupData(
-    val cars: List<Car>,
-    val sessions: List<ChargingSession>,
-    val operators: List<Operator>,
-    val tags: List<Tag>
+    val email: String? = null,
+    val profile: UserProfile? = null,
+    val cars: List<Car> = emptyList(),
+    val sessions: List<ChargingSession> = emptyList(),
+    val expenses: List<CarExpense> = emptyList(),
+    val operators: List<Operator> = emptyList(),
+    val tags: List<Tag> = emptyList()
 )
 
 object CsvJsonBackupHelper {
@@ -83,13 +88,35 @@ object CsvJsonBackupHelper {
     fun exportFullBackupJson(
         cars: List<Car>,
         sessions: List<ChargingSession>,
-        operators: List<Operator>,
-        tags: List<Tag>
+        expenses: List<CarExpense> = emptyList(),
+        operators: List<Operator> = emptyList(),
+        tags: List<Tag> = emptyList(),
+        profile: UserProfile? = null
     ): String {
         val root = JSONObject()
-        root.put("version", 1)
+        root.put("version", 2)
         root.put("app", "VoltLedger")
         root.put("timestamp", System.currentTimeMillis())
+
+        if (profile != null) {
+            val profObj = JSONObject()
+            profObj.put("id", profile.id)
+            profObj.put("callsign", profile.callsign)
+            profObj.put("displayName", profile.displayName)
+            profObj.put("bio", profile.bio)
+            profObj.put("avatarEffect", profile.avatarEffect)
+            profObj.put("avatarIcon", profile.avatarIcon)
+            profObj.put("countryCode", profile.countryCode)
+            profObj.put("isLeaderboardOptIn", profile.isLeaderboardOptIn)
+            profObj.put("totalXp", profile.totalXp)
+            profObj.put("rankTier", profile.rankTier)
+            if (profile.email != null) profObj.put("email", profile.email)
+            if (profile.backupGistId != null) profObj.put("backupGistId", profile.backupGistId)
+            root.put("profile", profObj)
+            if (profile.email != null) {
+                root.put("userEmail", profile.email)
+            }
+        }
 
         val carsArray = JSONArray()
         for (c in cars) {
@@ -141,12 +168,82 @@ object CsvJsonBackupHelper {
         }
         root.put("sessions", sessionsArray)
 
+        val expArray = JSONArray()
+        for (e in expenses) {
+            val obj = JSONObject()
+            obj.put("id", e.id)
+            obj.put("carId", e.carId)
+            obj.put("category", e.category)
+            obj.put("amount", e.amount)
+            obj.put("currency", e.currency)
+            obj.put("timestamp", e.timestamp)
+            if (e.odometer != null) obj.put("odometer", e.odometer)
+            if (e.comment != null) obj.put("comment", e.comment)
+            expArray.put(obj)
+        }
+        root.put("expenses", expArray)
+
+        val opArray = JSONArray()
+        for (o in operators) {
+            val obj = JSONObject()
+            obj.put("id", o.id)
+            obj.put("name", o.name)
+            obj.put("type", o.type)
+            obj.put("subType", o.subType)
+            obj.put("priceAc", o.priceAc)
+            obj.put("priceDc", o.priceDc)
+            if (o.nightPriceAc != null) obj.put("nightPriceAc", o.nightPriceAc)
+            if (o.nightPriceDc != null) obj.put("nightPriceDc", o.nightPriceDc)
+            obj.put("nightStartHour", o.nightStartHour)
+            obj.put("nightEndHour", o.nightEndHour)
+            obj.put("penaltyIdlePerMin", o.penaltyIdlePerMin)
+            obj.put("penaltyFreeMinutes", o.penaltyFreeMinutes)
+            obj.put("comment", o.comment)
+            obj.put("isBuiltin", o.isBuiltin)
+            obj.put("isFree", o.isFree)
+            obj.put("updatedAt", o.updatedAt)
+            opArray.put(obj)
+        }
+        root.put("operators", opArray)
+
+        val tagsArray = JSONArray()
+        for (t in tags) {
+            val obj = JSONObject()
+            obj.put("id", t.id)
+            obj.put("name", t.name)
+            obj.put("color", t.color)
+            obj.put("isBuiltin", t.isBuiltin)
+            tagsArray.put(obj)
+        }
+        root.put("tags", tagsArray)
+
         return root.toString(2)
     }
 
     fun parseFullBackupJson(jsonString: String): BackupData? {
         return try {
             val root = JSONObject(jsonString)
+            val userEmail = if (root.has("userEmail")) root.optString("userEmail") else null
+
+            var profile: UserProfile? = null
+            if (root.has("profile")) {
+                val p = root.getJSONObject("profile")
+                profile = UserProfile(
+                    id = p.optString("id", "pilot_user"),
+                    callsign = p.optString("callsign", "VOLT-1000"),
+                    displayName = p.optString("displayName", "EV Пилот"),
+                    bio = p.optString("bio", "Электромобилист"),
+                    avatarEffect = p.optString("avatarEffect", "neon_cyan"),
+                    avatarIcon = p.optString("avatarIcon", "bolt"),
+                    countryCode = p.optString("countryCode", "BY"),
+                    isLeaderboardOptIn = p.optBoolean("isLeaderboardOptIn", true),
+                    totalXp = p.optLong("totalXp", 0L),
+                    rankTier = p.optString("rankTier", "Новичок"),
+                    email = if (p.has("email")) p.optString("email") else userEmail,
+                    backupGistId = if (p.has("backupGistId")) p.optString("backupGistId") else null
+                )
+            }
+
             val cars = mutableListOf<Car>()
             val carsArray = root.optJSONArray("cars") ?: JSONArray()
             for (i in 0 until carsArray.length()) {
@@ -204,7 +301,73 @@ object CsvJsonBackupHelper {
                 )
             }
 
-            BackupData(cars, sessions, emptyList(), emptyList())
+            val expenses = mutableListOf<CarExpense>()
+            val expArray = root.optJSONArray("expenses") ?: JSONArray()
+            for (i in 0 until expArray.length()) {
+                val obj = expArray.getJSONObject(i)
+                expenses.add(
+                    CarExpense(
+                        id = obj.optLong("id", 0L),
+                        carId = obj.optLong("carId", 1L),
+                        category = obj.optString("category", "Другое"),
+                        amount = obj.optDouble("amount", 0.0),
+                        currency = obj.optString("currency", "BYN"),
+                        timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                        odometer = if (obj.has("odometer")) obj.optDouble("odometer") else null,
+                        comment = if (obj.has("comment")) obj.optString("comment") else null
+                    )
+                )
+            }
+
+            val operators = mutableListOf<Operator>()
+            val opArray = root.optJSONArray("operators") ?: JSONArray()
+            for (i in 0 until opArray.length()) {
+                val obj = opArray.getJSONObject(i)
+                operators.add(
+                    Operator(
+                        id = obj.optLong("id", 0L),
+                        name = obj.optString("name", "Оператор"),
+                        type = obj.optString("type", "AC"),
+                        subType = obj.optString("subType", ""),
+                        priceAc = obj.optDouble("priceAc", 0.55),
+                        priceDc = obj.optDouble("priceDc", 0.73),
+                        nightPriceAc = if (obj.has("nightPriceAc")) obj.optDouble("nightPriceAc") else null,
+                        nightPriceDc = if (obj.has("nightPriceDc")) obj.optDouble("nightPriceDc") else null,
+                        nightStartHour = obj.optInt("nightStartHour", 23),
+                        nightEndHour = obj.optInt("nightEndHour", 6),
+                        penaltyIdlePerMin = obj.optDouble("penaltyIdlePerMin", 0.0),
+                        penaltyFreeMinutes = obj.optInt("penaltyFreeMinutes", 0),
+                        comment = obj.optString("comment", ""),
+                        isBuiltin = obj.optBoolean("isBuiltin", false),
+                        isFree = obj.optBoolean("isFree", false),
+                        updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+                    )
+                )
+            }
+
+            val tags = mutableListOf<Tag>()
+            val tagsArray = root.optJSONArray("tags") ?: JSONArray()
+            for (i in 0 until tagsArray.length()) {
+                val obj = tagsArray.getJSONObject(i)
+                tags.add(
+                    Tag(
+                        id = obj.optLong("id", 0L),
+                        name = obj.optString("name", "Тег"),
+                        color = obj.optLong("color", 0xFF2196F3),
+                        isBuiltin = obj.optBoolean("isBuiltin", false)
+                    )
+                )
+            }
+
+            BackupData(
+                email = userEmail ?: profile?.email,
+                profile = profile,
+                cars = cars,
+                sessions = sessions,
+                expenses = expenses,
+                operators = operators,
+                tags = tags
+            )
         } catch (_: Exception) {
             null
         }

@@ -14,7 +14,7 @@ import com.example.util.DefaultTariffsLoader
 
 @Database(
     entities = [Car::class, ChargingSession::class, Operator::class, Tag::class, UserProfile::class, CarExpense::class],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

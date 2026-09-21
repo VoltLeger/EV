@@ -29,7 +29,7 @@ class AppStrings(val isEn: Boolean) {
     val noDataMonth = if (isEn) "No completed sessions this month" else "Нет данных за текущий месяц"
     val addCharge = if (isEn) "Add Charging" else "Добавить зарядку"
     val homeChargeQuick = if (isEn) "Home Charge" else "Домашняя зарядка"
-    val homeChargeSubtitle = if (isEn) "1-Tap • Quick log" else "1 тап • Быстрый ввод"
+    val homeChargeSubtitle = if (isEn) "Quick log" else "Быстрый ввод"
     val calculateRange = if (isEn) "Calculate Range" else "Рассчитать пробег"
     val activeCharge = if (isEn) "Active Charging Session" else "Активная зарядка"
     val inProgress = if (isEn) "In Progress" else "В процессе"

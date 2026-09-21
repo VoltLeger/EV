@@ -37,4 +37,7 @@ interface CarDao {
 
     @Query("UPDATE cars SET isActive = CASE WHEN id = :carId THEN 1 ELSE 0 END")
     suspend fun setActiveCar(carId: Long)
+
+    @Query("DELETE FROM cars")
+    suspend fun clearAll()
 }

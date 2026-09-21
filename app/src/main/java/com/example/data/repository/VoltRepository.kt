@@ -124,4 +124,34 @@ class VoltRepository(
             db.chargingSessionDao().insertSession(session.copy(id = if (replace) session.id else 0L))
         }
     }
+
+    suspend fun restoreFullBackup(data: com.example.util.BackupData, replace: Boolean) {
+        if (replace) {
+            db.chargingSessionDao().clearAll()
+            db.carExpenseDao().clearAll()
+            db.carDao().clearAll()
+            db.operatorDao().clearAll()
+            db.tagDao().clearAll()
+        }
+
+        if (data.profile != null) {
+            db.userProfileDao().insertOrUpdate(data.profile)
+        }
+
+        for (car in data.cars) {
+            db.carDao().insertCar(car.copy(id = if (replace) car.id else 0L))
+        }
+        for (op in data.operators) {
+            db.operatorDao().insertOperator(op.copy(id = if (replace) op.id else 0L))
+        }
+        for (tag in data.tags) {
+            db.tagDao().insertTag(tag.copy(id = if (replace) tag.id else 0L))
+        }
+        for (session in data.sessions) {
+            db.chargingSessionDao().insertSession(session.copy(id = if (replace) session.id else 0L))
+        }
+        for (expense in data.expenses) {
+            db.carExpenseDao().insertExpense(expense.copy(id = if (replace) expense.id else 0L))
+        }
+    }
 }
