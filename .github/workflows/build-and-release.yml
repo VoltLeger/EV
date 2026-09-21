@@ -57,15 +57,15 @@ jobs:
           # Create placeholder .env file to satisfy Secrets Gradle Plugin
           touch .env
 
-          # Restore debug.keystore from base64 if present, or generate if missing
+          # Ensure the permanent project debug.keystore is used (prevent signature conflicts on updates)
           if [ -f "debug.keystore.base64" ]; then
-            echo "Decoding debug.keystore from debug.keystore.base64..."
+            echo "Decoding permanent debug.keystore from debug.keystore.base64..."
             base64 -d debug.keystore.base64 > debug.keystore
           fi
 
           if [ ! -f "debug.keystore" ]; then
-            echo "Generating debug.keystore with keytool..."
-            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            echo "FATAL: debug.keystore or debug.keystore.base64 must be present to guarantee seamless app updates without signature mismatch."
+            exit 1
           fi
 
           # Ensure gradlew has executable permissions

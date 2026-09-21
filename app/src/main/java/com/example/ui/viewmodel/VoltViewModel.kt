@@ -20,7 +20,6 @@ import com.example.util.CsvJsonBackupHelper
 import com.example.util.DefaultTariffsLoader
 import com.example.util.EVCalculator
 import com.example.util.EmailBackupHelper
-import com.example.util.GitHubBackupService
 import com.example.util.NotificationHelper
 import com.example.util.RangeForecastResult
 import kotlinx.coroutines.Dispatchers
@@ -698,66 +697,6 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val prof = userProfile.value.copy(githubToken = token.trim().ifBlank { null })
             repository.updateUserProfile(prof)
-        }
-    }
-
-    fun backupToCloud(onComplete: (Boolean, String) -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val prof = userProfile.value
-            val email = prof.email ?: "pilot@voltledger.app"
-            val backupJson = exportJsonBackup()
-            val result = GitHubBackupService.uploadBackupToGist(
-                backupJson = backupJson,
-                userEmail = email,
-                existingGistId = prof.backupGistId,
-                githubToken = prof.githubToken
-            )
-            result.onSuccess { syncResult ->
-                val updatedProf = prof.copy(
-                    backupGistId = syncResult.gistId,
-                    lastBackupAt = syncResult.updatedAt
-                )
-                repository.updateUserProfile(updatedProf)
-                withContext(Dispatchers.Main) {
-                    onComplete(true, "Облачная копия сохранена в GitHub Gist ID: ${syncResult.gistId}")
-                }
-            }.onFailure { err ->
-                withContext(Dispatchers.Main) {
-                    onComplete(false, err.message ?: "Ошибка синхронизации с облаком")
-                }
-            }
-        }
-    }
-
-    fun restoreFromCloud(gistId: String, replace: Boolean, onComplete: (Boolean, String) -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val prof = userProfile.value
-            val result = GitHubBackupService.downloadBackupFromGist(
-                gistId = gistId.trim(),
-                githubToken = prof.githubToken
-            )
-            result.onSuccess { jsonContent ->
-                val backup = CsvJsonBackupHelper.parseFullBackupJson(jsonContent)
-                if (backup == null) {
-                    withContext(Dispatchers.Main) {
-                        onComplete(false, "Не удалось разобрать резервную копию из Gist")
-                    }
-                    return@onSuccess
-                }
-                repository.restoreFullBackup(backup, replace)
-                val updatedProf = userProfile.value.copy(
-                    backupGistId = gistId.trim(),
-                    lastBackupAt = System.currentTimeMillis()
-                )
-                repository.updateUserProfile(updatedProf)
-                withContext(Dispatchers.Main) {
-                    onComplete(true, "Данные успешно восстановлены из облака")
-                }
-            }.onFailure { err ->
-                withContext(Dispatchers.Main) {
-                    onComplete(false, err.message ?: "Не удалось загрузить копию из облака")
-                }
-            }
         }
     }
 

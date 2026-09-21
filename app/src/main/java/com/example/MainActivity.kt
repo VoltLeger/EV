@@ -540,16 +540,12 @@ class MainActivity : FragmentActivity() {
                                                 userProfile = userProfile,
                                                 onOpenProfile = { showProfileAwardsDialog = true },
                                                 onUpdateUserEmail = { viewModel.updateUserEmail(it) },
-                                                onUpdateGithubToken = { viewModel.updateGithubToken(it) },
-                                                onBackupToCloud = { onDone -> viewModel.backupToCloud(onDone) },
-                                                onRestoreFromCloud = { gistId, replace, onDone -> viewModel.restoreFromCloud(gistId, replace, onDone) },
                                                 onSendEmailBackup = { email ->
                                                     val backupJson = viewModel.exportJsonBackup()
                                                     com.example.util.EmailBackupHelper.sendBackupByEmail(
                                                         context = this@MainActivity,
                                                         email = email,
-                                                        backupJson = backupJson,
-                                                        gistId = userProfile.backupGistId
+                                                        backupJson = backupJson
                                                     )
                                                 }
                                             )

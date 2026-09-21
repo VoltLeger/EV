@@ -2,7 +2,7 @@ package com.example.util
 
 class AppStrings(val isEn: Boolean) {
     val appName = "VoltLedger"
-    val slogan = if (isEn) "Every kilowatt accounted for" else "Каждый киловатт — на учёте"
+    val slogan = if (isEn) "EV charging, consumption & range tracker" else "Учёт заряда, расхода\nи прогноз пробега EV"
     val loading = if (isEn) "LOADING..." else "ЗАГРУЗКА..."
     
     // Onboarding

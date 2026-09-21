@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="backup_cache" path="backups/" />
+    <cache-path name="cache_root" path="." />
     <files-path name="backup_files" path="backups/" />
+    <files-path name="files_root" path="." />
 </paths>

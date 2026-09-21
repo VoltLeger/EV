@@ -2,8 +2,11 @@ package com.example.util
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
+import androidx.core.content.FileProvider
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -13,59 +16,77 @@ object EmailBackupHelper {
     fun sendBackupByEmail(
         context: Context,
         email: String,
-        backupJson: String,
-        gistId: String? = null
+        backupJson: String
     ) {
-        val dateStr = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(Date())
+        val fileDateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+        val displayDateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+        val now = Date()
+        val fileDateStr = fileDateFormat.format(now)
+        val dateStr = displayDateFormat.format(now)
         val subject = "VoltLedger Резервная копия [$dateStr]"
 
         val body = buildString {
             append("Здравствуйте!\n\n")
-            append("Это полная резервная копия ваших данных, настроек и электромобилей в приложении VoltLedger.\n\n")
+            append("Во вложении находится файл полной резервной копии ваших данных, истории зарядок и электромобилей в приложении VoltLedger.\n\n")
             append("Привязанный E-mail: $email\n")
             append("Дата создания: $dateStr\n")
-            if (!gistId.isNullOrBlank()) {
-                append("GitHub Gist ID: $gistId\n")
-                append("Ссылка на облачную копию: https://gist.github.com/$gistId\n")
-            }
-            append("\n==========================================\n")
+            append("Имя файла вложения: voltledger_backup_$fileDateStr.json\n\n")
+            append("==========================================\n")
             append("ИНСТРУКЦИЯ ПО ВОССТАНОВЛЕНИЮ НА НОВОМ ТЕЛЕФОНЕ:\n")
-            append("1. Установите VoltLedger на новый телефон.\n")
-            if (!gistId.isNullOrBlank()) {
-                append("2. В разделе 'Настройки' -> 'Восстановление из GitHub' введите ваш Gist ID: $gistId\n")
-                append("ЛИБО:\n")
-            }
-            append("Скопируйте весь JSON-код, приведённый ниже, перейдите в Настройки -> 'Импорт данных' и вставьте его.\n")
-            append("==========================================\n\n")
-            append("--- КОД РЕЗЕРВНОЙ КОПИИ ---\n")
-            append(backupJson)
-        }
-
-        val intent = Intent(Intent.ACTION_SENDTO).apply {
-            data = Uri.parse("mailto:${email.trim()}")
-            putExtra(Intent.EXTRA_SUBJECT, subject)
-            putExtra(Intent.EXTRA_TEXT, body)
+            append("1. Скачайте прикреплённый .json файл из этого письма на телефон (или сохраните на Google Диск).\n")
+            append("2. Откройте VoltLedger -> 'Настройки' -> 'Резервное копирование'.\n")
+            append("3. Нажмите 'С Google Диска' (или 'Импорт JSON') и выберите скачанный файл.\n")
+            append("Все ваши авто, сессии и расходы мгновенно восстановятся!\n")
+            append("==========================================\n")
         }
 
         try {
-            val chooser = Intent.createChooser(intent, "Отправить резервную копию на почту")
-            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(chooser)
-        } catch (_: Exception) {
-            // Fallback to standard ACTION_SEND
-            try {
-                val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_EMAIL, arrayOf(email.trim()))
-                    putExtra(Intent.EXTRA_SUBJECT, subject)
-                    putExtra(Intent.EXTRA_TEXT, body)
-                }
-                val chooser = Intent.createChooser(sendIntent, "Отправить резервную копию")
-                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(chooser)
-            } catch (ex: Exception) {
-                Toast.makeText(context, "Не удалось открыть почтовое приложение", Toast.LENGTH_SHORT).show()
+            // Write backup JSON to cache directory for FileProvider sharing
+            val backupDir = File(context.cacheDir, "backups").apply { mkdirs() }
+            val backupFile = File(backupDir, "voltledger_backup_$fileDateStr.json")
+            backupFile.writeText(backupJson)
+
+            val fileUri: Uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                backupFile
+            )
+
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(email.trim()))
+                putExtra(Intent.EXTRA_SUBJECT, subject)
+                putExtra(Intent.EXTRA_TEXT, body)
+                putExtra(Intent.EXTRA_STREAM, fileUri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
+
+            val chooser = Intent.createChooser(sendIntent, "Отправить резервную копию на почту").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
+            // Explicitly grant read permissions to all potential receiver apps
+            val resInfoList = context.packageManager.queryIntentActivities(
+                chooser,
+                PackageManager.MATCH_DEFAULT_ONLY
+            )
+            for (resolveInfo in resInfoList) {
+                val targetPackage = resolveInfo.activityInfo.packageName
+                context.grantUriPermission(
+                    targetPackage,
+                    fileUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+
+            context.startActivity(chooser)
+        } catch (ex: Exception) {
+            Toast.makeText(
+                context,
+                "Не удалось открыть почтовое приложение: ${ex.localizedMessage ?: "ошибка"}",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 }

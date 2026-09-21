@@ -137,9 +137,6 @@ fun SettingsScreen(
     userProfile: UserProfile? = null,
     onOpenProfile: (() -> Unit)? = null,
     onUpdateUserEmail: (String) -> Unit = {},
-    onUpdateGithubToken: (String) -> Unit = {},
-    onBackupToCloud: ((Boolean, String) -> Unit) -> Unit = {},
-    onRestoreFromCloud: (String, Boolean, (Boolean, String) -> Unit) -> Unit = { _, _, _ -> },
     onSendEmailBackup: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -155,14 +152,7 @@ fun SettingsScreen(
     var importJsonText by remember { mutableStateOf("") }
     var showEmailDialog by remember { mutableStateOf(false) }
     var emailInput by remember(userProfile?.email) { mutableStateOf(userProfile?.email ?: "") }
-    var showGithubTokenDialog by remember { mutableStateOf(false) }
-    var githubTokenInput by remember(userProfile?.githubToken) { mutableStateOf(userProfile?.githubToken ?: "") }
-    var showCloudRestoreDialog by remember { mutableStateOf(false) }
-    var cloudGistIdInput by remember { mutableStateOf("") }
-    var cloudRestoreReplace by remember { mutableStateOf(false) }
-    var isCloudSyncing by remember { mutableStateOf(false) }
     var showPhoneTransferAdviceDialog by remember { mutableStateOf(false) }
-    var showGistSection by remember { mutableStateOf(false) }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -1052,133 +1042,15 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Collapsible Developer / Advanced Section (GitHub Gist)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { showGistSection = !showGistSection }
-                            .padding(vertical = 6.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    // Manual JSON import button
+                    OutlinedButton(
+                        onClick = { showImportJsonDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(
-                            text = "Дополнительно: GitHub Gist и ручной JSON",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = if (showGistSection) "Скрыть ▲" else "Настроить ▼",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = SoftBlue
-                        )
-                    }
-
-                    if (showGistSection) {
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        if (!userProfile?.backupGistId.isNullOrBlank()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Gist ID: ${userProfile?.backupGistId?.take(10)}...",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                if (userProfile?.lastBackupAt != null) {
-                                    val fmt = SimpleDateFormat("dd.MM.yy HH:mm", Locale.getDefault()).format(Date(userProfile.lastBackupAt))
-                                    Text(text = "Копия: $fmt", fontSize = 11.sp, color = BatteryGreen)
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                        }
-
-                        // GitHub Token Status Row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (userProfile?.githubToken.isNullOrBlank()) "Токен GitHub: не указан" else "Токен GitHub: подключен ✓",
-                                fontSize = 11.sp,
-                                color = if (userProfile?.githubToken.isNullOrBlank()) MaterialTheme.colorScheme.onSurfaceVariant else BatteryGreen
-                            )
-                            TextButton(
-                                onClick = {
-                                    githubTokenInput = userProfile?.githubToken ?: ""
-                                    showGithubTokenDialog = true
-                                }
-                            ) {
-                                Text(if (userProfile?.githubToken.isNullOrBlank()) "Настроить" else "Изменить", fontSize = 11.sp, color = SoftBlue)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Gist buttons
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    if (userProfile?.githubToken.isNullOrBlank()) {
-                                        githubTokenInput = ""
-                                        showGithubTokenDialog = true
-                                    } else {
-                                        isCloudSyncing = true
-                                        onBackupToCloud { success, msg ->
-                                            isCloudSyncing = false
-                                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp),
-                                enabled = !isCloudSyncing,
-                                colors = ButtonDefaults.buttonColors(containerColor = SoftBlue)
-                            ) {
-                                if (isCloudSyncing) {
-                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), color = Color.White, strokeWidth = 2.dp)
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                } else {
-                                    Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                }
-                                Text("В Gist", fontSize = 11.sp)
-                            }
-
-                            OutlinedButton(
-                                onClick = {
-                                    cloudGistIdInput = userProfile?.backupGistId ?: ""
-                                    showCloudRestoreDialog = true
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Из Gist", fontSize = 11.sp)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        // Manual JSON import button
-                        OutlinedButton(
-                            onClick = { showImportJsonDialog = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Вставить текст JSON вручную", fontSize = 11.sp)
-                        }
+                        Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Вставить текст JSON вручную", fontSize = 11.sp)
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -1525,132 +1397,7 @@ fun SettingsScreen(
         )
     }
 
-    // Dialog: GitHub Token Configuration
-    if (showGithubTokenDialog) {
-        AlertDialog(
-            onDismissRequest = { showGithubTokenDialog = false },
-            title = { Text("Токен GitHub (Gist)") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Для синхронизации с приватным GitHub Gist требуется Personal Access Token (PAT) с правом «gist». Он хранится только локально на вашем смартфоне.",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = githubTokenInput,
-                        onValueChange = { githubTokenInput = it.trim() },
-                        label = { Text("GitHub Token (ghp_...)") },
-                        placeholder = { Text("ghp_1234567890abcdef...") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        text = "Совет: если у вас нет токена, вы можете отправлять резервные копии на свою почту с помощью кнопки «Отправить копию на e-mail».",
-                        fontSize = 11.sp,
-                        color = SoftBlue
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val clean = githubTokenInput.trim()
-                        onUpdateGithubToken(clean)
-                        showGithubTokenDialog = false
-                        if (clean.isNotBlank()) {
-                            Toast.makeText(context, "GitHub Token сохранён", Toast.LENGTH_SHORT).show()
-                            // Also proceed to upload
-                            isCloudSyncing = true
-                            onBackupToCloud { success, msg ->
-                                isCloudSyncing = false
-                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    }
-                ) {
-                    Text("Сохранить и выгрузить")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showGithubTokenDialog = false }) { Text(strings.cancel) }
-            }
-        )
-    }
 
-    // Dialog: Cloud Restore (GitHub Gist)
-    if (showCloudRestoreDialog) {
-        AlertDialog(
-            onDismissRequest = { if (!isCloudSyncing) showCloudRestoreDialog = false },
-            title = { Text("Восстановление из облака") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Введите Gist ID (из письма или сохранённый ранее). Все автомобили, зарядки, расходы и профиль будут загружены.",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = cloudGistIdInput,
-                        onValueChange = { cloudGistIdInput = it.trim() },
-                        label = { Text("GitHub Gist ID") },
-                        placeholder = { Text("напр. 3fa910bc44e7...") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Заменить существующие данные", fontSize = 13.sp)
-                            Text(
-                                if (cloudRestoreReplace) "База данных будет полностью перезаписана" else "Данные будут объединены с текущими",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = cloudRestoreReplace,
-                            onCheckedChange = { cloudRestoreReplace = it },
-                            colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue)
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val cleanId = cloudGistIdInput.trim()
-                        if (cleanId.isNotBlank()) {
-                            isCloudSyncing = true
-                            onRestoreFromCloud(cleanId, cloudRestoreReplace) { success, msg ->
-                                isCloudSyncing = false
-                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                if (success) {
-                                    showCloudRestoreDialog = false
-                                }
-                            }
-                        }
-                    },
-                    enabled = cloudGistIdInput.isNotBlank() && !isCloudSyncing
-                ) {
-                    if (isCloudSyncing) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                    }
-                    Text("Восстановить")
-                }
-            },
-            dismissButton = {
-                if (!isCloudSyncing) {
-                    TextButton(onClick = { showCloudRestoreDialog = false }) { Text(strings.cancel) }
-                }
-            }
-        )
-    }
 
     // Dialog: Phone Transfer Recommendations
     if (showPhoneTransferAdviceDialog) {
@@ -1723,10 +1470,10 @@ fun SettingsScreen(
                             .padding(10.dp)
                     ) {
                         Column {
-                            Text("3. Дополнительные способы (E-mail / GitHub)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SoftBlue)
+                            Text("3. Дополнительный способ (E-mail)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SoftBlue)
                             Spacer(modifier = Modifier.height(3.dp))
                             Text(
-                                "Вы также можете привязать E-mail и отправить копию базы себе на почту в 1 клик, либо настроить облачный Gist ID от GitHub.",
+                                "Вы также можете отправить резервную копию базы себе на привязанную почту в 1 клик с прикреплённым JSON-файлом.",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
