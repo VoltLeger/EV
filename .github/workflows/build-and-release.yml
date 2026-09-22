@@ -3,12 +3,12 @@ name: Build & Release Debug APK
 on:
   push:
     branches:
-      - main
-      - master
+      - '**'
     tags:
       - 'v*'
       - 'V*'
       - '[0-9]*'
+  pull_request:
   release:
     types: [published, created]
   workflow_dispatch:
@@ -61,17 +61,20 @@ jobs:
           # Create placeholder .env file to satisfy Secrets Gradle Plugin
           touch .env
 
-          # Ensure the permanent project debug.keystore is used (prevent signature conflicts on updates)
+          # Check and restore permanent debug.keystore
           if [ -f "debug.keystore.base64" ]; then
-            echo "Decoding permanent debug.keystore from debug.keystore.base64..."
-            base64 -d debug.keystore.base64 > debug.keystore || true
+            echo "Decoding debug.keystore from debug.keystore.base64..."
+            base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || base64 --decode debug.keystore.base64 > debug.keystore 2>/dev/null || true
           fi
 
-          # If debug.keystore is still missing, generate a standard debug keystore as fallback
-          if [ ! -f "debug.keystore" ]; then
-            echo "debug.keystore not found, generating standard debug.keystore..."
+          # If debug.keystore is still missing or empty, generate a valid debug keystore
+          if [ ! -s "debug.keystore" ]; then
+            echo "Generating fallback debug.keystore..."
             keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
+
+          # Verify debug.keystore exists and has size
+          ls -la debug.keystore
 
           # Ensure gradlew has executable permissions
           chmod +x gradlew
