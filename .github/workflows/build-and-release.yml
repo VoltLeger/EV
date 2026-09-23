@@ -49,34 +49,26 @@ jobs:
 
       - name: Accept Android SDK Licenses & Install Components
         run: |
-          # Set SDK path and ensure licenses directory exists
           ANDROID_SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
           mkdir -p "$ANDROID_SDK/licenses" || true
           yes | $ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          # Install compileSdk 36.1 and 36, plus build-tools
           $ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager "platforms;android-36.1" "platforms;android-36" "build-tools;36.0.0" || true
 
       - name: Prepare environment & signing
         run: |
-          # Create placeholder .env file to satisfy Secrets Gradle Plugin
           touch .env
 
-          # Check and restore permanent debug.keystore
           if [ -f "debug.keystore.base64" ]; then
             echo "Decoding debug.keystore from debug.keystore.base64..."
             base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || base64 --decode debug.keystore.base64 > debug.keystore 2>/dev/null || true
           fi
 
-          # If debug.keystore is still missing or empty, generate a valid debug keystore
           if [ ! -s "debug.keystore" ]; then
             echo "Generating fallback debug.keystore..."
             keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-          # Verify debug.keystore exists and has size
           ls -la debug.keystore
-
-          # Ensure gradlew has executable permissions
           chmod +x gradlew
 
       - name: Build Debug APK
@@ -91,11 +83,9 @@ jobs:
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.release_tag }}" ]; then
             VERSION_TAG="${{ inputs.release_tag }}"
           fi
-          # Fallback if VERSION_TAG is empty or a branch name
           if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "main" ] || [ "$VERSION_TAG" = "master" ]; then
             VERSION_TAG="v1.1"
           fi
-          # Copy and rename APK with a clear descriptive name
           cp app/build/outputs/apk/debug/app-debug.apk release-artifacts/VoltLedger-${VERSION_TAG}-debug.apk
           cp app/build/outputs/apk/debug/app-debug.apk release-artifacts/VoltLedger-debug.apk
           ls -la release-artifacts/
