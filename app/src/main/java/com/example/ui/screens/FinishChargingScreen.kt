@@ -79,7 +79,8 @@ fun FinishChargingScreen(
         penaltyCost: Double,
         fixedAmount: Double,
         endTime: Long,
-        comment: String?
+        comment: String?,
+        endOdometer: Double?
     ) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -108,6 +109,9 @@ fun FinishChargingScreen(
     var finalMeterText by remember { mutableStateOf("") }
 
     var endSocText by remember { mutableStateOf("90") }
+    var odometerText by remember {
+        mutableStateOf(if (session.startOdometer > 0) session.startOdometer.toInt().toString() else "")
+    }
     var kwhDeliveredText by remember { mutableStateOf(if (isHomeCharging && initialMeterFromSession != null) "" else "35.0") }
     var kwhReceivedText by remember { mutableStateOf("") }
     var energyCostText by remember { mutableStateOf("") }
@@ -374,6 +378,22 @@ fun FinishChargingScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Current Odometer Field (Пробег автомобиля)
+            OutlinedTextField(
+                value = odometerText,
+                onValueChange = { odometerText = it },
+                label = { Text("Текущий пробег (км)") },
+                placeholder = { Text("Например: 12500") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("odometer_input"),
+                shape = RoundedCornerShape(14.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Received by car (optional)
             OutlinedTextField(
                 value = kwhReceivedText,
@@ -543,6 +563,7 @@ fun FinishChargingScreen(
                         val meterComment = if (startMeterVal != null && endMeterVal != null && endMeterVal >= startMeterVal) {
                             "Счётчик: ${initialMeterText.trim()} → ${finalMeterText.trim()} (${String.format(Locale.US, "%.2f", meterCalculatedKwh ?: deliveredVal)} кВт·ч)"
                         } else session.operatorComment
+                        val parsedEndOdo = odometerText.toDoubleOrNull()
                         onComplete(
                             endSocVal,
                             deliveredVal,
@@ -550,7 +571,8 @@ fun FinishChargingScreen(
                             penaltyVal,
                             fixedVal,
                             now,
-                            meterComment
+                            meterComment,
+                            parsedEndOdo
                         )
                     }
                 },

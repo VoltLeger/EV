@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Refresh
@@ -77,6 +78,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -136,6 +138,20 @@ fun SettingsScreen(
     onOpenProfile: (() -> Unit)? = null,
     onUpdateUserEmail: (String) -> Unit = {},
     onSendEmailBackup: (String) -> Unit = {},
+    onSaveHomeChargingSettings: ((
+        standardPrice: Double,
+        nightTariffEnabled: Boolean,
+        nightPrice: Double,
+        nightStartHour: Int,
+        nightEndHour: Int,
+        threeTariffEnabled: Boolean,
+        peakPrice: Double,
+        peakStartHour: Int,
+        peakEndHour: Int,
+        semiPeakPrice: Double,
+        semiPeakStartHour: Int,
+        semiPeakEndHour: Int
+    ) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -587,7 +603,234 @@ fun SettingsScreen(
                 }
             }
 
-            // Section 5: Smart Notifications
+            // Section 4.5: Home Charging Tariffs & Schedule (Домашняя зарядка)
+            item {
+                var standardPriceText by remember(settings.homeStandardPrice) {
+                    mutableStateOf(String.format(Locale.US, "%.4f", settings.homeStandardPrice).trimEnd('0').trimEnd('.'))
+                }
+                var nightTariffEnabled by remember(settings.homeNightTariffEnabled) {
+                    mutableStateOf(settings.homeNightTariffEnabled)
+                }
+                var nightPriceText by remember(settings.homeNightPrice) {
+                    mutableStateOf(String.format(Locale.US, "%.4f", settings.homeNightPrice).trimEnd('0').trimEnd('.'))
+                }
+                var threeTariffEnabled by remember(settings.homeThreeTariffEnabled) {
+                    mutableStateOf(settings.homeThreeTariffEnabled)
+                }
+                var peakPriceText by remember(settings.homePeakPrice) {
+                    mutableStateOf(String.format(Locale.US, "%.4f", settings.homePeakPrice).trimEnd('0').trimEnd('.'))
+                }
+                var semiPeakPriceText by remember(settings.homeSemiPeakPrice) {
+                    mutableStateOf(String.format(Locale.US, "%.4f", settings.homeSemiPeakPrice).trimEnd('0').trimEnd('.'))
+                }
+
+                fun saveHomeSettings(three: Boolean = threeTariffEnabled, night: Boolean = nightTariffEnabled) {
+                    val std = standardPriceText.toDoubleOrNull() ?: 0.36
+                    val nPrice = nightPriceText.toDoubleOrNull() ?: 0.1822
+                    val pPrice = peakPriceText.toDoubleOrNull() ?: 0.5467
+                    val sPrice = semiPeakPriceText.toDoubleOrNull() ?: 0.2126
+                    onSaveHomeChargingSettings?.invoke(
+                        std,
+                        night,
+                        nPrice,
+                        settings.homeNightStartHour,
+                        settings.homeNightEndHour,
+                        three,
+                        pPrice,
+                        settings.homePeakStartHour,
+                        settings.homePeakEndHour,
+                        sPrice,
+                        settings.homeSemiPeakStartHour,
+                        settings.homeSemiPeakEndHour
+                    )
+                }
+
+                VoltCard(modifier = Modifier.fillMaxWidth().testTag("home_charging_settings_card")) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Тарифы домашней зарядки",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Настройте расчёт стоимости зарядки от домашней сети",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = null,
+                            tint = BatteryGreen,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Standard 1-rate price input
+                    OutlinedTextField(
+                        value = standardPriceText,
+                        onValueChange = {
+                            standardPriceText = it
+                            saveHomeSettings()
+                        },
+                        label = { Text("Стандартная цена ($currency / кВт·ч)") },
+                        placeholder = { Text("0.36") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth().testTag("home_standard_price_input"),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Mode 1: Day / Night 2-rate toggle
+                    if (!threeTariffEnabled) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Двухтарифный учёт (день / ночь)",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Ночной тариф: 23:00 - 06:00",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = nightTariffEnabled,
+                                onCheckedChange = {
+                                    nightTariffEnabled = it
+                                    saveHomeSettings(three = false, night = it)
+                                }
+                            )
+                        }
+
+                        if (nightTariffEnabled) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = nightPriceText,
+                                onValueChange = {
+                                    nightPriceText = it
+                                    saveHomeSettings()
+                                },
+                                label = { Text("Ночной тариф 23:00-06:00 ($currency / кВт·ч)") },
+                                placeholder = { Text("0.1822") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Mode 2: Three-tariff toggle (Пик, Полупик, Ночь)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Трёхзонный тариф (дифференцированный)",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Пик (17-23), Ночь (23-06), Полупик (06-17)",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = threeTariffEnabled,
+                            onCheckedChange = {
+                                threeTariffEnabled = it
+                                saveHomeSettings(three = it, night = if (it) false else nightTariffEnabled)
+                            },
+                            modifier = Modifier.testTag("three_tariff_switch")
+                        )
+                    }
+
+                    if (threeTariffEnabled) {
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Peak rate input
+                        OutlinedTextField(
+                            value = peakPriceText,
+                            onValueChange = {
+                                peakPriceText = it
+                                saveHomeSettings()
+                            },
+                            label = { Text("Пиковый: 17:00 - 23:00 ($currency / кВт·ч)") },
+                            placeholder = { Text("0.5467") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Night rate input
+                        OutlinedTextField(
+                            value = nightPriceText,
+                            onValueChange = {
+                                nightPriceText = it
+                                saveHomeSettings()
+                            },
+                            label = { Text("Ночной (миним.): 23:00 - 06:00 ($currency / кВт·ч)") },
+                            placeholder = { Text("0.1822") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Semi-peak rate input
+                        OutlinedTextField(
+                            value = semiPeakPriceText,
+                            onValueChange = {
+                                semiPeakPriceText = it
+                                saveHomeSettings()
+                            },
+                            label = { Text("Полупиковый: 06:00 - 17:00 ($currency / кВт·ч)") },
+                            placeholder = { Text("0.2126") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "💡 Время определяется автоматически по системным часам устройства при начале или завершении зарядки.",
+                        fontSize = 11.sp,
+                        color = ElectricCyan,
+                        lineHeight = 15.sp
+                    )
+                }
+            }
             item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
                     Text(

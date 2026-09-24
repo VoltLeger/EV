@@ -276,7 +276,8 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         penaltyCost: Double,
         fixedAmount: Double,
         endTime: Long,
-        comment: String? = null
+        comment: String? = null,
+        endOdometer: Double? = null
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             val energyCost = kwhDelivered * session.pricePerKwh
@@ -303,7 +304,8 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
 
             // Update car's current SOC and odometer
             if (car != null) {
-                val newOdo = maxOf(car.initialOdometer, session.startOdometer)
+                val candidateOdo = endOdometer ?: session.startOdometer
+                val newOdo = maxOf(car.initialOdometer, candidateOdo)
                 repository.updateCar(
                     car.copy(
                         currentSoc = endSoc,
@@ -596,12 +598,23 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                 comment = comment?.trim()?.ifBlank { null }
             )
             repository.insertExpense(exp)
+
+            // Update car's odometer if expense specifies a new or higher odometer
+            if (odometer != null && odometer > car.initialOdometer) {
+                repository.updateCar(car.copy(initialOdometer = odometer))
+            }
         }
     }
 
     fun updateExpense(expense: CarExpense) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.updateExpense(expense)
+            if (expense.odometer != null) {
+                val car = activeCar.value ?: allCars.value.firstOrNull()
+                if (car != null && expense.odometer > car.initialOdometer) {
+                    repository.updateCar(car.copy(initialOdometer = expense.odometer))
+                }
+            }
         }
     }
 
@@ -611,13 +624,47 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun saveHomeChargingSettings(
+        standardPrice: Double,
+        nightTariffEnabled: Boolean,
+        nightPrice: Double,
+        nightStartHour: Int,
+        nightEndHour: Int,
+        threeTariffEnabled: Boolean,
+        peakPrice: Double,
+        peakStartHour: Int,
+        peakEndHour: Int,
+        semiPeakPrice: Double,
+        semiPeakStartHour: Int,
+        semiPeakEndHour: Int
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsManager.saveHomeChargingSettings(
+                standardPrice = standardPrice,
+                nightTariffEnabled = nightTariffEnabled,
+                nightPrice = nightPrice,
+                nightStartHour = nightStartHour,
+                nightEndHour = nightEndHour,
+                threeTariffEnabled = threeTariffEnabled,
+                peakPrice = peakPrice,
+                peakStartHour = peakStartHour,
+                peakEndHour = peakEndHour,
+                semiPeakPrice = semiPeakPrice,
+                semiPeakStartHour = semiPeakStartHour,
+                semiPeakEndHour = semiPeakEndHour
+            )
+        }
+    }
+
     fun startQuickHomeCharge(currentSoc: Double, meterKwh: Double? = null, customPrice: Double? = null) {
         viewModelScope.launch(Dispatchers.IO) {
             val car = activeCar.value ?: allCars.value.firstOrNull() ?: return@launch
-            val homeOp = allOperators.value.find { it.name.contains("Дом", ignoreCase = true) || it.name.contains("Home", ignoreCase = true) }
+            val appSet = settings.value
             val now = Calendar.getInstance()
-            val isNight = homeOp != null && EVCalculator.isNightTariffTime(homeOp.nightStartHour, homeOp.nightEndHour, now)
-            val price = customPrice ?: (if (isNight && homeOp != null) (homeOp.nightPriceAc ?: homeOp.priceAc) else (homeOp?.priceAc ?: 0.25))
+            val tariffEstimate = EVCalculator.determineHomeTariff(appSet, now)
+            val price = customPrice ?: tariffEstimate.pricePerKwh
+
+            val homeOp = allOperators.value.find { it.name.contains("Дом", ignoreCase = true) || it.name.contains("Home", ignoreCase = true) }
 
             val session = ChargingSession(
                 carId = car.id,
@@ -625,14 +672,19 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                 startSoc = currentSoc.coerceIn(0.0, 100.0),
                 endSoc = 100.0,
                 pricePerKwh = price,
-                currency = settings.value.currency,
+                currency = appSet.currency,
                 stationType = "AC",
                 operatorId = homeOp?.id,
                 operatorName = "Домашняя розетка",
-                operatorComment = if (meterKwh != null && meterKwh > 0) "Счётчик: $meterKwh кВт·ч" else "Домашняя зарядка",
+                operatorComment = buildString {
+                    append(tariffEstimate.tariffName)
+                    if (meterKwh != null && meterKwh > 0) {
+                        append(" • Счётчик: $meterKwh кВт·ч")
+                    }
+                },
                 avgPowerKw = 3.5,
                 isFreeCharge = price <= 0.0001,
-                nightTariffApplied = isNight,
+                nightTariffApplied = tariffEstimate.isNight,
                 startTime = System.currentTimeMillis(),
                 status = "active"
             )

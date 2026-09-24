@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.AlertDialog
@@ -116,12 +117,22 @@ fun HomeScreen(
     onDeleteCar: ((Car) -> Unit)? = null,
     onAddExpense: ((category: String, amount: Double, odometer: Double?, comment: String?) -> Unit)? = null,
     topExpenseCategories: List<String> = emptyList(),
+    appSettings: com.example.data.model.AppSettings? = null,
+    onNavigateToSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
     val currency = LocalCurrency.current
     var showCarPassportDialog by remember { mutableStateOf(false) }
     var showAddExpenseDialog by remember { mutableStateOf(false) }
+    var showHomeNotConfiguredDialog by remember { mutableStateOf(false) }
+
+    // Dynamic Latest Odometer: calculated across car, sessions, and expenses
+    val latestOdometer = remember(activeCar?.initialOdometer, recentSessions) {
+        val carOdo = activeCar?.initialOdometer ?: 0.0
+        val maxSessionOdo = recentSessions.maxOfOrNull { maxOf(it.startOdometer, 0.0) } ?: 0.0
+        maxOf(carOdo, maxSessionOdo)
+    }
 
     // Session Edit & Delete state
     var editingSession by remember { mutableStateOf<ChargingSession?>(null) }
@@ -303,7 +314,7 @@ fun HomeScreen(
                                     )
                                 }
                                 Text(
-                                    text = "${activeCar?.initialOdometer?.toInt() ?: 0} км",
+                                    text = "${latestOdometer.toInt()} км",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -784,7 +795,10 @@ fun HomeScreen(
                     // Button 2: "Домашняя зарядка" (Full width, sleek dark glass with mint border)
                     OutlinedButton(
                         onClick = {
-                            if (onQuickHomeCharge != null) {
+                            val isConfigured = appSettings?.homeChargeConfigured == true
+                            if (!isConfigured) {
+                                showHomeNotConfiguredDialog = true
+                            } else if (onQuickHomeCharge != null) {
                                 showHomeChargeDialog = true
                             } else {
                                 onAddChargeClick()
@@ -948,7 +962,8 @@ fun HomeScreen(
     if (showHomeChargeDialog) {
         val parsedSoc = homeChargeSocText.toDoubleOrNull() ?: carSoc
         val neededKwh = (usableCapacity * ((100.0 - parsedSoc).coerceAtLeast(0.0) / 100.0))
-        val estPrice = 0.25 // Standard home rate
+        val currentTariff = appSettings?.let { EVCalculator.determineHomeTariff(it) }
+        val estPrice = currentTariff?.pricePerKwh ?: 0.36
         val estCost = neededKwh * estPrice
         val parsedMeter = homeChargeMeterText.toDoubleOrNull()
 
@@ -998,6 +1013,21 @@ fun HomeScreen(
 
                     VoltCard(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(8.dp)) {
+                            if (currentTariff != null) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Текущий тариф:", fontSize = 12.sp)
+                                    Text(
+                                        text = "${currentTariff.tariffName} (${String.format(Locale.US, "%.4f", currentTariff.pricePerKwh)} $currency)",
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (currentTariff.isNight) BatteryGreen else ElectricCyan,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -1042,6 +1072,50 @@ fun HomeScreen(
             dismissButton = {
                 TextButton(onClick = { showHomeChargeDialog = false }) {
                     Text(strings.cancel)
+                }
+            }
+        )
+    }
+
+    // Dialog when Home Charging is not yet configured by the user
+    if (showHomeNotConfiguredDialog) {
+        AlertDialog(
+            onDismissRequest = { showHomeNotConfiguredDialog = false },
+            icon = { Icon(Icons.Default.Settings, contentDescription = null, tint = SoftBlue, modifier = Modifier.size(28.dp)) },
+            title = {
+                Text(
+                    text = "Настройка домашней зарядки",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Параметры домашней зарядки ещё не настроены. У каждого пользователя свои тарифы электроэнергии (одноставочный, двухзонный или трёхзонный). Пожалуйста, настройте тарифы в Настройках, чтобы расчёт стоимости был точным.",
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showHomeNotConfiguredDialog = false
+                        onNavigateToSettings?.invoke()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SoftBlue),
+                    modifier = Modifier.testTag("go_to_settings_button")
+                ) {
+                    Text("Настроить сейчас", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showHomeNotConfiguredDialog = false
+                    // Allow quick start with default standard tariff even if not yet customized
+                    showHomeChargeDialog = true
+                }) {
+                    Text("Продолжить со станд.")
                 }
             }
         )

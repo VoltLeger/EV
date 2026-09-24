@@ -68,14 +68,77 @@ object EVCalculator {
         calendar: Calendar = Calendar.getInstance()
     ): Boolean {
         val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        return isHourInRange(hour, startHour, endHour)
+    }
+
+    fun isHourInRange(hour: Int, startHour: Int, endHour: Int): Boolean {
         return if (startHour > endHour) {
-            // Over midnight: e.g. 23 to 6, or 21 to 8
+            // Over midnight: e.g. 23 to 6, or 17 to 23
             hour >= startHour || hour < endHour
         } else if (startHour < endHour) {
             // Same day
             hour in startHour until endHour
         } else {
             false
+        }
+    }
+
+    data class HomeTariffEstimate(
+        val pricePerKwh: Double,
+        val tariffName: String,
+        val isNight: Boolean
+    )
+
+    fun determineHomeTariff(
+        settings: com.example.data.model.AppSettings,
+        calendar: Calendar = Calendar.getInstance()
+    ): HomeTariffEstimate {
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        if (settings.homeThreeTariffEnabled) {
+            // 1. Peak period: 17:00 to 23:00
+            if (isHourInRange(hour, settings.homePeakStartHour, settings.homePeakEndHour)) {
+                return HomeTariffEstimate(
+                    pricePerKwh = settings.homePeakPrice,
+                    tariffName = "Пиковый (17:00-23:00)",
+                    isNight = false
+                )
+            }
+            // 2. Night / Minimal load: 23:00 to 06:00
+            if (isHourInRange(hour, settings.homeNightStartHour, settings.homeNightEndHour)) {
+                return HomeTariffEstimate(
+                    pricePerKwh = settings.homeNightPrice,
+                    tariffName = "Ночной (23:00-06:00)",
+                    isNight = true
+                )
+            }
+            // 3. Semi-peak: remaining period (06:00 to 17:00)
+            return HomeTariffEstimate(
+                pricePerKwh = settings.homeSemiPeakPrice,
+                tariffName = "Полупиковый (06:00-17:00)",
+                isNight = false
+            )
+        } else if (settings.homeNightTariffEnabled) {
+            // Two-tariff (Day / Night)
+            if (isHourInRange(hour, settings.homeNightStartHour, settings.homeNightEndHour)) {
+                return HomeTariffEstimate(
+                    pricePerKwh = settings.homeNightPrice,
+                    tariffName = "Ночной (23:00-06:00)",
+                    isNight = true
+                )
+            } else {
+                return HomeTariffEstimate(
+                    pricePerKwh = settings.homeStandardPrice,
+                    tariffName = "Дневной (стандартный)",
+                    isNight = false
+                )
+            }
+        } else {
+            // Single standard tariff
+            return HomeTariffEstimate(
+                pricePerKwh = settings.homeStandardPrice,
+                tariffName = "Стандартный",
+                isNight = false
+            )
         }
     }
 

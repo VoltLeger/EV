@@ -361,7 +361,9 @@ class MainActivity : ComponentActivity() {
                                                 onAddExpense = { category, amount, odometer, comment ->
                                                     viewModel.addExpense(category, amount, odometer, comment)
                                                 },
-                                                topExpenseCategories = topExpenseCategories
+                                                topExpenseCategories = topExpenseCategories,
+                                                appSettings = settings,
+                                                onNavigateToSettings = { selectedTab = 3 }
                                             )
                                             1 -> HistoryScreen(
                                                 sessions = activeCarSessions,
@@ -424,6 +426,22 @@ class MainActivity : ComponentActivity() {
                                                         email = email,
                                                         backupJson = backupJson
                                                     )
+                                                },
+                                                onSaveHomeChargingSettings = { std, night, nPrice, nStart, nEnd, three, pPrice, pStart, pEnd, sPrice, sStart, sEnd ->
+                                                    viewModel.saveHomeChargingSettings(
+                                                        standardPrice = std,
+                                                        nightTariffEnabled = night,
+                                                        nightPrice = nPrice,
+                                                        nightStartHour = nStart,
+                                                        nightEndHour = nEnd,
+                                                        threeTariffEnabled = three,
+                                                        peakPrice = pPrice,
+                                                        peakStartHour = pStart,
+                                                        peakEndHour = pEnd,
+                                                        semiPeakPrice = sPrice,
+                                                        semiPeakStartHour = sStart,
+                                                        semiPeakEndHour = sEnd
+                                                    )
                                                 }
                                             )
                                         }
@@ -468,7 +486,7 @@ class MainActivity : ComponentActivity() {
                                         sessionToFinish = null
                                         navController.popBackStack()
                                     },
-                                    onComplete = { endSoc, kwhDelivered, kwhReceived, penalty, fixed, endTime, comment ->
+                                    onComplete = { endSoc, kwhDelivered, kwhReceived, penalty, fixed, endTime, comment, endOdo ->
                                         navController.popBackStack()
                                         sessionToFinish = null
                                         viewModel.finishCharging(
@@ -479,7 +497,8 @@ class MainActivity : ComponentActivity() {
                                             penaltyCost = penalty,
                                             fixedAmount = fixed,
                                             endTime = endTime,
-                                            comment = comment
+                                            comment = comment,
+                                            endOdometer = endOdo
                                         )
                                     }
                                 )
