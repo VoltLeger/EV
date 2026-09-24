@@ -58,7 +58,7 @@ jobs:
         run: |
           touch .env
 
-          if [ -f "debug.keystore.base64" ]; then
+          if [ ! -s "debug.keystore" ] && [ -f "debug.keystore.base64" ]; then
             echo "Decoding debug.keystore from debug.keystore.base64..."
             base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || base64 --decode debug.keystore.base64 > debug.keystore 2>/dev/null || true
           fi
@@ -86,14 +86,13 @@ jobs:
           if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "main" ] || [ "$VERSION_TAG" = "master" ]; then
             VERSION_TAG="v2.3.1"
           fi
-          cp app/build/outputs/apk/debug/app-debug.apk release-artifacts/VoltLedger-${VERSION_TAG}-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk release-artifacts/VoltLedger-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk release-artifacts/VoltLedger-${VERSION_TAG}.apk
           ls -la release-artifacts/
 
       - name: Upload Debug APK as Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VoltLedger-debug-apk
+          name: VoltLedger-apk
           path: release-artifacts/*.apk
           retention-days: 30
 
