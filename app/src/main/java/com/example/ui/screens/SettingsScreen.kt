@@ -1188,7 +1188,188 @@ fun SettingsScreen(
                 }
             }
 
-            // Section 7: App Version & About
+            // Section 7: About Developer (Gunmetal & EV Community)
+            item {
+                var showAboutDeveloperDialog by remember { mutableStateOf(false) }
+
+                VoltCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showAboutDeveloperDialog = true }
+                        .testTag("about_developer_card")
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(CircleShape)
+                                .background(ElectricCyan.copy(alpha = 0.15f))
+                                .border(1.5.dp, ElectricCyan.copy(alpha = 0.4f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("⚡", fontSize = 22.sp)
+                        }
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = strings.aboutDeveloper,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(SoftBlue.copy(alpha = 0.18f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "v2.3.3",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SoftBlue
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = strings.developerCreatedForEv,
+                                fontSize = 12.sp,
+                                color = ElectricCyan,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Warm community message box
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🤝 ", fontSize = 14.sp)
+                                Text(
+                                    text = "Спасибо за установку!",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = BatteryGreen
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "VoltLedger создан для EV общества разработчиком Gunmetal. Приложение создано с заботой для каждого владельца электромобиля — без рекламы, без сбора данных, с прозрачными расчётами и поддержкой сообщества.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Badges row
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(ElectricCyan.copy(alpha = 0.12f))
+                                .border(0.8.dp, ElectricCyan.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("🛠️ Автор: Gunmetal", fontSize = 11.sp, color = ElectricCyan, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(SoftBlue.copy(alpha = 0.12f))
+                                .border(0.8.dp, SoftBlue.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("🚗 EV Community Edition", fontSize = 11.sp, color = SoftBlue, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(BatteryGreen.copy(alpha = 0.12f))
+                                .border(0.8.dp, BatteryGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("🛡️ 100% Offline & Private", fontSize = 11.sp, color = BatteryGreen, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+
+                // Modal dialog if user taps card
+                if (showAboutDeveloperDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showAboutDeveloperDialog = false },
+                        title = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("⚡", fontSize = 20.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("О разработчике", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            }
+                        },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(
+                                    text = "VoltLedger v2.3.3",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ElectricCyan
+                                )
+                                Text(
+                                    text = "Приложение создано для сообщества владельцев электромобилей (EV) разработчиком Gunmetal.\n\nСпасибо за установку и доверие! Цель проекта — дать каждому владельцу EV полный контроль над расходами, реальным запасом хода и эффективностью зарядок.",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    lineHeight = 18.sp
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(ElectricCyan.copy(alpha = 0.08f))
+                                        .padding(10.dp)
+                                ) {
+                                    Text(
+                                        text = "💚 Приятных и выгодных поездок на электротяге!\nС уважением, Gunmetal.",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            Button(onClick = { showAboutDeveloperDialog = false }) {
+                                Text("Отлично")
+                            }
+                        }
+                    )
+                }
+            }
+
+            // Section 8: App Version & About Footer
             item {
                 Column(
                     modifier = Modifier
@@ -1197,14 +1378,14 @@ fun SettingsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "VoltLedger v2.3",
+                        text = "VoltLedger v2.3.3",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "EV Smart Charging & Analytics",
+                        text = "EV Smart Charging & Analytics • Gunmetal Edition",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )

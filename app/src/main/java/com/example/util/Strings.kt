@@ -183,4 +183,11 @@ class AppStrings(val isEn: Boolean) {
     val free = if (isEn) "Free" else "Бесплатно"
     val yes = if (isEn) "Yes" else "Да"
     val no = if (isEn) "No" else "Нет"
+
+    // About Developer
+    val aboutDeveloper = if (isEn) "About Developer" else "О разработчике"
+    val developerCreatedForEv = if (isEn) "Created for the EV Community by Gunmetal" else "Создал для EV общества Gunmetal"
+    val developerThanks = if (isEn) "Thank you for installing VoltLedger! The app was created for the EV community to make electric vehicle charging and tracking simple, precise, and transparent." else "Спасибо за установку! Приложение создано с заботой для всего EV-сообщества, чтобы сделать учёт зарядок и владение электромобилем максимально удобным, точным и выгодным."
+    val developerRole = if (isEn) "Lead Developer" else "Разработчик: Gunmetal"
+    val evCommunityBadge = if (isEn) "EV Community" else "Для EV-сообщества"
 }
