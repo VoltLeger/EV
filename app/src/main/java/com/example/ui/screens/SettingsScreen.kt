@@ -49,9 +49,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sync
 import android.widget.Toast
-import androidx.biometric.BiometricManager
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -82,8 +79,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -133,8 +128,6 @@ fun SettingsScreen(
     onTestDcNotification: () -> Unit = {},
     onTestAchievementUnlocked: () -> Unit = {},
     onTestAchievementProgress: () -> Unit = {},
-    onUpdatePinSettings: (Boolean, String) -> Unit = { _, _ -> },
-    onUpdateBiometricSettings: (Boolean) -> Unit = {},
     onExportCsv: () -> String,
     onExportJson: () -> String,
     onImportJson: (String) -> Unit,
@@ -735,225 +728,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Section 5.5: Security & PIN Lock
-            item {
-                var showPinDialog by remember { mutableStateOf(false) }
-                var pinInput by remember { mutableStateOf("") }
-                var pinConfirmInput by remember { mutableStateOf("") }
-                var pinPasswordVisible by remember { mutableStateOf(false) }
-                var pinErrorText by remember { mutableStateOf<String?>(null) }
-
-                VoltCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = strings.securitySection,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // PIN Protection Switch
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = strings.pinLockEnabled, fontSize = 14.sp)
-                            Text(
-                                text = if (settings.pinEnabled && settings.pinCode.isNotBlank()) "PIN-код активен" else "Защита отключена",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        Switch(
-                            checked = settings.pinEnabled,
-                            onCheckedChange = { isChecked ->
-                                if (isChecked) {
-                                    if (settings.pinCode.isBlank()) {
-                                        pinInput = ""
-                                        pinConfirmInput = ""
-                                        pinErrorText = null
-                                        showPinDialog = true
-                                    } else {
-                                        onUpdatePinSettings(true, settings.pinCode)
-                                        Toast.makeText(context, "Защита PIN-кодом включена", Toast.LENGTH_SHORT).show()
-                                    }
-                                } else {
-                                    onUpdatePinSettings(false, settings.pinCode)
-                                    Toast.makeText(context, "Защита PIN-кодом отключена", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            colors = SwitchDefaults.colors(checkedThumbColor = ElectricCyan, checkedTrackColor = ElectricCyan.copy(alpha = 0.4f))
-                        )
-                    }
-
-                    if (settings.pinEnabled) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        OutlinedButton(
-                            onClick = {
-                                pinInput = ""
-                                pinConfirmInput = ""
-                                pinErrorText = null
-                                showPinDialog = true
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Изменить PIN-код", fontSize = 13.sp)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Biometric Unlock Switch
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = strings.biometricLockEnabled, fontSize = 14.sp)
-                            Text(
-                                text = if (settings.biometricEnabled) "Биометрия активна" else "Отключено",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        Switch(
-                            checked = settings.biometricEnabled,
-                            onCheckedChange = { isChecked ->
-                                if (isChecked) {
-                                    val biometricManager = BiometricManager.from(context)
-                                    val canAuth = biometricManager.canAuthenticate(
-                                        BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
-                                    )
-                                    when (canAuth) {
-                                        BiometricManager.BIOMETRIC_SUCCESS -> {
-                                            if (settings.pinCode.isBlank()) {
-                                                Toast.makeText(context, "Для включения отпечатка сначала задайте резервный PIN-код", Toast.LENGTH_LONG).show()
-                                                pinInput = ""
-                                                pinConfirmInput = ""
-                                                pinErrorText = null
-                                                showPinDialog = true
-                                            } else {
-                                                onUpdateBiometricSettings(true)
-                                                Toast.makeText(context, "Вход по отпечатку пальца включён", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                        BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                                            Toast.makeText(context, "В системе Android не зарегистрированы отпечатки. Добавьте их в настройках телефона", Toast.LENGTH_LONG).show()
-                                        }
-                                        BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
-                                            Toast.makeText(context, "На устройстве отсутствует сканер отпечатков пальцев", Toast.LENGTH_LONG).show()
-                                        }
-                                        BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
-                                            Toast.makeText(context, "Сканер отпечатков временно недоступен", Toast.LENGTH_LONG).show()
-                                        }
-                                        else -> {
-                                            Toast.makeText(context, "Биометрия не поддерживается устройством", Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                } else {
-                                    onUpdateBiometricSettings(false)
-                                    Toast.makeText(context, "Вход по отпечатку отключён", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            colors = SwitchDefaults.colors(checkedThumbColor = ElectricCyan, checkedTrackColor = ElectricCyan.copy(alpha = 0.4f))
-                        )
-                    }
-                }
-
-                if (showPinDialog) {
-                    AlertDialog(
-                        onDismissRequest = { showPinDialog = false },
-                        title = { Text(strings.setPinTitle) },
-                        text = {
-                            Column {
-                                Text("Задайте 4-значный PIN-код для входа в приложение:", fontSize = 13.sp)
-                                Spacer(modifier = Modifier.height(10.dp))
-                                OutlinedTextField(
-                                    value = pinInput,
-                                    onValueChange = {
-                                        if (it.length <= 8) {
-                                            pinInput = it
-                                            pinErrorText = null
-                                        }
-                                    },
-                                    label = { Text("Новый PIN-код") },
-                                    visualTransformation = if (pinPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                                    singleLine = true,
-                                    trailingIcon = {
-                                        IconButton(onClick = { pinPasswordVisible = !pinPasswordVisible }) {
-                                            Icon(
-                                                imageVector = if (pinPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                                contentDescription = null
-                                            )
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                OutlinedTextField(
-                                    value = pinConfirmInput,
-                                    onValueChange = {
-                                        if (it.length <= 8) {
-                                            pinConfirmInput = it
-                                            pinErrorText = null
-                                        }
-                                    },
-                                    label = { Text("Повторите PIN-код") },
-                                    visualTransformation = if (pinPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-
-                                if (pinErrorText != null) {
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = pinErrorText!!,
-                                        color = MaterialTheme.colorScheme.error,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                        },
-                        confirmButton = {
-                            Button(
-                                onClick = {
-                                    val trimmed = pinInput.trim()
-                                    val confirmTrimmed = pinConfirmInput.trim()
-                                    if (trimmed.length < 4) {
-                                        pinErrorText = "Минимум 4 цифры"
-                                    } else if (trimmed != confirmTrimmed) {
-                                        pinErrorText = "PIN-коды не совпадают"
-                                    } else {
-                                        onUpdatePinSettings(true, trimmed)
-                                        showPinDialog = false
-                                        Toast.makeText(context, "PIN-код успешно установлен", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                enabled = pinInput.isNotBlank() && pinConfirmInput.isNotBlank()
-                            ) {
-                                Text(strings.save)
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showPinDialog = false }) {
-                                Text(strings.cancel)
-                            }
-                        }
-                    )
-                }
-            }
-
             // Section 6: Google Drive & Cloud Backup
             item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
@@ -1180,7 +954,7 @@ fun SettingsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "VoltLedger v2.2.0",
+                        text = "VoltLedger v2.3",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

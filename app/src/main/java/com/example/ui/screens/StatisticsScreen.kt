@@ -200,10 +200,43 @@ fun StatisticsScreen(
     val acCost = remember(acSessions) { acSessions.sumOf { it.totalCost } }
     val dcCost = remember(dcSessions) { dcSessions.sumOf { it.totalCost } }
 
-    // Average consumption in period
-    val periodConsumption = if (periodDistanceKm > 0 && totalDeliveredKwh > 0) {
-        (totalDeliveredKwh / periodDistanceKm) * 100.0
-    } else null
+    // Average consumption in period (taking battery SoC discharge and usable capacity into account)
+    val periodUsableCapacity = activeCar?.usableCapacityKwh ?: 57.0
+    val periodConsumption = remember(currentPeriodSessions, periodDistanceKm, periodUsableCapacity, totalDeliveredKwh) {
+        if (periodDistanceKm < 5.0 || currentPeriodSessions.size < 2) {
+            if (periodDistanceKm > 10.0 && totalDeliveredKwh > 0) (totalDeliveredKwh / periodDistanceKm) * 100.0 else null
+        } else {
+            val sortedPeriod = currentPeriodSessions.sortedBy { it.startTime }
+            var accKm = 0.0
+            var accKwh = 0.0
+            for (i in 0 until sortedPeriod.size - 1) {
+                val prev = sortedPeriod[i]
+                val curr = sortedPeriod[i + 1]
+                val dKm = curr.startOdometer - prev.startOdometer
+                if (dKm > 0) {
+                    accKm += dKm
+                    val tripDischargePercent = if (prev.endSoc > 0 && curr.startSoc > 0 && prev.endSoc >= curr.startSoc) {
+                        prev.endSoc - curr.startSoc
+                    } else null
+
+                    val effectiveKwh = if (tripDischargePercent != null && tripDischargePercent > 0.0 && periodUsableCapacity > 0.0) {
+                        (tripDischargePercent / 100.0) * periodUsableCapacity
+                    } else {
+                        val endSocDelta = if (curr.endSoc > 0 && prev.endSoc > 0) curr.endSoc - prev.endSoc else 0.0
+                        val netAdj = (endSocDelta / 100.0) * periodUsableCapacity
+                        val adjKwh = curr.kwhDeliveredByStation - netAdj
+                        if (adjKwh > 0.0) adjKwh else curr.kwhDeliveredByStation
+                    }
+                    accKwh += effectiveKwh
+                }
+            }
+            if (accKm >= 5.0 && accKwh > 0.0) {
+                (accKwh / accKm) * 100.0
+            } else if (periodDistanceKm > 0 && totalDeliveredKwh > 0) {
+                (totalDeliveredKwh / periodDistanceKm) * 100.0
+            } else null
+        }
+    }
 
     // Passport consumption comparison
     val passportVal = activeCar?.passportConsumption ?: 16.0

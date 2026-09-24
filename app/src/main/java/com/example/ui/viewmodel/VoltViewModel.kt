@@ -134,7 +134,8 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         val carId = car?.id ?: return@combine null
         val carSessions = sessions.filter { it.carId == carId && it.status == "completed" }
         val now = Calendar.getInstance()
-        EVCalculator.calculateMonthConsumption(carSessions, now.get(Calendar.YEAR), now.get(Calendar.MONTH))
+        val capacity = car.usableCapacityKwh.takeIf { it > 0.0 } ?: 57.0
+        EVCalculator.calculateMonthConsumption(carSessions, now.get(Calendar.YEAR), now.get(Calendar.MONTH), capacity)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
@@ -560,18 +561,6 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
             NotificationHelper.showDcSessionExceededNotification(getApplication(), isEn)
         } else if (durationHours >= settings.value.unfinishedHoursThreshold) {
             NotificationHelper.showUnfinishedChargeNotification(getApplication(), isEn, durationHours.toInt())
-        }
-    }
-
-    fun updatePinSettings(enabled: Boolean, pin: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.updatePinSettings(enabled, pin)
-        }
-    }
-
-    fun updateBiometricSettings(enabled: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.updateBiometricSettings(enabled)
         }
     }
 

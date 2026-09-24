@@ -168,8 +168,8 @@ fun HomeScreen(
     }
 
     // Calculate Last Two Charges Consumption (Centerpiece 3D Card)
-    val lastTwoConsumption = remember(completedSessions) {
-        EVCalculator.calculateLastTwoChargesConsumption(completedSessions)
+    val lastTwoConsumption = remember(completedSessions, usableCapacity) {
+        EVCalculator.calculateLastTwoChargesConsumption(completedSessions, usableCapacity)
     }
 
     // Lower block metrics
@@ -499,7 +499,7 @@ fun HomeScreen(
                             // Subtitle with distance and energy info
                             if (lastTwoConsumption.hasEnoughData) {
                                 Text(
-                                    text = "Дистанция между зарядками: ${lastTwoConsumption.distanceKm.toInt()} км (+${String.format(Locale.US, "%.1f", lastTwoConsumption.totalKwh)} кВт·ч)",
+                                    text = "Поездка: ${lastTwoConsumption.distanceKm.toInt()} км • Расход: ${String.format(Locale.US, "%.1f", lastTwoConsumption.totalKwh)} кВт·ч",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Medium

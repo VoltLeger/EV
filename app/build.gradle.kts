@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.voltledger.vtlgr"
     minSdk = 26
     targetSdk = 36
-    versionCode = 7
-    versionName = "2.2.1"
+    versionCode = 8
+    versionName = "2.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -80,7 +80,7 @@ dependencies {
   // implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
-  implementation(libs.androidx.biometric)
+  // implementation(libs.androidx.biometric)
   // implementation(libs.androidx.camera.camera2)
   // implementation(libs.androidx.camera.core)
   // implementation(libs.androidx.camera.lifecycle)

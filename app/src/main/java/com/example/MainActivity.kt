@@ -5,11 +5,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -33,9 +32,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ElectricBolt
-import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -49,7 +46,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -71,15 +67,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.data.model.ChargingSession
-import com.example.ui.screens.AppLockScreen
 import com.example.ui.screens.FinishChargingScreen
 import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.HomeScreen
@@ -97,82 +88,9 @@ import com.example.ui.theme.VoltLedgerTheme
 import com.example.ui.viewmodel.VoltViewModel
 import kotlinx.coroutines.delay
 
-class MainActivity : FragmentActivity() {
+class MainActivity : ComponentActivity() {
 
     private val viewModel: VoltViewModel by viewModels()
-
-    private fun promptBiometric(
-        onSuccess: () -> Unit,
-        onError: ((String) -> Unit)? = null
-    ) {
-        try {
-            val biometricManager = BiometricManager.from(this)
-            val canAuthenticate = biometricManager.canAuthenticate(
-                BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK
-            )
-            when (canAuthenticate) {
-                BiometricManager.BIOMETRIC_SUCCESS -> {
-                    // Supported and enrolled
-                }
-                BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                    val msg = "В системе Android не зарегистрированы отпечатки. Добавьте их в настройках телефона."
-                    onError?.invoke(msg)
-                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-                    return
-                }
-                BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
-                    val msg = "На этом устройстве отсутствует сканер отпечатков пальцев."
-                    onError?.invoke(msg)
-                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-                    return
-                }
-                BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
-                    val msg = "Сканер отпечатков временно недоступен. Воспользуйтесь PIN-кодом."
-                    onError?.invoke(msg)
-                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-                    return
-                }
-                else -> {
-                    val msg = "Биометрическая аутентификация недоступна. Используйте PIN-код."
-                    onError?.invoke(msg)
-                    return
-                }
-            }
-
-            val executor = ContextCompat.getMainExecutor(this)
-            val biometricPrompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    super.onAuthenticationSucceeded(result)
-                    onSuccess()
-                }
-
-                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    super.onAuthenticationError(errorCode, errString)
-                    if (errorCode != BiometricPrompt.ERROR_USER_CANCELED &&
-                        errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON &&
-                        errorCode != BiometricPrompt.ERROR_CANCELED
-                    ) {
-                        onError?.invoke(errString.toString())
-                    }
-                }
-
-                override fun onAuthenticationFailed() {
-                    super.onAuthenticationFailed()
-                    onError?.invoke("Отпечаток не распознан. Попробуйте еще раз.")
-                }
-            })
-
-            val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle("VoltLedger")
-                .setSubtitle("Подтвердите личность для входа в приложение")
-                .setNegativeButtonText("Ввести PIN-код")
-                .build()
-
-            biometricPrompt.authenticate(promptInfo)
-        } catch (e: Throwable) {
-            onError?.invoke(e.message ?: "Ошибка биометрической аутентификации")
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -230,73 +148,10 @@ class MainActivity : FragmentActivity() {
                     }
                 }
 
-                // Security & Authentication Lock State
-                val isSecurityEnabled = (settings.pinEnabled && settings.pinCode.isNotBlank()) || settings.biometricEnabled
-                var isUnlocked by rememberSaveable { mutableStateOf(!isSecurityEnabled) }
-                var biometricErrorMessage by remember { mutableStateOf<String?>(null) }
-
-                // If security is disabled in settings, unlock automatically
-                LaunchedEffect(isSecurityEnabled) {
-                    if (!isSecurityEnabled) {
-                        isUnlocked = true
-                    }
-                }
-
-                // Lifecycle observer to re-lock when returning from background (if security is active)
-                val lifecycleOwner = LocalLifecycleOwner.current
-                DisposableEffect(lifecycleOwner, isSecurityEnabled) {
-                    var backgroundTime = 0L
-                    val observer = LifecycleEventObserver { _, event ->
-                        if (event == Lifecycle.Event.ON_STOP) {
-                            backgroundTime = System.currentTimeMillis()
-                        } else if (event == Lifecycle.Event.ON_START) {
-                            // If user was away in background for more than 30 seconds, re-lock
-                            if (isSecurityEnabled && backgroundTime > 0L && System.currentTimeMillis() - backgroundTime > 30_000L) {
-                                isUnlocked = false
-                            }
-                        }
-                    }
-                    lifecycleOwner.lifecycle.addObserver(observer)
-                    onDispose {
-                        lifecycleOwner.lifecycle.removeObserver(observer)
-                    }
-                }
-
-                // Full-Screen Authentication Lock Screen
-                if (isSecurityEnabled && !isUnlocked) {
-                    AppLockScreen(
-                        correctPin = settings.pinCode,
-                        biometricEnabled = settings.biometricEnabled,
-                        onUnlockSuccess = {
-                            isUnlocked = true
-                            biometricErrorMessage = null
-                        },
-                        onTriggerBiometric = {
-                            promptBiometric(
-                                onSuccess = {
-                                    isUnlocked = true
-                                    biometricErrorMessage = null
-                                },
-                                onError = { err ->
-                                    biometricErrorMessage = err
-                                }
-                            )
-                        },
-                        biometricErrorMessage = biometricErrorMessage,
-                        onClearBiometricError = { biometricErrorMessage = null },
-                        onResetPin = {
-                            viewModel.updatePinSettings(false, "")
-                            viewModel.updateBiometricSettings(false)
-                            isUnlocked = true
-                            biometricErrorMessage = null
-                            Toast.makeText(this@MainActivity, "Защита PIN-кодом сброшена. Функции разблокированы.", Toast.LENGTH_LONG).show()
-                        }
-                    )
-                } else {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     NavHost(
                         navController = navController,
                         startDestination = "splash",
@@ -555,8 +410,6 @@ class MainActivity : FragmentActivity() {
                                                 onTestDcNotification = { viewModel.testDcNotification() },
                                                 onTestAchievementUnlocked = { viewModel.testAchievementUnlockedNotification() },
                                                 onTestAchievementProgress = { viewModel.testAchievementProgressNotification() },
-                                                onUpdatePinSettings = { enabled, pin -> viewModel.updatePinSettings(enabled, pin) },
-                                                onUpdateBiometricSettings = { enabled -> viewModel.updateBiometricSettings(enabled) },
                                                 onExportCsv = { viewModel.exportCsvData() },
                                                 onExportJson = { viewModel.exportJsonBackup() },
                                                 onImportJson = { viewModel.importBackupJson(it, replace = false) },
@@ -639,7 +492,6 @@ class MainActivity : FragmentActivity() {
                         }
                     }
                 }
-            }
 
                 // Range Forecast Dialog
                 if (showRangeForecastDialog) {

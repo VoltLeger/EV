@@ -112,8 +112,6 @@ class VoltRepository(
     suspend fun updateNotifyMonthly(enabled: Boolean) = settingsManager.updateNotifyMonthly(enabled)
     suspend fun updateNotifyAchievements(enabled: Boolean) = settingsManager.updateNotifyAchievements(enabled)
     suspend fun setOnboardingCompleted(completed: Boolean) = settingsManager.setOnboardingCompleted(completed)
-    suspend fun updatePinSettings(enabled: Boolean, pin: String) = settingsManager.updatePinSettings(enabled, pin)
-    suspend fun updateBiometricSettings(enabled: Boolean) = settingsManager.updateBiometricSettings(enabled)
 
     // Backup restore
     suspend fun restoreSessions(sessions: List<ChargingSession>, replace: Boolean) {

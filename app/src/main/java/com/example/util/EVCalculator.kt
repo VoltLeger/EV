@@ -96,14 +96,15 @@ object EVCalculator {
 
     /**
      * Calculates real consumption over the last ~500 km of driving and forecasts remaining range.
+     * Takes into account actual energy discharged from battery between charges when SoC is available.
      */
     fun calculateRangeForecast(
         completedSessions: List<ChargingSession>,
         usableCapacityKwh: Double,
         remainingSoc: Double
     ): RangeForecastResult {
-        val sorted = completedSessions.filter { it.status == "completed" && it.kwhDeliveredByStation > 0 }
-            .sortedByDescending { it.startTime }
+        val sorted = completedSessions.filter { it.status == "completed" }
+            .sortedByDescending { it.endTime ?: it.startTime }
 
         var accumulatedKm = 0.0
         var accumulatedKwh = 0.0
@@ -114,18 +115,34 @@ object EVCalculator {
             val deltaKm = curr.startOdometer - prev.startOdometer
             if (deltaKm > 0) {
                 accumulatedKm += deltaKm
-                accumulatedKwh += curr.kwhDeliveredByStation
+
+                // Check physical battery discharge during trip
+                val tripDischargePercent = if (prev.endSoc > 0 && curr.startSoc > 0 && prev.endSoc >= curr.startSoc) {
+                    prev.endSoc - curr.startSoc
+                } else null
+
+                val effectiveKwh = if (tripDischargePercent != null && tripDischargePercent > 0.0 && usableCapacityKwh > 0.0) {
+                    (tripDischargePercent / 100.0) * usableCapacityKwh
+                } else {
+                    // Fallback to delivered kWh with endSoc delta adjustment
+                    val endSocDelta = if (curr.endSoc > 0 && prev.endSoc > 0) curr.endSoc - prev.endSoc else 0.0
+                    val netAdj = (endSocDelta / 100.0) * usableCapacityKwh
+                    val adjKwh = curr.kwhDeliveredByStation - netAdj
+                    if (adjKwh > 0.0) adjKwh else curr.kwhDeliveredByStation
+                }
+
+                accumulatedKwh += effectiveKwh
                 if (accumulatedKm >= 500.0) {
                     break
                 }
             }
         }
 
-        val consumptionPer100Km = if (accumulatedKm >= 30.0 && accumulatedKwh > 0.0) {
+        val consumptionPer100Km = if (accumulatedKm >= 20.0 && accumulatedKwh > 0.0) {
             (accumulatedKwh / accumulatedKm) * 100.0
         } else {
             // Default typical EV consumption if not enough driving history yet
-            18.5
+            16.0
         }
 
         val clampedSoc = remainingSoc.coerceIn(0.0, 100.0)
@@ -146,11 +163,13 @@ object EVCalculator {
 
     /**
      * Calculates average consumption for a specific month (kWh / 100 km)
+     * Incorporates real battery SoC discharge when available.
      */
     fun calculateMonthConsumption(
         completedSessions: List<ChargingSession>,
         year: Int,
-        month: Int // 0-based, Calendar.MONTH
+        month: Int, // 0-based, Calendar.MONTH
+        usableCapacityKwh: Double = 57.0
     ): Double? {
         val cal = Calendar.getInstance()
         val monthSessions = completedSessions.filter { session ->
@@ -160,17 +179,38 @@ object EVCalculator {
         }.sortedBy { it.startTime }
 
         if (monthSessions.size < 2) {
-            // If we have single session, see if we can calculate from SOC delta and usable capacity
             return null
         }
 
-        val minOdo = monthSessions.minOf { it.startOdometer }
-        val maxOdo = monthSessions.maxOf { it.startOdometer }
-        val distance = maxOdo - minOdo
-        val totalKwh = monthSessions.sumOf { it.kwhDeliveredByStation }
+        var accumulatedKm = 0.0
+        var accumulatedKwh = 0.0
 
-        return if (distance > 10.0 && totalKwh > 0.0) {
-            (totalKwh / distance) * 100.0
+        for (i in 0 until monthSessions.size - 1) {
+            val prev = monthSessions[i]
+            val curr = monthSessions[i + 1]
+            val deltaKm = curr.startOdometer - prev.startOdometer
+            if (deltaKm > 0) {
+                accumulatedKm += deltaKm
+
+                val tripDischargePercent = if (prev.endSoc > 0 && curr.startSoc > 0 && prev.endSoc >= curr.startSoc) {
+                    prev.endSoc - curr.startSoc
+                } else null
+
+                val effectiveKwh = if (tripDischargePercent != null && tripDischargePercent > 0.0 && usableCapacityKwh > 0.0) {
+                    (tripDischargePercent / 100.0) * usableCapacityKwh
+                } else {
+                    val endSocDelta = if (curr.endSoc > 0 && prev.endSoc > 0) curr.endSoc - prev.endSoc else 0.0
+                    val netAdj = (endSocDelta / 100.0) * usableCapacityKwh
+                    val adjKwh = curr.kwhDeliveredByStation - netAdj
+                    if (adjKwh > 0.0) adjKwh else curr.kwhDeliveredByStation
+                }
+
+                accumulatedKwh += effectiveKwh
+            }
+        }
+
+        return if (accumulatedKm >= 10.0 && accumulatedKwh > 0.0) {
+            (accumulatedKwh / accumulatedKm) * 100.0
         } else {
             null
         }
@@ -366,8 +406,12 @@ object EVCalculator {
 
     /**
      * Calculates average consumption across the last three charging sessions (two distance intervals).
+     * Takes into account real battery SoC discharge when available.
      */
-    fun calculateLastThreeChargesConsumption(completedSessions: List<ChargingSession>): LastThreeChargesConsumption {
+    fun calculateLastThreeChargesConsumption(
+        completedSessions: List<ChargingSession>,
+        usableCapacityKwh: Double = 57.0
+    ): LastThreeChargesConsumption {
         val sorted = completedSessions.filter { it.status == "completed" }
             .sortedByDescending { it.endTime ?: it.startTime }
 
@@ -389,28 +433,60 @@ object EVCalculator {
         val oldest = recentList.last()
         val distance = (latest.startOdometer - oldest.startOdometer).coerceAtLeast(0.0)
 
-        // The energy consumed between oldest and latest is sum of charges excluding oldest (or all charges in interval)
-        // More precisely: energy added during the interval is sum of charges from index 0 until takeCount - 1
-        val energyDeliveredInInterval = recentList.subList(0, takeCount - 1).sumOf { it.kwhDeliveredByStation }
+        // Sum consumed energy across the intervals in the window
+        var totalConsumedKwh = 0.0
+        for (i in 0 until recentList.size - 1) {
+            val curr = recentList[i]
+            val prev = recentList[i + 1]
 
-        val consumption = if (distance >= 5.0 && energyDeliveredInInterval > 0.0) {
-            (energyDeliveredInInterval / distance) * 100.0
+            val tripDischargePercent = if (prev.endSoc > 0 && curr.startSoc > 0 && prev.endSoc >= curr.startSoc) {
+                prev.endSoc - curr.startSoc
+            } else null
+
+            val intervalKwh = if (tripDischargePercent != null && tripDischargePercent > 0.0 && usableCapacityKwh > 0.0) {
+                (tripDischargePercent / 100.0) * usableCapacityKwh
+            } else {
+                val endSocDelta = if (curr.endSoc > 0 && prev.endSoc > 0) curr.endSoc - prev.endSoc else 0.0
+                val netAdj = (endSocDelta / 100.0) * usableCapacityKwh
+                val adjKwh = curr.kwhDeliveredByStation - netAdj
+                if (adjKwh > 0.0) adjKwh else curr.kwhDeliveredByStation
+            }
+            totalConsumedKwh += intervalKwh
+        }
+
+        val consumption = if (distance >= 5.0 && totalConsumedKwh > 0.0) {
+            (totalConsumedKwh / distance) * 100.0
         } else null
 
         return LastThreeChargesConsumption(
             avgConsumption = consumption,
             distanceKm = distance,
-            totalKwh = energyDeliveredInInterval,
+            totalKwh = totalConsumedKwh,
             chargesCount = takeCount,
             hasEnoughData = consumption != null
         )
     }
 
     /**
-     * Calculates average consumption between the last two charging sessions.
+     * Calculates real energy consumption between consecutive charging sessions.
+     * Takes into account:
+     * 1. Distance between sessions (startOdometer delta)
+     * 2. Battery SoC change: energy discharged between end of previous charge and start of current charge
+     *    OR energy delivered by station adjusted for net SoC delta (endSoc of latest - endSoc of previous).
+     *
+     * Example:
+     * 1st session: charged to 99% at 14081 km.
+     * 2nd session: arrived with 66% at 14193 km (delta = 112 km, battery discharged 99% -> 66% = 33%).
+     * Charged 10 kWh to 83%.
+     * Real energy consumed on the 112 km trip = 33% of usable battery (~17 kWh).
+     * Consumption = (17 kWh / 112 km) * 100 = 15.2 kWh/100 km (matches vehicle dashboard perfectly).
      */
-    fun calculateLastTwoChargesConsumption(completedSessions: List<ChargingSession>): LastTwoChargesConsumption {
-        val sorted = completedSessions.sortedByDescending { it.endTime ?: it.startTime }
+    fun calculateLastTwoChargesConsumption(
+        completedSessions: List<ChargingSession>,
+        usableCapacityKwh: Double = 57.0
+    ): LastTwoChargesConsumption {
+        val sorted = completedSessions.filter { it.status == "completed" }
+            .sortedByDescending { it.endTime ?: it.startTime }
         if (sorted.size < 2) {
             val single = sorted.firstOrNull()
             return LastTwoChargesConsumption(
@@ -424,15 +500,33 @@ object EVCalculator {
         val latest = sorted[0]
         val previous = sorted[1]
         val distance = (latest.startOdometer - previous.startOdometer).coerceAtLeast(0.0)
-        val deliveredKwh = latest.kwhDeliveredByStation
-        val consumption = if (distance >= 5.0 && deliveredKwh > 0.0) {
-            (deliveredKwh / distance) * 100.0
+
+        // Effective energy consumed during the trip between the two charges
+        val tripDischargePercent = if (previous.endSoc > 0 && latest.startSoc > 0 && previous.endSoc >= latest.startSoc) {
+            previous.endSoc - latest.startSoc
+        } else null
+
+        val consumedKwh: Double = if (tripDischargePercent != null && tripDischargePercent > 0.0 && usableCapacityKwh > 0.0) {
+            // Physical energy taken from battery: delta SoC * usable capacity
+            (tripDischargePercent / 100.0) * usableCapacityKwh
+        } else {
+            // Fallback: If SoC at arrival is missing, adjust delivered kWh by endSoc difference
+            val endSocDelta = if (latest.endSoc > 0 && previous.endSoc > 0) {
+                latest.endSoc - previous.endSoc
+            } else 0.0
+            val netAdjustmentKwh = (endSocDelta / 100.0) * usableCapacityKwh
+            val estimated = (latest.kwhDeliveredByStation - netAdjustmentKwh).coerceAtLeast(0.0)
+            if (estimated > 0.0) estimated else latest.kwhDeliveredByStation
+        }
+
+        val consumption = if (distance >= 5.0 && consumedKwh > 0.0) {
+            (consumedKwh / distance) * 100.0
         } else null
 
         return LastTwoChargesConsumption(
             avgConsumption = consumption,
             distanceKm = distance,
-            totalKwh = deliveredKwh,
+            totalKwh = consumedKwh,
             lastChargeKwh = latest.kwhDeliveredByStation,
             hasEnoughData = consumption != null
         )
