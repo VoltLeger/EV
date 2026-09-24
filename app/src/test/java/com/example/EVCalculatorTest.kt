@@ -63,7 +63,7 @@ class EVCalculatorTest {
         // Peak (17:00 - 23:00)
         val peakTariff = EVCalculator.determineHomeTariff(settings, testHour = 19)
         assertEquals(0.5467, peakTariff.pricePerKwh, 0.0001)
-        assertEquals("Пиковый (17-23)", peakTariff.tariffName)
+        assertEquals("Пиковый (17:00-23:00)", peakTariff.tariffName)
 
         // Night (23:00 - 06:00)
         val nightTariff = EVCalculator.determineHomeTariff(settings, testHour = 23)
@@ -73,6 +73,6 @@ class EVCalculatorTest {
         // Semi-peak (06:00 - 17:00)
         val semiPeakTariff = EVCalculator.determineHomeTariff(settings, testHour = 10)
         assertEquals(0.2126, semiPeakTariff.pricePerKwh, 0.0001)
-        assertEquals("Полупиковый (06-17)", semiPeakTariff.tariffName)
+        assertEquals("Полупиковый (06:00-17:00)", semiPeakTariff.tariffName)
     }
 }

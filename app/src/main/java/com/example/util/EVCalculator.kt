@@ -91,9 +91,10 @@ object EVCalculator {
 
     fun determineHomeTariff(
         settings: com.example.data.model.AppSettings,
-        calendar: Calendar = Calendar.getInstance()
+        calendar: Calendar = Calendar.getInstance(),
+        testHour: Int? = null
     ): HomeTariffEstimate {
-        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val hour = testHour ?: calendar.get(Calendar.HOUR_OF_DAY)
         if (settings.homeThreeTariffEnabled) {
             // 1. Peak period: 17:00 to 23:00
             if (isHourInRange(hour, settings.homePeakStartHour, settings.homePeakEndHour)) {

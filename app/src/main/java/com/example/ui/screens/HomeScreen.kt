@@ -45,6 +45,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -88,6 +90,7 @@ import com.example.ui.components.VoltCard
 import com.example.ui.components.formatCurrency
 import com.example.ui.components.formatDate
 import com.example.ui.theme.BatteryGreen
+import com.example.ui.theme.BatteryOrange
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.LocalCurrency
@@ -105,7 +108,7 @@ fun HomeScreen(
     onSelectCar: (Long) -> Unit,
     onAddChargeClick: () -> Unit,
     onCalculateRangeClick: () -> Unit,
-    onQuickHomeCharge: ((Double, Double?) -> Unit)? = null,
+    onQuickHomeCharge: ((Double, Double?, Double?, String?, Boolean?) -> Unit)? = null,
     onCompleteChargeClick: (ChargingSession) -> Unit,
     onCancelActiveCharge: (ChargingSession) -> Unit,
     onNavigateToHistory: (() -> Unit)? = null,
@@ -144,6 +147,8 @@ fun HomeScreen(
         mutableStateOf(activeCar?.currentSoc?.toInt()?.toString() ?: "30")
     }
     var homeChargeMeterText by remember { mutableStateOf("") }
+    // Tariff mode selection in dialog: "auto" (default active), "standard", "two_tariff", "three_tariff"
+    var selectedTariffMode by remember { mutableStateOf("auto") }
 
     val usableCapacity = activeCar?.usableCapacityKwh ?: 57.0
     val carSoc = activeCar?.currentSoc ?: 80.0
@@ -796,6 +801,9 @@ fun HomeScreen(
                     OutlinedButton(
                         onClick = {
                             val isConfigured = appSettings?.homeChargeConfigured == true
+                            if (appSettings?.homeLastMeterKwh != null && appSettings.homeLastMeterKwh > 0) {
+                                homeChargeMeterText = String.format(Locale.US, "%.1f", appSettings.homeLastMeterKwh)
+                            }
                             if (!isConfigured) {
                                 showHomeNotConfiguredDialog = true
                             } else if (onQuickHomeCharge != null) {
@@ -958,14 +966,52 @@ fun HomeScreen(
         }
     }
 
-    // Quick Home Charge Dialog (Upgraded: Battery % remaining + current meter reading + 1-Tap start)
+    // Quick Home Charge Dialog (Upgraded: 3 Quick Tariff Switch Buttons, Battery % remaining, Last Meter Reading + 1-Tap start)
     if (showHomeChargeDialog) {
         val parsedSoc = homeChargeSocText.toDoubleOrNull() ?: carSoc
         val neededKwh = (usableCapacity * ((100.0 - parsedSoc).coerceAtLeast(0.0) / 100.0))
-        val currentTariff = appSettings?.let { EVCalculator.determineHomeTariff(it) }
-        val estPrice = currentTariff?.pricePerKwh ?: 0.36
-        val estCost = neededKwh * estPrice
         val parsedMeter = homeChargeMeterText.toDoubleOrNull()
+
+        // Calculate active tariff based on user's quick switch selection ("standard", "two_tariff", "three_tariff", or "auto")
+        val effectiveTariff = remember(selectedTariffMode, appSettings) {
+            val settings = appSettings ?: com.example.data.model.AppSettings()
+            val nowHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            when (selectedTariffMode) {
+                "standard" -> {
+                    EVCalculator.HomeTariffEstimate(
+                        pricePerKwh = settings.homeStandardPrice,
+                        tariffName = "Стандартный",
+                        isNight = false
+                    )
+                }
+                "two_tariff" -> {
+                    val isNight = EVCalculator.isHourInRange(nowHour, settings.homeNightStartHour, settings.homeNightEndHour)
+                    val price = if (isNight) settings.homeNightPrice else settings.homeStandardPrice
+                    val name = if (isNight) "Ночной (23:00-06:00)" else "Дневной (стандартный)"
+                    EVCalculator.HomeTariffEstimate(
+                        pricePerKwh = price,
+                        tariffName = name,
+                        isNight = isNight
+                    )
+                }
+                "three_tariff" -> {
+                    val isNight = EVCalculator.isHourInRange(nowHour, settings.homeNightStartHour, settings.homeNightEndHour)
+                    val isPeak = EVCalculator.isHourInRange(nowHour, settings.homePeakStartHour, settings.homePeakEndHour)
+                    when {
+                        isNight -> EVCalculator.HomeTariffEstimate(settings.homeNightPrice, "Ночной (23:00-06:00)", true)
+                        isPeak -> EVCalculator.HomeTariffEstimate(settings.homePeakPrice, "Пиковый (17:00-23:00)", false)
+                        else -> EVCalculator.HomeTariffEstimate(settings.homeSemiPeakPrice, "Полупиковый (06:00-17:00)", false)
+                    }
+                }
+                else -> {
+                    // Default behavior (configured preference or standard)
+                    EVCalculator.determineHomeTariff(settings)
+                }
+            }
+        }
+
+        val estPrice = effectiveTariff.pricePerKwh
+        val estCost = neededKwh * estPrice
 
         AlertDialog(
             onDismissRequest = { showHomeChargeDialog = false },
@@ -980,11 +1026,69 @@ fun HomeScreen(
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // Quick Tariff Switcher: 3 buttons at top
+                    Text(
+                        text = "Выбор тарифа:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val isStd = selectedTariffMode == "standard" || (selectedTariffMode == "auto" && appSettings?.homeThreeTariffEnabled != true && appSettings?.homeNightTariffEnabled != true)
+                        val isTwo = selectedTariffMode == "two_tariff" || (selectedTariffMode == "auto" && appSettings?.homeNightTariffEnabled == true && appSettings.homeThreeTariffEnabled != true)
+                        val isThree = selectedTariffMode == "three_tariff" || (selectedTariffMode == "auto" && appSettings?.homeThreeTariffEnabled == true)
+
+                        // Button 1: Стандарт
+                        FilterChip(
+                            selected = isStd,
+                            onClick = { selectedTariffMode = "standard" },
+                            label = { Text("Стандарт", fontSize = 11.sp, fontWeight = if (isStd) FontWeight.Bold else FontWeight.Normal) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = BatteryGreen,
+                                selectedLabelColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).testTag("quick_tariff_standard")
+                        )
+
+                        // Button 2: 2-зонный
+                        FilterChip(
+                            selected = isTwo,
+                            onClick = { selectedTariffMode = "two_tariff" },
+                            label = { Text("2-зонный", fontSize = 11.sp, fontWeight = if (isTwo) FontWeight.Bold else FontWeight.Normal) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = ElectricCyan,
+                                selectedLabelColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).testTag("quick_tariff_two_zones")
+                        )
+
+                        // Button 3: 3-зонный
+                        FilterChip(
+                            selected = isThree,
+                            onClick = { selectedTariffMode = "three_tariff" },
+                            label = { Text("3-зонный", fontSize = 11.sp, fontWeight = if (isThree) FontWeight.Bold else FontWeight.Normal) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = BatteryOrange,
+                                selectedLabelColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).testTag("quick_tariff_three_zones")
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
                     Text(
                         text = "Введите текущий остаток батареи и показания счётчика электроэнергии:",
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
@@ -999,35 +1103,50 @@ fun HomeScreen(
                         shape = RoundedCornerShape(14.dp)
                     )
 
-                    // Input 2: Current meter reading in kWh
+                    // Input 2: Current meter reading in kWh (with prompt button for last reading if available)
                     OutlinedTextField(
                         value = homeChargeMeterText,
                         onValueChange = { homeChargeMeterText = it },
                         label = { Text("Показания счётчика (кВт·ч)") },
                         placeholder = { Text("необязательно") },
+                        supportingText = {
+                            if (appSettings?.homeLastMeterKwh != null && appSettings.homeLastMeterKwh > 0) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().clickable {
+                                        homeChargeMeterText = String.format(Locale.US, "%.1f", appSettings.homeLastMeterKwh)
+                                    },
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Предыдущее: ${String.format(Locale.US, "%.1f", appSettings.homeLastMeterKwh)} кВт·ч (нажмите, чтобы подставить)",
+                                        fontSize = 10.sp,
+                                        color = ElectricCyan
+                                    )
+                                }
+                            }
+                        },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag("home_charge_meter_input"),
                         shape = RoundedCornerShape(14.dp)
                     )
 
                     VoltCard(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(8.dp)) {
-                            if (currentTariff != null) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("Текущий тариф:", fontSize = 12.sp)
-                                    Text(
-                                        text = "${currentTariff.tariffName} (${String.format(Locale.US, "%.4f", currentTariff.pricePerKwh)} $currency)",
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (currentTariff.isNight) BatteryGreen else ElectricCyan,
-                                        fontSize = 11.sp
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Выбранный тариф:", fontSize = 12.sp)
+                                Text(
+                                    text = "${effectiveTariff.tariffName} (${String.format(Locale.US, "%.4f", effectiveTariff.pricePerKwh)} $currency)",
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (effectiveTariff.isNight) BatteryGreen else ElectricCyan,
+                                    fontSize = 11.sp
+                                )
                             }
+                            Spacer(modifier = Modifier.height(4.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -1060,7 +1179,13 @@ fun HomeScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        onQuickHomeCharge?.invoke(parsedSoc, parsedMeter)
+                        onQuickHomeCharge?.invoke(
+                            parsedSoc,
+                            parsedMeter,
+                            effectiveTariff.pricePerKwh,
+                            effectiveTariff.tariffName,
+                            effectiveTariff.isNight
+                        )
                         showHomeChargeDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = BatteryGreen),

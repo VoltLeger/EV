@@ -44,6 +44,7 @@ class SettingsManager(private val context: Context) {
         val KEY_HOME_SEMI_PEAK_PRICE = doublePreferencesKey("home_semi_peak_price")
         val KEY_HOME_SEMI_PEAK_START_HOUR = intPreferencesKey("home_semi_peak_start_hour")
         val KEY_HOME_SEMI_PEAK_END_HOUR = intPreferencesKey("home_semi_peak_end_hour")
+        val KEY_HOME_LAST_METER_KWH = doublePreferencesKey("home_last_meter_kwh")
     }
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -72,8 +73,13 @@ class SettingsManager(private val context: Context) {
             homePeakEndHour = prefs[KEY_HOME_PEAK_END_HOUR] ?: 23,
             homeSemiPeakPrice = prefs[KEY_HOME_SEMI_PEAK_PRICE] ?: 0.2126,
             homeSemiPeakStartHour = prefs[KEY_HOME_SEMI_PEAK_START_HOUR] ?: 6,
-            homeSemiPeakEndHour = prefs[KEY_HOME_SEMI_PEAK_END_HOUR] ?: 17
+            homeSemiPeakEndHour = prefs[KEY_HOME_SEMI_PEAK_END_HOUR] ?: 17,
+            homeLastMeterKwh = prefs[KEY_HOME_LAST_METER_KWH]
         )
+    }
+
+    suspend fun updateHomeLastMeterKwh(meterKwh: Double) {
+        context.dataStore.edit { it[KEY_HOME_LAST_METER_KWH] = meterKwh }
     }
 
     suspend fun updateLanguage(language: String) {

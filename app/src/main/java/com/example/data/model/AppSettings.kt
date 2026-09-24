@@ -26,5 +26,6 @@ data class AppSettings(
     val homePeakEndHour: Int = 23,
     val homeSemiPeakPrice: Double = 0.2126,
     val homeSemiPeakStartHour: Int = 6,
-    val homeSemiPeakEndHour: Int = 17
+    val homeSemiPeakEndHour: Int = 17,
+    val homeLastMeterKwh: Double? = null
 )

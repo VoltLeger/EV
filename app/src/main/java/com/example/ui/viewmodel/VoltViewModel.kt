@@ -656,13 +656,25 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun startQuickHomeCharge(currentSoc: Double, meterKwh: Double? = null, customPrice: Double? = null) {
+    fun startQuickHomeCharge(
+        currentSoc: Double,
+        meterKwh: Double? = null,
+        customPrice: Double? = null,
+        tariffModeName: String? = null,
+        isNightTariff: Boolean? = null
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             val car = activeCar.value ?: allCars.value.firstOrNull() ?: return@launch
             val appSet = settings.value
             val now = Calendar.getInstance()
             val tariffEstimate = EVCalculator.determineHomeTariff(appSet, now)
             val price = customPrice ?: tariffEstimate.pricePerKwh
+            val tariffName = tariffModeName ?: tariffEstimate.tariffName
+            val isNight = isNightTariff ?: tariffEstimate.isNight
+
+            if (meterKwh != null && meterKwh > 0) {
+                settingsManager.updateHomeLastMeterKwh(meterKwh)
+            }
 
             val homeOp = allOperators.value.find { it.name.contains("Дом", ignoreCase = true) || it.name.contains("Home", ignoreCase = true) }
 
@@ -677,14 +689,14 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                 operatorId = homeOp?.id,
                 operatorName = "Домашняя розетка",
                 operatorComment = buildString {
-                    append(tariffEstimate.tariffName)
+                    append(tariffName)
                     if (meterKwh != null && meterKwh > 0) {
                         append(" • Счётчик: $meterKwh кВт·ч")
                     }
                 },
                 avgPowerKw = 3.5,
                 isFreeCharge = price <= 0.0001,
-                nightTariffApplied = tariffEstimate.isNight,
+                nightTariffApplied = isNight,
                 startTime = System.currentTimeMillis(),
                 status = "active"
             )

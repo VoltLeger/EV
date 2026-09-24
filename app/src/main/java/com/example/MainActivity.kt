@@ -341,8 +341,8 @@ class MainActivity : ComponentActivity() {
                                                 onSelectCar = { viewModel.selectCar(it) },
                                                 onAddChargeClick = { navController.navigate("start_charging") },
                                                 onCalculateRangeClick = { showRangeForecastDialog = true },
-                                                onQuickHomeCharge = { currentSoc, meterKwh ->
-                                                    viewModel.startQuickHomeCharge(currentSoc, meterKwh)
+                                                onQuickHomeCharge = { currentSoc, meterKwh, customPrice, tariffName, isNight ->
+                                                    viewModel.startQuickHomeCharge(currentSoc, meterKwh, customPrice, tariffName, isNight)
                                                 },
                                                 onNavigateToHistory = { selectedTab = 1 },
                                                 onCompleteChargeClick = { session ->
