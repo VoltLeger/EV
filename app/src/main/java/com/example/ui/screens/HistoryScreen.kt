@@ -71,6 +71,7 @@ import com.example.data.model.Car
 import com.example.data.model.CarExpense
 import com.example.data.model.ChargingSession
 import com.example.ui.components.AddEditExpenseDialog
+import com.example.ui.components.EditChargingSessionDialog
 import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.components.ShareSessionCardDialog
 import com.example.ui.components.VoltCard
@@ -491,7 +492,9 @@ fun HistoryScreen(
                             HistorySessionItemCard(
                                 session = session,
                                 currency = currency,
-                                onClick = { editingSession = session }
+                                onClick = { editingSession = session },
+                                onEditClick = { editingSession = session },
+                                onShareClick = { sessionToShare = session }
                             )
                         }
                     }
@@ -688,149 +691,21 @@ fun HistoryScreen(
     // 1. Edit Session Dialog
     if (editingSession != null) {
         val s = editingSession!!
-        var editOperatorName by remember(s.id) { mutableStateOf(s.operatorName) }
-        var editStartSoc by remember(s.id) { mutableStateOf(s.startSoc.toInt().toString()) }
-        var editEndSoc by remember(s.id) { mutableStateOf(s.endSoc.toInt().toString()) }
-        var editKwh by remember(s.id) { mutableStateOf(String.format(Locale.US, "%.1f", s.kwhDeliveredByStation)) }
-        var editCost by remember(s.id) { mutableStateOf(String.format(Locale.US, "%.2f", s.totalCost)) }
-        var editOdometer by remember(s.id) { mutableStateOf(s.startOdometer.toInt().toString()) }
-        var editStationType by remember(s.id) { mutableStateOf(s.stationType) }
-        var editComment by remember(s.id) { mutableStateOf(s.operatorComment ?: "") }
-
-        AlertDialog(
-            onDismissRequest = { editingSession = null },
-            title = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.History, contentDescription = null, tint = ElectricCyan)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Редактирование зарядки", fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    }
-                    IconButton(
-                        onClick = {
-                            val toShare = s
-                            editingSession = null
-                            sessionToShare = toShare
-                        }
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = "Поделиться", tint = ElectricCyan)
-                    }
-                }
+        EditChargingSessionDialog(
+            session = s,
+            currency = currency,
+            onDismiss = { editingSession = null },
+            onSave = { updated ->
+                onUpdateSession(updated)
+                editingSession = null
             },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedTextField(
-                        value = editOperatorName,
-                        onValueChange = { editOperatorName = it },
-                        label = { Text("Оператор / Станция") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = editStartSoc,
-                            onValueChange = { editStartSoc = it },
-                            label = { Text("Начальный %") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = editEndSoc,
-                            onValueChange = { editEndSoc = it },
-                            label = { Text("Конечный %") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = editKwh,
-                            onValueChange = { editKwh = it },
-                            label = { Text("Заряжено кВт·ч") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = editCost,
-                            onValueChange = { editCost = it },
-                            label = { Text("Сумма ($currency)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    OutlinedTextField(
-                        value = editOdometer,
-                        onValueChange = { editOdometer = it },
-                        label = { Text("Пробег (км)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = editComment,
-                        onValueChange = { editComment = it },
-                        label = { Text("Заметка / Тег") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+            onDelete = { toDelete ->
+                editingSession = null
+                sessionToDelete = toDelete
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val updated = s.copy(
-                            operatorName = editOperatorName.trim(),
-                            startSoc = editStartSoc.toDoubleOrNull() ?: s.startSoc,
-                            endSoc = editEndSoc.toDoubleOrNull() ?: s.endSoc,
-                            kwhDeliveredByStation = editKwh.toDoubleOrNull() ?: s.kwhDeliveredByStation,
-                            totalCost = editCost.toDoubleOrNull() ?: s.totalCost,
-                            startOdometer = editOdometer.toDoubleOrNull() ?: s.startOdometer,
-                            stationType = editStationType,
-                            operatorComment = editComment.trim().ifEmpty { null }
-                        )
-                        onUpdateSession(updated)
-                        editingSession = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan)
-                ) {
-                    Text("Сохранить")
-                }
-            },
-            dismissButton = {
-                Row {
-                    TextButton(
-                        onClick = {
-                            val toDelete = s
-                            editingSession = null
-                            sessionToDelete = toDelete
-                        },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Удалить")
-                    }
-                    TextButton(onClick = { editingSession = null }) {
-                        Text(strings.cancel)
-                    }
-                }
+            onShare = { toShare ->
+                editingSession = null
+                sessionToShare = toShare
             }
         )
     }
@@ -945,6 +820,8 @@ fun HistorySessionItemCard(
     session: ChargingSession,
     currency: String,
     onClick: () -> Unit,
+    onEditClick: (() -> Unit)? = null,
+    onShareClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isDc = session.stationType.equals("DC", ignoreCase = true)
@@ -1085,6 +962,47 @@ fun HistorySessionItemCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Action Buttons Row: Share Postcard & Edit Session
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = { onShareClick?.invoke() ?: onClick() },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Открытка",
+                        tint = ElectricCyan,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Открытка", fontSize = 12.sp, color = ElectricCyan, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                TextButton(
+                    onClick = { onEditClick?.invoke() ?: onClick() },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Редактировать",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Редактировать", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

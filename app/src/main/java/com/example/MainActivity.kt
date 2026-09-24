@@ -71,6 +71,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.data.model.ChargingSession
+import com.example.ui.components.ShareSessionCardDialog
 import com.example.ui.screens.FinishChargingScreen
 import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.HomeScreen
@@ -139,6 +140,7 @@ class MainActivity : ComponentActivity() {
                 var showRangeForecastDialog by remember { mutableStateOf(false) }
                 var showProfileAwardsDialog by remember { mutableStateOf(false) }
                 var sessionToFinish by remember { mutableStateOf<ChargingSession?>(null) }
+                var sessionToSharePostcard by remember { mutableStateOf<ChargingSession?>(null) }
 
                 // Periodic active session notification check (e.g. DC charging > 2 hours)
                 LaunchedEffect(Unit) {
@@ -489,6 +491,21 @@ class MainActivity : ComponentActivity() {
                                     onComplete = { endSoc, kwhDelivered, kwhReceived, penalty, fixed, endTime, comment, endOdo ->
                                         navController.popBackStack()
                                         sessionToFinish = null
+                                        val energyCost = kwhDelivered * currentSession.pricePerKwh
+                                        val totalCost = energyCost + penalty + fixed
+                                        val finished = currentSession.copy(
+                                            endSoc = endSoc,
+                                            kwhDeliveredByStation = kwhDelivered,
+                                            kwhReceivedByCar = kwhReceived,
+                                            energyCost = energyCost,
+                                            penaltyCost = penalty,
+                                            fixedAmount = fixed,
+                                            totalCost = totalCost,
+                                            endTime = endTime,
+                                            operatorComment = comment ?: currentSession.operatorComment,
+                                            status = "completed"
+                                        )
+                                        sessionToSharePostcard = finished
                                         viewModel.finishCharging(
                                             session = currentSession,
                                             endSoc = endSoc,
@@ -527,6 +544,16 @@ class MainActivity : ComponentActivity() {
                     ProfileAwardsDialog(
                         viewModel = viewModel,
                         onDismiss = { showProfileAwardsDialog = false }
+                    )
+                }
+
+                // Social Media Postcard Share Dialog on Completion
+                if (sessionToSharePostcard != null) {
+                    ShareSessionCardDialog(
+                        session = sessionToSharePostcard!!,
+                        car = activeCar,
+                        currency = settings.currency,
+                        onDismiss = { sessionToSharePostcard = null }
                     )
                 }
             }
