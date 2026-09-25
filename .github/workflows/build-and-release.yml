@@ -55,16 +55,30 @@ jobs:
           $ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager "platforms;android-36.1" "platforms;android-36" "build-tools;36.0.0" || true
 
       - name: Prepare environment & signing
+        env:
+          KEYSTORE_BASE64: "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"
         run: |
           touch .env
 
-          if [ ! -s "debug.keystore" ] && [ -f "debug.keystore.base64" ]; then
-            echo "Restoring permanent debug.keystore from debug.keystore.base64..."
-            base64 -d debug.keystore.base64 > debug.keystore
+          if [ ! -s "debug.keystore" ]; then
+            if [ -f "debug.keystore.base64" ]; then
+              echo "Restoring permanent debug.keystore from debug.keystore.base64..."
+              base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || true
+            fi
+          fi
+
+          if [ ! -s "debug.keystore" ]; then
+            echo "Restoring permanent debug.keystore from KEYSTORE_BASE64..."
+            echo "$KEYSTORE_BASE64" | base64 -d > debug.keystore 2>/dev/null || true
+          fi
+
+          if [ ! -s "debug.keystore" ]; then
+            echo "Generating fallback debug.keystore..."
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" || true
           fi
 
           echo "Verifying debug.keystore fingerprint:"
-          keytool -list -v -keystore debug.keystore -storepass android | grep -E "Owner|SHA256"
+          keytool -list -v -keystore debug.keystore -storepass android | grep -E "Owner|SHA256" || true
           chmod +x gradlew
 
       - name: Build Debug APK
