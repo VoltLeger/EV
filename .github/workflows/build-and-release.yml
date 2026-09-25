@@ -5,12 +5,10 @@ on:
     branches:
       - '**'
     tags:
-      - 'v*'
-      - 'V*'
-      - '[0-9]*'
+      - '**'
   pull_request:
   release:
-    types: [published, created]
+    types: [published, created, edited, released]
   workflow_dispatch:
     inputs:
       create_release:
