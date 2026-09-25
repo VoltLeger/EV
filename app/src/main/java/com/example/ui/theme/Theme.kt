@@ -14,124 +14,42 @@ val LocalAppStrings = staticCompositionLocalOf { AppStrings(isEn = false) }
 val LocalCurrency = staticCompositionLocalOf { "BYN" }
 val LocalCurrentTheme = staticCompositionLocalOf { "dark" }
 
-private val WrncColorScheme = darkColorScheme(
-    primary = WrncAccent,
-    onPrimary = Color(0xFF071224),
-    primaryContainer = Color(0xFF132B50),
-    onPrimaryContainer = Color(0xFFBAE6FD),
-    secondary = Color(0xFF60A5FA),
-    onSecondary = Color(0xFF071224),
-    tertiary = Color(0xFF34D399),
-    onTertiary = Color.White,
-    background = WrncBg,
-    onBackground = WrncTextPrimary,
-    surface = WrncSurface,
-    onSurface = WrncTextPrimary,
-    surfaceVariant = WrncSurfaceVariant,
-    onSurfaceVariant = WrncTextSecondary,
-    outline = WrncBorder
-)
-
-private val MintColorScheme = lightColorScheme(
-    primary = MintPrimary,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFCCFBF1),
-    onPrimaryContainer = Color(0xFF115E59),
-    secondary = MintAccent,
-    onSecondary = Color.White,
-    tertiary = Color(0xFF10B981),
-    onTertiary = Color.White,
-    background = MintBg,
-    onBackground = Color(0xFFF0FDFA),
-    surface = MintSurface,
-    onSurface = MintTextPrimary,
-    surfaceVariant = MintSurfaceVariant,
-    onSurfaceVariant = MintTextSecondary,
-    outline = MintBorder
-)
-
+// Postcard Cyber Neon Dark Scheme (The only active theme in VoltLedger)
 private val DarkColorScheme = darkColorScheme(
-    primary = SoftBlue,
-    onPrimary = Color.White,
-    primaryContainer = SoftBlueDark,
-    onPrimaryContainer = Color.White,
-    secondary = ElectricCyan,
-    onSecondary = Color(0xFF001E2E),
-    tertiary = BatteryGreen,
+    primary = Color(0xFF00E5FF), // Cyber Neon Cyan (matching postcard primaryAccent)
+    onPrimary = Color(0xFF0B0F19),
+    primaryContainer = Color(0xFF1E293B),
+    onPrimaryContainer = Color(0xFFE2E8F0),
+    secondary = Color(0xFFA855F7), // Electric Purple (matching postcard secondaryAccent)
+    onSecondary = Color(0xFF0B0F19),
+    secondaryContainer = Color(0xFF2E1065),
+    onSecondaryContainer = Color(0xFFF3E8FF),
+    tertiary = BatteryGreen, // 0xFF10B981 Emerald
     onTertiary = Color.White,
-    background = DarkBg,
-    onBackground = DarkTextPrimary,
-    surface = DarkSurface,
-    onSurface = DarkTextPrimary,
-    surfaceVariant = DarkSurfaceVariant,
-    onSurfaceVariant = DarkTextSecondary,
-    outline = DarkBorder
-)
-
-private val AmoledColorScheme = darkColorScheme(
-    primary = SoftBlue,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFF162544),
-    onPrimaryContainer = Color.White,
-    secondary = ElectricCyan,
-    onSecondary = Color.Black,
-    tertiary = BatteryGreen,
-    onTertiary = Color.White,
-    background = AmoledBg,
+    background = Color(0xFF0B0F19), // matching postcard bgStartColor
     onBackground = Color(0xFFFFFFFF),
-    surface = AmoledSurface,
+    surface = Color(0xFF162032), // matching postcard card surface
     onSurface = Color(0xFFF8FAFC),
-    surfaceVariant = AmoledSurfaceVariant,
+    surfaceVariant = Color(0xFF1E293B), // matching postcard cardBgColor
     onSurfaceVariant = Color(0xFF94A3B8),
-    outline = AmoledBorder
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = SoftBlue,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFDCE8FD),
-    onPrimaryContainer = Color(0xFF0F3268),
-    secondary = Color(0xFF0284C7),
-    onSecondary = Color.White,
-    tertiary = BatteryGreen,
-    onTertiary = Color.White,
-    background = LightBg,
-    onBackground = LightTextPrimary,
-    surface = LightSurface,
-    onSurface = LightTextPrimary,
-    surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = LightTextSecondary,
-    outline = LightBorder
+    outline = Color(0xFF334155) // matching postcard cardBorderColor
 )
 
 @Composable
 fun VoltLedgerTheme(
-    themeSetting: String = "dark", // "dark", "wrnc", "mint", "light", "system", "amoled"
+    themeSetting: String = "dark",
     languageSetting: String = "ru", // "ru", "en"
     currencySetting: String = "BYN",
     content: @Composable () -> Unit
 ) {
-    val systemDark = isSystemInDarkTheme()
-    val resolvedTheme = if (themeSetting == "system") {
-        if (systemDark) "dark" else "light"
-    } else {
-        themeSetting
-    }
-
-    val colorScheme = when (resolvedTheme) {
-        "wrnc" -> WrncColorScheme
-        "mint" -> MintColorScheme
-        "light" -> LightColorScheme
-        "amoled" -> AmoledColorScheme
-        else -> DarkColorScheme // default dark
-    }
-
+    // VoltLedger is locked to the dark cyber neon postcard theme
+    val colorScheme = DarkColorScheme
     val appStrings = AppStrings(isEn = (languageSetting == "en"))
 
     CompositionLocalProvider(
         LocalAppStrings provides appStrings,
         LocalCurrency provides currencySetting,
-        LocalCurrentTheme provides resolvedTheme
+        LocalCurrentTheme provides "dark"
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

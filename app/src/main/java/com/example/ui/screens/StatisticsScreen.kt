@@ -57,6 +57,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Car
@@ -328,34 +329,86 @@ fun StatisticsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     // Tab Navigation Row (Overview, Expenses, Operators, Top-3 & Efficiency)
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SingleChoiceSegmentedButtonRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 2.dp)
+                    ) {
                         SegmentedButton(
+                            modifier = Modifier.weight(1f),
                             selected = selectedTab == 0,
                             onClick = { selectedTab = 0 },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 4)
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 4),
+                            icon = {},
+                            colors = SegmentedButtonDefaults.colors(
+                                activeContainerColor = ElectricCyan.copy(alpha = 0.22f),
+                                activeContentColor = ElectricCyan
+                            )
                         ) {
-                            Text(strings.tabOverview, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                text = strings.tabOverview,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                         SegmentedButton(
+                            modifier = Modifier.weight(1f),
                             selected = selectedTab == 1,
                             onClick = { selectedTab = 1 },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 4)
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 4),
+                            icon = {},
+                            colors = SegmentedButtonDefaults.colors(
+                                activeContainerColor = ElectricCyan.copy(alpha = 0.22f),
+                                activeContentColor = ElectricCyan
+                            )
                         ) {
-                            Text("Затраты", fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                text = "Затраты",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                         SegmentedButton(
+                            modifier = Modifier.weight(1f),
                             selected = selectedTab == 2,
                             onClick = { selectedTab = 2 },
-                            shape = SegmentedButtonDefaults.itemShape(index = 2, count = 4)
+                            shape = SegmentedButtonDefaults.itemShape(index = 2, count = 4),
+                            icon = {},
+                            colors = SegmentedButtonDefaults.colors(
+                                activeContainerColor = ElectricCyan.copy(alpha = 0.22f),
+                                activeContentColor = ElectricCyan
+                            )
                         ) {
-                            Text(strings.tabOperators, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                text = strings.tabOperators,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                         SegmentedButton(
+                            modifier = Modifier.weight(1f),
                             selected = selectedTab == 3,
                             onClick = { selectedTab = 3 },
-                            shape = SegmentedButtonDefaults.itemShape(index = 3, count = 4)
+                            shape = SegmentedButtonDefaults.itemShape(index = 3, count = 4),
+                            icon = {},
+                            colors = SegmentedButtonDefaults.colors(
+                                activeContainerColor = ElectricCyan.copy(alpha = 0.22f),
+                                activeContentColor = ElectricCyan
+                            )
                         ) {
-                            Text(strings.tabTopEfficiency, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                text = strings.tabTopEfficiency,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }

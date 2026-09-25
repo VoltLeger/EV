@@ -91,7 +91,6 @@ fun LiquidGlassBackground(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    val themeMode = LocalCurrentTheme.current
     val bgBase = MaterialTheme.colorScheme.background
 
     Box(
@@ -99,106 +98,49 @@ fun LiquidGlassBackground(
             .fillMaxSize()
             .background(bgBase)
             .drawBehind {
-                when (themeMode) {
-                    "wrnc" -> {
-                        // Deep atmospheric vertical gradient from WRNC_приложение.jpg
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    WrncBgGradientTop,
-                                    WrncBgGradientMid,
-                                    WrncBgGradientBottom
-                                )
-                            )
+                // Postcard Cyber Neon background vertical gradient (#0B0F19 to #131B2E)
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF0B0F19),
+                            Color(0xFF0E1524),
+                            Color(0xFF131B2E)
                         )
-                        // Luminous sky-blue and cyan atmospheric orbs
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(WrncAccent.copy(alpha = 0.20f), Color.Transparent),
-                                center = Offset(size.width * 0.85f, size.height * 0.14f),
-                                radius = size.width * 0.85f
-                            ),
-                            center = Offset(size.width * 0.85f, size.height * 0.14f),
-                            radius = size.width * 0.85f
-                        )
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(Color(0xFF2563EB).copy(alpha = 0.16f), Color.Transparent),
-                                center = Offset(size.width * 0.10f, size.height * 0.60f),
-                                radius = size.width * 0.75f
-                            ),
-                            center = Offset(size.width * 0.10f, size.height * 0.60f),
-                            radius = size.width * 0.75f
-                        )
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(WrncAccent.copy(alpha = 0.12f), Color.Transparent),
-                                center = Offset(size.width * 0.70f, size.height * 0.92f),
-                                radius = size.width * 0.70f
-                            ),
-                            center = Offset(size.width * 0.70f, size.height * 0.92f),
-                            radius = size.width * 0.70f
-                        )
-                    }
-                    "mint" -> {
-                        // Oceanic Teal background gradient from 1741601510-image-1451x1080.png
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    MintBgGradientTop,
-                                    MintBgGradientMid,
-                                    MintBgGradientBottom
-                                )
-                            )
-                        )
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(Color(0xFF5EEAD4).copy(alpha = 0.25f), Color.Transparent),
-                                center = Offset(size.width * 0.85f, size.height * 0.12f),
-                                radius = size.width * 0.85f
-                            ),
-                            center = Offset(size.width * 0.85f, size.height * 0.12f),
-                            radius = size.width * 0.85f
-                        )
-                    }
-                    "amoled" -> {
-                        drawRect(Color.Black)
-                    }
-                    else -> {
-                        val cyanGlow = ElectricCyan.copy(alpha = 0.12f)
-                        val blueGlow = SoftBlue.copy(alpha = 0.15f)
-                        // Top-right glowing orb
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(blueGlow, Color.Transparent),
-                                center = Offset(size.width * 0.9f, size.height * 0.12f),
-                                radius = size.width * 0.75f
-                            ),
-                            center = Offset(size.width * 0.9f, size.height * 0.12f),
-                            radius = size.width * 0.75f
-                        )
-                        // Mid-left glowing orb
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(cyanGlow, Color.Transparent),
-                                center = Offset(size.width * 0.05f, size.height * 0.55f),
-                                radius = size.width * 0.65f
-                            ),
-                            center = Offset(size.width * 0.05f, size.height * 0.55f),
-                            radius = size.width * 0.65f
-                        )
-                        // Subtle bottom ambient light
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(blueGlow.copy(alpha = 0.08f), Color.Transparent),
-                                center = Offset(size.width * 0.8f, size.height * 0.95f),
-                                radius = size.width * 0.7f
-                            ),
-                            center = Offset(size.width * 0.8f, size.height * 0.95f),
-                            radius = size.width * 0.7f
-                        )
-                    }
-                }
+                    )
+                )
+
+                // Atmospheric glowing neon cyan circle (top right, matching postcard)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0xFF00E5FF).copy(alpha = 0.16f), Color.Transparent),
+                        center = Offset(size.width * 0.85f, size.height * 0.14f),
+                        radius = size.width * 0.80f
+                    ),
+                    center = Offset(size.width * 0.85f, size.height * 0.14f),
+                    radius = size.width * 0.80f
+                )
+
+                // Atmospheric glowing electric purple circle (mid-left, matching postcard)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0xFFA855F7).copy(alpha = 0.14f), Color.Transparent),
+                        center = Offset(size.width * 0.12f, size.height * 0.65f),
+                        radius = size.width * 0.70f
+                    ),
+                    center = Offset(size.width * 0.12f, size.height * 0.65f),
+                    radius = size.width * 0.70f
+                )
+
+                // Subtle emerald green / cyan ambient glow at bottom
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0xFF10B981).copy(alpha = 0.08f), Color.Transparent),
+                        center = Offset(size.width * 0.75f, size.height * 0.95f),
+                        radius = size.width * 0.65f
+                    ),
+                    center = Offset(size.width * 0.75f, size.height * 0.95f),
+                    radius = size.width * 0.65f
+                )
             }
     ) {
         content()
@@ -206,9 +148,8 @@ fun LiquidGlassBackground(
 }
 
 /**
- * Modern Liquid Glass Card:
- * Features a frosted translucent gradient fill, a specular glass rim highlight,
- * and high-fidelity depth that creates a tactile glassy aesthetic.
+ * Modern Liquid Glass Card matching the Postcard styling:
+ * Frosted dark obsidian container with a subtle neon specular gradient border.
  */
 @Composable
 fun VoltCard(
@@ -218,11 +159,10 @@ fun VoltCard(
     cornerRadius: Dp = 22.dp,
     content: @Composable () -> Unit
 ) {
-    val themeMode = LocalCurrentTheme.current
     val surfaceColor = MaterialTheme.colorScheme.surface
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
 
-    // Specular glass gradient border
+    // Specular neon glass gradient border matching the postcard
     val glassBorderBrush = if (borderColor != null) {
         Brush.linearGradient(
             colors = listOf(
@@ -234,23 +174,12 @@ fun VoltCard(
             start = Offset.Zero,
             end = Offset.Infinite
         )
-    } else if (themeMode == "wrnc") {
-        Brush.linearGradient(
-            colors = listOf(
-                WrncBorderSpecular,
-                WrncBorder,
-                WrncBorder.copy(alpha = 0.25f),
-                WrncBorderSpecular.copy(alpha = 0.4f)
-            ),
-            start = Offset(0f, 0f),
-            end = Offset(300f, 600f)
-        )
     } else {
         Brush.linearGradient(
             colors = listOf(
-                GlassBorderTop,
-                GlassBorderCyan.copy(alpha = 0.4f),
-                GlassBorderBottom
+                Color(0xFF00E5FF).copy(alpha = 0.65f),
+                Color(0xFFA855F7).copy(alpha = 0.45f),
+                Color(0xFF334155)
             ),
             start = Offset(0f, 0f),
             end = Offset(300f, 600f)

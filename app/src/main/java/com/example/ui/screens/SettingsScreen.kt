@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.FileDownload
@@ -1212,28 +1213,32 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Theme selector: Dark, Light, Mint, System
+                    // Theme: Single signature Dark Cyber Neon theme matching the postcard
                     Text(text = strings.theme, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(6.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
+                            .border(1.dp, ElectricCyan.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
-                        listOf(
-                            "dark" to strings.themeDark,
-                            "light" to strings.themeLight,
-                            "mint" to strings.themeMint,
-                            "system" to strings.themeSystem
-                        ).forEach { (mode, label) ->
-                            val isSelected = settings.theme == mode || ((settings.theme == "wrnc" || settings.theme == "amoled") && mode == "dark")
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { onUpdateTheme(mode) },
-                                label = { Text(label, fontSize = 12.sp) },
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SoftBlue, selectedLabelColor = Color.White),
-                                shape = RoundedCornerShape(10.dp)
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(ElectricCyan.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.ElectricBolt, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Тёмная тема (Кибер Неон)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+                                Text("Фирменный стиль открытки VoltLedger", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
@@ -1714,16 +1719,16 @@ fun SettingsScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(SoftBlue.copy(alpha = 0.18f))
+                                        .background(ElectricCyan.copy(alpha = 0.18f))
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "v2.4.2",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SoftBlue
-                                    )
-                                }
+                                 ) {
+                                     Text(
+                                         text = "v2.5.0",
+                                         fontSize = 10.sp,
+                                         fontWeight = FontWeight.Bold,
+                                         color = ElectricCyan
+                                     )
+                                 }
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(

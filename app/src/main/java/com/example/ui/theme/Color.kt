@@ -21,52 +21,60 @@ val GlassBorderTop = Color(0x66FFFFFF)       // 40% white specular rim
 val GlassBorderBottom = Color(0x1FFFFFFF)    // 12% white lower rim
 val GlassBorderCyan = Color(0x6638BDF8)      // Specular cyan edge glint
 
-// Dark Liquid Glass Palette
-val DarkBg = Color(0xFF080D1A)               // Sleek deep void background
-val DarkSurface = Color(0xE010182E)          // Deep translucent frosted glass surface
-val DarkSurfaceVariant = Color(0xCC182444)   // Elevated glass container
-val DarkBorder = Color(0x3338BDF8)           // Ambient glass edge
-val DarkTextPrimary = Color(0xFFF8FAFC)
+// Dark Liquid Glass / Postcard Cyber Neon Palette
+val DarkBg = Color(0xFF0B0F19)               // Sleek obsidian void background (Postcard bgStart)
+val DarkSurface = Color(0xE6162032)          // Deep translucent frosted card surface
+val DarkSurfaceVariant = Color(0xEB1E293B)   // Elevated card container (Postcard cardBg)
+val DarkBorder = Color(0x66334155)           // Postcard card border
+val DarkTextPrimary = Color(0xFFFFFFFF)
 val DarkTextSecondary = Color(0xFF94A3B8)
 
-// AMOLED Palette
+// Postcard Signature Neon Colors
+val CyberNeonCyan = Color(0xFF00E5FF)
+val CyberElectricPurple = Color(0xFFA855F7)
+val CyberBgStart = Color(0xFF0B0F19)
+val CyberBgEnd = Color(0xFF131B2E)
+val CyberCardBg = Color(0xFF1E293B)
+val CyberCardBorder = Color(0xFF334155)
+
+// AMOLED Palette (kept for fallback compatibility)
 val AmoledBg = Color(0xFF000000)
 val AmoledSurface = Color(0xD90D111A)
 val AmoledSurfaceVariant = Color(0xD9161E2E)
 val AmoledBorder = Color(0x3338BDF8)
 
-// Light Liquid Glass Palette
-val LightBg = Color(0xFFF0F4F8)
-val LightSurface = Color(0xD9FFFFFF)
-val LightSurfaceVariant = Color(0xCCF8FAFC)
-val LightBorder = Color(0x4038BDF8)
-val LightTextPrimary = Color(0xFF0F172A)
-val LightTextSecondary = Color(0xFF475569)
+// Light Liquid Glass Palette (kept for fallback compatibility)
+val LightBg = Color(0xFF0B0F19)
+val LightSurface = Color(0xE6162032)
+val LightSurfaceVariant = Color(0xEB1E293B)
+val LightBorder = Color(0x66334155)
+val LightTextPrimary = Color(0xFFFFFFFF)
+val LightTextSecondary = Color(0xFF94A3B8)
 
-// WRNC Midnight Navy Palette (Atmospheric Night Sky from WRNC_приложение.jpg)
-val WrncBg = Color(0xFF081222)
-val WrncBgGradientTop = Color(0xFF0A162B)
-val WrncBgGradientMid = Color(0xFF102444)
-val WrncBgGradientBottom = Color(0xFF16325C)
-val WrncSurface = Color(0xE60F213D)
-val WrncSurfaceVariant = Color(0xCC183561)
-val WrncBorder = Color(0x4D38BDF8)
-val WrncBorderSpecular = Color(0x8093C5FD)
+// WRNC Midnight Navy Palette (kept for fallback compatibility)
+val WrncBg = Color(0xFF0B0F19)
+val WrncBgGradientTop = Color(0xFF0B0F19)
+val WrncBgGradientMid = Color(0xFF0E1626)
+val WrncBgGradientBottom = Color(0xFF131B2E)
+val WrncSurface = Color(0xE6162032)
+val WrncSurfaceVariant = Color(0xEB1E293B)
+val WrncBorder = Color(0x66334155)
+val WrncBorderSpecular = Color(0x8000E5FF)
 val WrncTextPrimary = Color(0xFFFFFFFF)
-val WrncTextSecondary = Color(0xFF93C5FD)
-val WrncAccent = Color(0xFF38BDF8)
+val WrncTextSecondary = Color(0xFF94A3B8)
+val WrncAccent = Color(0xFF00E5FF)
 val WrncGlow = Color(0xFF00E5FF)
 
-// Oceanic Mint Palette (Soft Teal Backdrop & Frost White Cards from 1741601510-image-1451x1080.png)
-val MintBg = Color(0xFF235865)
-val MintBgGradientTop = Color(0xFF3B8C99)
-val MintBgGradientMid = Color(0xFF266876)
-val MintBgGradientBottom = Color(0xFF174752)
-val MintSurface = Color(0xF2FFFFFF)
-val MintSurfaceVariant = Color(0xECF0FDF9)
-val MintBorder = Color(0x332DD4BF)
-val MintPrimary = Color(0xFF0F766E)
-val MintAccent = Color(0xFF14B8A6)
-val MintTextPrimary = Color(0xFF0F172A)
-val MintTextSecondary = Color(0xFF475569)
+// Oceanic Mint Palette (kept for fallback compatibility)
+val MintBg = Color(0xFF0B0F19)
+val MintBgGradientTop = Color(0xFF0B0F19)
+val MintBgGradientMid = Color(0xFF0E1626)
+val MintBgGradientBottom = Color(0xFF131B2E)
+val MintSurface = Color(0xE6162032)
+val MintSurfaceVariant = Color(0xEB1E293B)
+val MintBorder = Color(0x66334155)
+val MintPrimary = Color(0xFF00E5FF)
+val MintAccent = Color(0xFF00E5FF)
+val MintTextPrimary = Color(0xFFFFFFFF)
+val MintTextSecondary = Color(0xFF94A3B8)
 

@@ -266,30 +266,30 @@ object PostcardGenerator {
         }
         canvas.drawText("${session.startSoc.toInt()}%  ➔  ${session.endSoc.toInt()}%", mainBoxRect.centerX(), 592f, socTextPaint)
 
-        // 7. Four Stats Cards (2x2 Grid)
+        // 7. Two Key Stats Cards (Final Range to 0% and Cost per 100 km)
         val gridTop = 680f
         val cardGap = 24f
         val cardWidth = (width - 160f - cardGap) / 2f
-        val cardHeight = 150f
+        val cardHeight = 160f
 
+        val targetSoc = if (session.endSoc > 0.0) session.endSoc else session.startSoc
+        val usableCapacity = car?.usableCapacityKwh?.takeIf { it > 0.0 } ?: car?.declaredCapacityKwh?.takeIf { it > 0.0 } ?: 57.0
         val passportConsumption = car?.passportConsumption?.takeIf { it > 5.0 } ?: 16.0
-        val addedRangeKm = ((kwhDelivered / passportConsumption) * 100.0).toInt().coerceAtLeast(0)
-        val co2SavedKg = String.format(Locale.US, "%.1f", kwhDelivered * 0.52) // ~0.52 kg CO2 saved per kWh vs gasoline
-        val earnedXp = (kwhDelivered * 3 + if (isDc) 30 else 15).toInt()
+        val finalRemainingKwh = (targetSoc / 100.0) * usableCapacity
+        val totalFinalRangeKm = ((finalRemainingKwh / passportConsumption) * 100.0).toInt().coerceAtLeast(0)
 
-        data class StatItem(val emoji: String, val label: String, val value: String, val color: Int)
+        val pricePerKwh = if (session.pricePerKwh > 0.0) session.pricePerKwh else if (session.kwhDeliveredByStation > 0.0 && session.totalCost > 0.0) session.totalCost / session.kwhDeliveredByStation else 0.5
+        val costPer100Km = pricePerKwh * passportConsumption
+
+        data class KeyStat(val emoji: String, val label: String, val value: String, val subtext: String, val color: Int)
         val stats = listOf(
-            StatItem("🛣️", "ЗАПАС ХОДА", "+$addedRangeKm км", theme.primaryAccent),
-            StatItem("💰", "СТОИМОСТЬ", "${String.format(Locale.US, "%.2f", session.totalCost)} $currency", Color.WHITE),
-            StatItem("🌱", "СБЕРЕЖЕНО CO₂", "-$co2SavedKg кг", theme.secondaryAccent),
-            StatItem("🏆", "НАГРАДА", "+$earnedXp XP", Color.parseColor("#FBBF24"))
+            KeyStat("🛣️", "ЗАПАС ХОДА (${targetSoc.toInt()}%)", "~$totalFinalRangeKm км", "до нуля (0%)", theme.primaryAccent),
+            KeyStat("💰", "СТОИМОСТЬ 100 КМ", "${String.format(Locale.US, "%.2f", costPer100Km)} $currency", "за 100 км пути", Color.WHITE)
         )
 
-        for (i in 0 until 4) {
-            val col = i % 2
-            val row = i / 2
-            val cLeft = 80f + col * (cardWidth + cardGap)
-            val cTop = gridTop + row * (cardHeight + cardGap)
+        for (i in 0 until 2) {
+            val cLeft = 80f + i * (cardWidth + cardGap)
+            val cTop = gridTop
             val cRect = RectF(cLeft, cTop, cLeft + cardWidth, cTop + cardHeight)
 
             canvas.drawRoundRect(cRect, 24f, 24f, boxPaint)
@@ -299,24 +299,32 @@ object PostcardGenerator {
 
             // Label
             val statLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.argb(180, 255, 255, 255)
-                textSize = 20f
+                color = Color.argb(190, 255, 255, 255)
+                textSize = 21f
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             }
-            canvas.drawText("${sItem.emoji} ${sItem.label}", cLeft + 24f, cTop + 45f, statLabelPaint)
+            canvas.drawText("${sItem.emoji} ${sItem.label}", cLeft + 24f, cTop + 44f, statLabelPaint)
 
             // Value
             val statValPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = sItem.color
-                textSize = 36f
+                textSize = 38f
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             }
-            canvas.drawText(sItem.value, cLeft + 24f, cTop + 105f, statValPaint)
+            canvas.drawText(sItem.value, cLeft + 24f, cTop + 102f, statValPaint)
+
+            // Subtext
+            val statSubPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(140, 255, 255, 255)
+                textSize = 19f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            }
+            canvas.drawText(sItem.subtext, cLeft + 24f, cTop + 138f, statSubPaint)
         }
 
         // 8. Quote / Motto Box
-        val quoteTop = 1040f
-        val quoteRect = RectF(80f, quoteTop, width - 80f, quoteTop + 120f)
+        val quoteTop = 880f
+        val quoteRect = RectF(80f, quoteTop, width - 80f, quoteTop + 130f)
         val quoteBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.argb(50, Color.red(theme.primaryAccent), Color.green(theme.primaryAccent), Color.blue(theme.primaryAccent))
         }
@@ -367,10 +375,13 @@ object PostcardGenerator {
         val opName = session.operatorName.ifBlank { "Электрозарядка" }
         val carName = car?.name ?: "Мой Электромобиль"
         val delivered = session.kwhDeliveredByStation
+        val targetSoc = if (session.endSoc > 0.0) session.endSoc else session.startSoc
+        val usableCapacity = car?.usableCapacityKwh?.takeIf { it > 0.0 } ?: car?.declaredCapacityKwh?.takeIf { it > 0.0 } ?: 57.0
         val passportConsumption = car?.passportConsumption?.takeIf { it > 5.0 } ?: 16.0
-        val addedRangeKm = ((delivered / passportConsumption) * 100.0).toInt().coerceAtLeast(0)
-        val co2SavedKg = String.format(Locale.US, "%.1f", delivered * 0.52)
-        val earnedXp = (delivered * 3 + if (session.stationType.equals("DC", true)) 30 else 15).toInt()
+        val finalRemainingKwh = (targetSoc / 100.0) * usableCapacity
+        val totalFinalRangeKm = ((finalRemainingKwh / passportConsumption) * 100.0).toInt().coerceAtLeast(0)
+        val pricePerKwh = if (session.pricePerKwh > 0.0) session.pricePerKwh else if (session.kwhDeliveredByStation > 0.0 && session.totalCost > 0.0) session.totalCost / session.kwhDeliveredByStation else 0.5
+        val costPer100Km = pricePerKwh * passportConsumption
 
         return """
             ⚡ $quoteText
@@ -378,10 +389,8 @@ object PostcardGenerator {
             🚗 Автомобиль: $carName
             📍 Станция: $opName (${session.stationType})
             🔋 Залито энергии: +${String.format(Locale.US, "%.1f", delivered)} кВт·ч (${session.startSoc.toInt()}% → ${session.endSoc.toInt()}%)
-            🛣️ Добавлено хода: ~+$addedRangeKm км
-            💰 Стоимость: ${String.format(Locale.US, "%.2f", session.totalCost)} $currency
-            🌱 Эко-эффект: -$co2SavedKg кг CO₂
-            🏆 Награда: +$earnedXp XP в VoltLedger!
+            🛣️ Итоговый запас хода (${targetSoc.toInt()}%): ~$totalFinalRangeKm км (до нуля)
+            💰 Стоимость 100 км: ${String.format(Locale.US, "%.2f", costPer100Km)} $currency
             
             #VoltLedger #EV #ElectroCar #Charging #Электромобиль
         """.trimIndent()

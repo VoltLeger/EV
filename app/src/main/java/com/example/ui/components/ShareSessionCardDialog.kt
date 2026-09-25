@@ -79,10 +79,13 @@ fun ShareSessionCardDialog(
     val isDc = session.stationType.equals("DC", ignoreCase = true)
     val isHome = session.operatorName.contains("Дом", ignoreCase = true)
     val deliveredKwh = session.kwhDeliveredByStation
+    val targetSoc = if (session.endSoc > 0.0) session.endSoc else session.startSoc
+    val usableCapacity = car?.usableCapacityKwh?.takeIf { it > 0.0 } ?: car?.declaredCapacityKwh?.takeIf { it > 0.0 } ?: 57.0
     val passportConsumption = car?.passportConsumption?.takeIf { it > 5.0 } ?: 16.0
-    val addedRangeKm = ((deliveredKwh / passportConsumption) * 100.0).toInt().coerceAtLeast(0)
-    val co2SavedKg = String.format(Locale.US, "%.1f", deliveredKwh * 0.52)
-    val earnedXp = (deliveredKwh * 3 + if (isDc) 30 else 15).toInt()
+    val finalRemainingKwh = (targetSoc / 100.0) * usableCapacity
+    val totalFinalRangeKm = ((finalRemainingKwh / passportConsumption) * 100.0).toInt().coerceAtLeast(0)
+    val pricePerKwh = if (session.pricePerKwh > 0.0) session.pricePerKwh else if (session.kwhDeliveredByStation > 0.0 && session.totalCost > 0.0) session.totalCost / session.kwhDeliveredByStation else 0.5
+    val costPer100Km = pricePerKwh * passportConsumption
 
     val primaryAccentCompose = Color(currentTheme.primaryAccent)
     val secondaryAccentCompose = Color(currentTheme.secondaryAccent)
@@ -346,69 +349,37 @@ fun ShareSessionCardDialog(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // 4 Key Stats (2x2 Grid)
+                        // 2 Key Stats (Final Range to 0% and Cost per 100 km)
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // Stat 1: Added Range
+                            // Stat 1: Total Final Range to 0%
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(cardBgCompose.copy(alpha = 0.7f))
                                     .border(1.dp, cardBorderCompose, RoundedCornerShape(12.dp))
-                                    .padding(8.dp)
+                                    .padding(10.dp)
                             ) {
                                 Column {
-                                    Text("🛣️ ЗАПАС ХОДА", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
-                                    Text("+$addedRangeKm км", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = primaryAccentCompose)
+                                    Text("🛣️ ЗАПАС ХОДА (${targetSoc.toInt()}%)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
+                                    Text("~$totalFinalRangeKm км", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = primaryAccentCompose)
+                                    Text("до нуля (0%)", fontSize = 8.5.sp, color = Color.White.copy(alpha = 0.5f))
                                 }
                             }
 
-                            // Stat 2: Total Cost
+                            // Stat 2: Cost per 100 km
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(cardBgCompose.copy(alpha = 0.7f))
                                     .border(1.dp, cardBorderCompose, RoundedCornerShape(12.dp))
-                                    .padding(8.dp)
+                                    .padding(10.dp)
                             ) {
                                 Column {
-                                    Text("💰 СТОИМОСТЬ", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
-                                    Text("${String.format(Locale.US, "%.2f", session.totalCost)} $currency", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // Stat 3: CO2 Saved
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(cardBgCompose.copy(alpha = 0.7f))
-                                    .border(1.dp, cardBorderCompose, RoundedCornerShape(12.dp))
-                                    .padding(8.dp)
-                            ) {
-                                Column {
-                                    Text("🌱 СБЕРЕЖЕНО", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
-                                    Text("-$co2SavedKg кг CO₂", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = secondaryAccentCompose)
-                                }
-                            }
-
-                            // Stat 4: XP Earned
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(cardBgCompose.copy(alpha = 0.7f))
-                                    .border(1.dp, cardBorderCompose, RoundedCornerShape(12.dp))
-                                    .padding(8.dp)
-                            ) {
-                                Column {
-                                    Text("🏆 НАГРАДА", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
-                                    Text("+$earnedXp XP", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFFBBF24))
+                                    Text("💰 СТОИМОСТЬ 100 КМ", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
+                                    Text("${String.format(Locale.US, "%.2f", costPer100Km)} $currency", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                                    Text("за 100 км пути", fontSize = 8.5.sp, color = Color.White.copy(alpha = 0.5f))
                                 }
                             }
                         }

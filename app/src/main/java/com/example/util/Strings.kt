@@ -115,7 +115,7 @@ class AppStrings(val isEn: Boolean) {
     val periodComparison = if (isEn) "Period vs Previous Period" else "Сравнение с предыдущим периодом"
     val tabOverview = if (isEn) "Overview" else "Обзор"
     val tabOperators = if (isEn) "Operators" else "Операторы"
-    val tabTopEfficiency = if (isEn) "Efficiency" else "Эффективность"
+    val tabTopEfficiency = if (isEn) "Efficiency" else "КПД"
     val monthVsMonth = if (isEn) "Month vs Month Comparison" else "Сравнение месяц к месяцу"
     val passportComparisonTitle = if (isEn) "Passport vs Real Consumption" else "Сравнение с паспортным расходом"
     val passportValue = if (isEn) "Passport (WLTP):" else "Паспорт:"
