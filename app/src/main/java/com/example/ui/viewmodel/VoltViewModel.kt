@@ -366,16 +366,20 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
     fun addCar(name: String, declaredKwh: Double, odometer: Double, currentSoc: Double, passportConsumption: Double = 16.0) {
         viewModelScope.launch(Dispatchers.IO) {
             val usable = EVCalculator.calculateUsableCapacity(declaredKwh)
+            val isEmpty = allCars.value.isEmpty()
             val car = Car(
                 name = name,
-                declaredCapacityKwh = declaredKwh.coerceIn(20.0, 240.0),
+                declaredCapacityKwh = declaredKwh.coerceIn(10.0, 250.0),
                 usableCapacityKwh = usable,
                 initialOdometer = odometer.coerceAtLeast(0.0),
                 currentSoc = currentSoc.coerceIn(0.0, 100.0),
                 passportConsumption = passportConsumption.coerceIn(5.0, 50.0),
-                isActive = false
+                isActive = isEmpty
             )
-            repository.insertCar(car)
+            val newId = repository.insertCar(car)
+            if (isEmpty) {
+                repository.setActiveCar(newId)
+            }
         }
     }
 
@@ -389,12 +393,10 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteCar(car: Car) {
         viewModelScope.launch(Dispatchers.IO) {
             val list = allCars.value
-            if (list.size > 1) {
-                repository.deleteCar(car)
-                val remaining = list.filter { it.id != car.id }
-                if (remaining.isNotEmpty()) {
-                    repository.setActiveCar(remaining.first().id)
-                }
+            repository.deleteCar(car)
+            val remaining = list.filter { it.id != car.id }
+            if (remaining.isNotEmpty()) {
+                repository.setActiveCar(remaining.first().id)
             }
         }
     }

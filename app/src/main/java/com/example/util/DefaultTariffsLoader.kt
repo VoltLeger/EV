@@ -170,6 +170,19 @@ object DefaultTariffsLoader {
             db.operatorDao().deleteDuplicateOperators()
             db.tagDao().deleteDuplicateTags()
 
+            // Remove dummy default preinstalled car (12000 km) if present and without charging sessions
+            try {
+                val allCarsList = db.carDao().getAllCarsList()
+                val dummyCar = allCarsList.firstOrNull {
+                    it.name == "Электромобиль" && it.initialOdometer == 12000.0
+                }
+                if (dummyCar != null && db.chargingSessionDao().countAllSessions() == 0) {
+                    db.carDao().deleteCar(dummyCar)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Notice cleaning dummy car: ${e.message}")
+            }
+
             val prefs = context.dataStore.data.first()
             val alreadySeeded = prefs[SettingsManager.KEY_INITIAL_SEED_COMPLETED] ?: false
             val currentOpCount = db.operatorDao().countOperators()
@@ -205,17 +218,13 @@ object DefaultTariffsLoader {
                     }
                 }
 
-                // 4. Default car if none exists
-                if (db.carDao().countCars() == 0) {
-                    val defaultCar = Car(
-                        name = "Электромобиль",
-                        declaredCapacityKwh = 60.0,
-                        usableCapacityKwh = 58.0,
-                        initialOdometer = 12000.0,
-                        currentSoc = 65.0,
-                        isActive = true
-                    )
-                    db.carDao().insertCar(defaultCar)
+                // 4. Clean up preinstalled dummy default car (12000 km) if present and without charging sessions
+                val allCars = db.carDao().getAllCarsList()
+                val dummyCar = allCars.firstOrNull {
+                    it.name == "Электромобиль" && it.initialOdometer == 12000.0
+                }
+                if (dummyCar != null && db.chargingSessionDao().countAllSessions() == 0) {
+                    db.carDao().deleteCar(dummyCar)
                 }
 
                 // 5. Default tags if needed

@@ -41,6 +41,9 @@ interface ChargingSessionDao {
     @Query("DELETE FROM charging_sessions WHERE carId = :carId")
     suspend fun deleteSessionsForCar(carId: Long)
 
+    @Query("SELECT COUNT(*) FROM charging_sessions")
+    suspend fun countAllSessions(): Int
+
     @Query("DELETE FROM charging_sessions")
     suspend fun clearAll()
 }

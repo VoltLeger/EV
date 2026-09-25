@@ -64,6 +64,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -87,6 +89,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -96,6 +99,7 @@ import com.example.data.model.Car
 import com.example.data.model.Operator
 import com.example.data.model.Tag
 import com.example.data.model.UserProfile
+import com.example.util.EVCalculator
 import com.example.ui.components.LiquidGlassBackground
 import com.example.ui.components.VoltAvatar
 import com.example.ui.components.VoltCard
@@ -117,6 +121,7 @@ fun SettingsScreen(
     onSelectCar: (Long) -> Unit,
     onAddCar: (String, Double, Double, Double, Double) -> Unit,
     onDeleteCar: (Car) -> Unit,
+    onUpdateCar: (Car) -> Unit = {},
     onAddOperator: (Operator) -> Unit,
     onUpdateOperator: (Operator) -> Unit,
     onDeleteOperator: (Operator) -> Unit,
@@ -270,6 +275,11 @@ fun SettingsScreen(
                 }
             }
 
+            var selectedCarForEditingId by remember(activeCar?.id, allCars) {
+                mutableStateOf(activeCar?.id ?: allCars.firstOrNull()?.id)
+            }
+            val carBeingEdited = allCars.firstOrNull { it.id == selectedCarForEditingId } ?: activeCar ?: allCars.firstOrNull()
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 96.dp),
@@ -277,110 +287,416 @@ fun SettingsScreen(
             ) {
                 // Section 1: Vehicles (Tab 0: Garage)
                 if (selectedTabIndex == 0) {
-                    item {
-                VoltCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = strings.carsSection,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        IconButton(onClick = { showAddCarDialog = true }) {
-                            Icon(Icons.Default.Add, contentDescription = strings.addCar, tint = SoftBlue)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    allCars.forEach { car ->
-                        val isActive = car.id == activeCar?.id
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (isActive) SoftBlue.copy(alpha = 0.15f) else Color.Transparent)
-                                .clickable { onSelectCar(car.id) }
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)
-                            ) {
-                                Box(
+                    if (allCars.isEmpty()) {
+                        item {
+                            VoltCard(modifier = Modifier.fillMaxWidth()) {
+                                Column(
                                     modifier = Modifier
-                                        .size(38.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(SoftBlue.copy(alpha = 0.2f)),
-                                    contentAlignment = Alignment.Center
+                                        .fillMaxWidth()
+                                        .padding(vertical = 24.dp, horizontal = 16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
                                 ) {
-                                    if (!car.photoUri.isNullOrBlank()) {
-                                        AsyncImage(
-                                            model = car.photoUri,
-                                            contentDescription = "Фото ${car.name}",
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(RoundedCornerShape(10.dp))
-                                        )
-                                    } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(64.dp)
+                                            .clip(CircleShape)
+                                            .background(ElectricCyan.copy(alpha = 0.15f))
+                                            .border(1.dp, ElectricCyan.copy(alpha = 0.4f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
                                         Icon(
-                                            imageVector = Icons.Default.DirectionsCar,
+                                            Icons.Default.DirectionsCar,
                                             contentDescription = null,
-                                            tint = SoftBlue,
-                                            modifier = Modifier.size(20.dp)
+                                            tint = ElectricCyan,
+                                            modifier = Modifier.size(34.dp)
                                         )
                                     }
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Text(
+                                        text = "Гараж пуст",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Добавьте ваш электромобиль, чтобы вести учет зарядок, расходов и запаса хода.",
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(18.dp))
+                                    Button(
+                                        onClick = { showAddCarDialog = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = Color.Black),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Добавить электромобиль", fontWeight = FontWeight.Bold)
+                                    }
                                 }
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column(modifier = Modifier.weight(1f, fill = false)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                            }
+                        }
+                    } else {
+                        item {
+                            VoltCard(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
                                         Text(
-                                            text = car.name,
-                                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                                            fontSize = 15.sp,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            text = strings.carsSection,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
-                                        if (isActive) {
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = "✓",
-                                                fontSize = 12.sp,
-                                                color = SoftBlue,
-                                                fontWeight = FontWeight.Bold
+                                        Text(
+                                            text = "Нажмите на авто для выбора и редактирования",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    IconButton(onClick = { showAddCarDialog = true }) {
+                                        Icon(Icons.Default.Add, contentDescription = strings.addCar, tint = SoftBlue)
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                allCars.forEach { car ->
+                                    val isSelectedForEdit = car.id == carBeingEdited?.id
+                                    val isActive = car.id == activeCar?.id
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(
+                                                if (isSelectedForEdit) ElectricCyan.copy(alpha = 0.15f)
+                                                else if (isActive) SoftBlue.copy(alpha = 0.1f)
+                                                else Color.Transparent
+                                            )
+                                            .border(
+                                                1.dp,
+                                                if (isSelectedForEdit) ElectricCyan.copy(alpha = 0.5f) else Color.Transparent,
+                                                RoundedCornerShape(14.dp)
+                                            )
+                                            .clickable {
+                                                selectedCarForEditingId = car.id
+                                                onSelectCar(car.id)
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(if (isActive) ElectricCyan.copy(alpha = 0.2f) else SoftBlue.copy(alpha = 0.15f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (!car.photoUri.isNullOrBlank()) {
+                                                    AsyncImage(
+                                                        model = car.photoUri,
+                                                        contentDescription = "Фото ${car.name}",
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .clip(RoundedCornerShape(10.dp))
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Default.DirectionsCar,
+                                                        contentDescription = null,
+                                                        tint = if (isActive) ElectricCyan else SoftBlue,
+                                                        modifier = Modifier.size(22.dp)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column(modifier = Modifier.weight(1f, fill = false)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        text = car.name,
+                                                        fontWeight = if (isActive || isSelectedForEdit) FontWeight.Bold else FontWeight.Medium,
+                                                        fontSize = 15.sp,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    if (isActive) {
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(6.dp))
+                                                                .background(BatteryGreen.copy(alpha = 0.2f))
+                                                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = "Основной",
+                                                                fontSize = 9.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = BatteryGreen
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = "${car.declaredCapacityKwh.toInt()} кВт·ч • ${car.initialOdometer.toInt()} км • Заряд: ${car.currentSoc.toInt()}%",
+                                                    fontSize = 12.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+
+                                        IconButton(
+                                            onClick = { onDeleteCar(car) },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = "Delete",
+                                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                                modifier = Modifier.size(18.dp)
                                             )
                                         }
                                     }
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "${car.declaredCapacityKwh.toInt()} кВт·ч • ${car.initialOdometer.toInt()} км",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-
-                            if (allCars.size > 1 && !isActive) {
-                                IconButton(onClick = { onDeleteCar(car) }, modifier = Modifier.size(28.dp)) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                                    Spacer(modifier = Modifier.height(6.dp))
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Detailed Edit Form for Selected Car
+                        if (carBeingEdited != null) {
+                            item(key = "edit_car_${carBeingEdited.id}") {
+                                var editName by remember(carBeingEdited.id) { mutableStateOf(carBeingEdited.name) }
+                                var editDeclaredCap by remember(carBeingEdited.id) { mutableStateOf(carBeingEdited.declaredCapacityKwh.toString()) }
+                                var editUsableCap by remember(carBeingEdited.id) { mutableStateOf(carBeingEdited.usableCapacityKwh.toString()) }
+                                var editOdometer by remember(carBeingEdited.id) { mutableStateOf(carBeingEdited.initialOdometer.toInt().toString()) }
+                                var editSoc by remember(carBeingEdited.id) { mutableStateOf(carBeingEdited.currentSoc.toInt().toString()) }
+                                var editConsumption by remember(carBeingEdited.id) { mutableStateOf(carBeingEdited.passportConsumption.toString()) }
+
+                                VoltCard(modifier = Modifier.fillMaxWidth()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.Edit,
+                                                contentDescription = null,
+                                                tint = ElectricCyan,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Параметры авто",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                        if (carBeingEdited.id != activeCar?.id) {
+                                            TextButton(
+                                                onClick = { onSelectCar(carBeingEdited.id) },
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                            ) {
+                                                Text("Сделать основным", fontSize = 12.sp, color = ElectricCyan)
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    // Car name
+                                    OutlinedTextField(
+                                        value = editName,
+                                        onValueChange = { editName = it },
+                                        label = { Text("Марка и модель авто") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    // Battery row: Declared & Usable
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = editDeclaredCap,
+                                            onValueChange = {
+                                                editDeclaredCap = it
+                                                val declared = it.toDoubleOrNull()
+                                                if (declared != null && declared > 0) {
+                                                    editUsableCap = String.format(Locale.US, "%.1f", EVCalculator.calculateUsableCapacity(declared))
+                                                }
+                                            },
+                                            label = { Text("Номинал (кВт·ч)") },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+
+                                        OutlinedTextField(
+                                            value = editUsableCap,
+                                            onValueChange = { editUsableCap = it },
+                                            label = { Text("Полезная (кВт·ч)") },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    // Odometer & Consumption row
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = editOdometer,
+                                            onValueChange = { editOdometer = it },
+                                            label = { Text("Пробег (км)") },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+
+                                        OutlinedTextField(
+                                            value = editConsumption,
+                                            onValueChange = { editConsumption = it },
+                                            label = { Text("Расход (кВт·ч/100)") },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    // SOC Slider & input
+                                    val currentSocFloat = editSoc.toFloatOrNull()?.coerceIn(0f, 100f) ?: 50f
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                                            .padding(12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Текущий уровень заряда",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = "${currentSocFloat.toInt()}%",
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = ElectricCyan
+                                            )
+                                        }
+
+                                        Slider(
+                                            value = currentSocFloat,
+                                            onValueChange = { editSoc = it.toInt().toString() },
+                                            valueRange = 0f..100f,
+                                            colors = SliderDefaults.colors(
+                                                thumbColor = ElectricCyan,
+                                                activeTrackColor = ElectricCyan,
+                                                inactiveTrackColor = ElectricCyan.copy(alpha = 0.2f)
+                                            ),
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+
+                                        // Presets
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            listOf(20, 50, 80, 100).forEach { pct ->
+                                                val isPresSelected = currentSocFloat.toInt() == pct
+                                                Box(
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(if (isPresSelected) ElectricCyan.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surface)
+                                                        .border(1.dp, if (isPresSelected) ElectricCyan else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                                        .clickable { editSoc = pct.toString() }
+                                                        .padding(vertical = 6.dp),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = "$pct%",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = if (isPresSelected) FontWeight.Bold else FontWeight.Normal,
+                                                        color = if (isPresSelected) ElectricCyan else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    // Save Button
+                                    Button(
+                                        onClick = {
+                                            val declared = editDeclaredCap.toDoubleOrNull() ?: carBeingEdited.declaredCapacityKwh
+                                            val usable = editUsableCap.toDoubleOrNull() ?: EVCalculator.calculateUsableCapacity(declared)
+                                            val odo = editOdometer.toDoubleOrNull() ?: carBeingEdited.initialOdometer
+                                            val soc = (editSoc.toDoubleOrNull() ?: carBeingEdited.currentSoc).coerceIn(0.0, 100.0)
+                                            val cons = editConsumption.toDoubleOrNull() ?: carBeingEdited.passportConsumption
+
+                                            val updated = carBeingEdited.copy(
+                                                name = editName.trim().ifEmpty { carBeingEdited.name },
+                                                declaredCapacityKwh = declared,
+                                                usableCapacityKwh = usable,
+                                                initialOdometer = odo,
+                                                currentSoc = soc,
+                                                passportConsumption = cons
+                                            )
+                                            onUpdateCar(updated)
+                                            Toast.makeText(context, "Параметры ${updated.name} сохранены!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = Color.Black),
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                                    ) {
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Сохранить параметры авто", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-            }
-        }
 
         // Tab 1: Tariffs (Section 2: AC, Section 3: DC, Section 4.5: Home Charging)
         if (selectedTabIndex == 1) {
@@ -1308,7 +1624,7 @@ fun SettingsScreen(
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = "v2.4",
+                                        text = "v2.4.1",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = SoftBlue
@@ -1410,7 +1726,7 @@ fun SettingsScreen(
                         text = {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text(
-                                    text = "VoltLedger v2.4",
+                                    text = "VoltLedger v2.4.1",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = ElectricCyan
@@ -1455,7 +1771,7 @@ fun SettingsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "VoltLedger v2.4",
+                        text = "VoltLedger v2.4.1",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

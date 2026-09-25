@@ -395,6 +395,7 @@ class MainActivity : ComponentActivity() {
                                                 onSelectCar = { viewModel.selectCar(it) },
                                                 onAddCar = { name, cap, odo, soc, passport -> viewModel.addCar(name, cap, odo, soc, passport) },
                                                 onDeleteCar = { viewModel.deleteCar(it) },
+                                                onUpdateCar = { viewModel.updateCar(it) },
                                                 onAddOperator = { viewModel.addOperator(it) },
                                                 onUpdateOperator = { viewModel.updateOperator(it) },
                                                 onDeleteOperator = { viewModel.deleteOperator(it) },
