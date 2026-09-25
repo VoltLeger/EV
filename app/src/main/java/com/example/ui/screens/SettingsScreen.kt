@@ -63,14 +63,20 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -167,6 +173,7 @@ fun SettingsScreen(
     var showEmailDialog by remember { mutableStateOf(false) }
     var emailInput by remember(userProfile?.email) { mutableStateOf(userProfile?.email ?: "") }
     var showPhoneTransferAdviceDialog by remember { mutableStateOf(false) }
+    var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -205,13 +212,72 @@ fun SettingsScreen(
     }
 
     LiquidGlassBackground(modifier = modifier) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            // Section 1: Vehicles
-            item {
+        Column(modifier = Modifier.fillMaxSize()) {
+            val tabs = listOf(
+                Triple(0, strings.settingsTabGarage, "🚗"),
+                Triple(1, strings.settingsTabTariffs, "⚡"),
+                Triple(2, strings.settingsTabSystem, "⚙️"),
+                Triple(3, strings.settingsTabData, "💾")
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                tabs.forEach { (index, title, iconStr) ->
+                    val isSelected = selectedTabIndex == index
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (isSelected) ElectricCyan.copy(alpha = 0.22f) else Color.Transparent
+                            )
+                            .border(
+                                1.dp,
+                                if (isSelected) ElectricCyan.copy(alpha = 0.6f) else Color.Transparent,
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clickable { selectedTabIndex = index }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = iconStr,
+                                fontSize = 17.sp
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = title,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) ElectricCyan else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 96.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Section 1: Vehicles (Tab 0: Garage)
+                if (selectedTabIndex == 0) {
+                    item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -314,7 +380,10 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
 
+        // Tab 1: Tariffs (Section 2: AC, Section 3: DC, Section 4.5: Home Charging)
+        if (selectedTabIndex == 1) {
             // Section 2: AC Operators & Tariffs
             item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
@@ -517,87 +586,6 @@ fun SettingsScreen(
                                 }
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-                        }
-                    }
-                }
-            }
-
-            // Section 4: Currency, Language & Theme
-            item {
-                VoltCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = strings.appearanceSection,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Currency selector
-                    Text(text = strings.currency, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        listOf("BYN", "RUB", "PLN", "USD", "EUR").forEach { curr ->
-                            FilterChip(
-                                selected = settings.currency == curr,
-                                onClick = { onUpdateCurrency(curr) },
-                                label = { Text(curr) },
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SoftBlue, selectedLabelColor = Color.White),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Language selector
-                    Text(text = strings.language, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        listOf("ru" to "Русский", "en" to "English").forEach { (code, label) ->
-                            FilterChip(
-                                selected = settings.language == code,
-                                onClick = { onUpdateLanguage(code) },
-                                label = { Text(label) },
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SoftBlue, selectedLabelColor = Color.White),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Theme selector: Dark, Light, Mint, System (wrapped in FlowRow to prevent overflow)
-                    Text(text = strings.theme, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        listOf(
-                            "dark" to strings.themeDark,
-                            "light" to strings.themeLight,
-                            "mint" to strings.themeMint,
-                            "system" to strings.themeSystem
-                        ).forEach { (mode, label) ->
-                            val isSelected = settings.theme == mode || ((settings.theme == "wrnc" || settings.theme == "amoled") && mode == "dark")
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { onUpdateTheme(mode) },
-                                label = { Text(label, fontSize = 12.sp) },
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SoftBlue, selectedLabelColor = Color.White),
-                                shape = RoundedCornerShape(10.dp)
-                            )
                         }
                     }
                 }
@@ -831,6 +819,92 @@ fun SettingsScreen(
                     )
                 }
             }
+        }
+
+        // Tab 2: System (Section 4: Currency, Language & Theme, Section 5: Smart Notifications)
+        if (selectedTabIndex == 2) {
+            // Section 4: Currency, Language & Theme
+            item {
+                VoltCard(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = strings.appearanceSection,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Currency selector
+                    Text(text = strings.currency, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        listOf("BYN", "RUB", "PLN", "USD", "EUR").forEach { curr ->
+                            FilterChip(
+                                selected = settings.currency == curr,
+                                onClick = { onUpdateCurrency(curr) },
+                                label = { Text(curr) },
+                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SoftBlue, selectedLabelColor = Color.White),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Language selector
+                    Text(text = strings.language, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        listOf("ru" to "Русский", "en" to "English").forEach { (code, label) ->
+                            FilterChip(
+                                selected = settings.language == code,
+                                onClick = { onUpdateLanguage(code) },
+                                label = { Text(label) },
+                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SoftBlue, selectedLabelColor = Color.White),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Theme selector: Dark, Light, Mint, System
+                    Text(text = strings.theme, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        listOf(
+                            "dark" to strings.themeDark,
+                            "light" to strings.themeLight,
+                            "mint" to strings.themeMint,
+                            "system" to strings.themeSystem
+                        ).forEach { (mode, label) ->
+                            val isSelected = settings.theme == mode || ((settings.theme == "wrnc" || settings.theme == "amoled") && mode == "dark")
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onUpdateTheme(mode) },
+                                label = { Text(label, fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SoftBlue, selectedLabelColor = Color.White),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Section 5: Smart Notifications
             item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
                     Text(
@@ -970,7 +1044,10 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
 
+        // Tab 3: Data & About (Section 6: Backup, Section 7: About Developer, Section 8: Footer)
+        if (selectedTabIndex == 3) {
             // Section 6: Google Drive & Cloud Backup
             item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
@@ -1231,7 +1308,7 @@ fun SettingsScreen(
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = "v2.3.3",
+                                        text = "v2.4",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = SoftBlue
@@ -1333,7 +1410,7 @@ fun SettingsScreen(
                         text = {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text(
-                                    text = "VoltLedger v2.3.3",
+                                    text = "VoltLedger v2.4",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = ElectricCyan
@@ -1378,7 +1455,7 @@ fun SettingsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "VoltLedger v2.3.3",
+                        text = "VoltLedger v2.4",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1393,6 +1470,8 @@ fun SettingsScreen(
             }
         }
     }
+}
+}
 
     // Dialog: Add Car
     if (showAddCarDialog) {

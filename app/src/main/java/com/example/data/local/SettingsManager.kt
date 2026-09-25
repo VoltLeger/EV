@@ -45,6 +45,11 @@ class SettingsManager(private val context: Context) {
         val KEY_HOME_SEMI_PEAK_START_HOUR = intPreferencesKey("home_semi_peak_start_hour")
         val KEY_HOME_SEMI_PEAK_END_HOUR = intPreferencesKey("home_semi_peak_end_hour")
         val KEY_HOME_LAST_METER_KWH = doublePreferencesKey("home_last_meter_kwh")
+        val KEY_INITIAL_SEED_COMPLETED = booleanPreferencesKey("initial_seed_completed")
+    }
+
+    suspend fun setInitialSeedCompleted(completed: Boolean = true) {
+        context.dataStore.edit { it[KEY_INITIAL_SEED_COMPLETED] = completed }
     }
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->

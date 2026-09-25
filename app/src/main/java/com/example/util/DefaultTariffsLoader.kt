@@ -2,10 +2,14 @@ package com.example.util
 
 import android.content.Context
 import android.util.Log
+import androidx.datastore.preferences.core.edit
 import com.example.data.local.AppDatabase
+import com.example.data.local.SettingsManager
+import com.example.data.local.dataStore
 import com.example.data.model.Car
 import com.example.data.model.Operator
 import com.example.data.model.Tag
+import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -156,64 +160,84 @@ object DefaultTariffsLoader {
         return if (result.isNotEmpty()) result else FALLBACK_OPERATORS
     }
 
-    suspend fun syncTariffsAndCleanDuplicates(context: Context, db: AppDatabase) {
+    suspend fun syncTariffsAndCleanDuplicates(
+        context: Context,
+        db: AppDatabase,
+        forceReinsert: Boolean = false
+    ) {
         try {
             // 1. Clean up any existing duplicate operators and tags in SQLite
             db.operatorDao().deleteDuplicateOperators()
             db.tagDao().deleteDuplicateTags()
 
-            // 2. Load standard tariffs from external default_tariffs.json
-            val operatorsFromFile = loadTariffsFromAssets(context)
+            val prefs = context.dataStore.data.first()
+            val alreadySeeded = prefs[SettingsManager.KEY_INITIAL_SEED_COMPLETED] ?: false
+            val currentOpCount = db.operatorDao().countOperators()
 
-            // 3. Upsert operators by name to prevent duplicate creation
-            for (op in operatorsFromFile) {
-                val existing = db.operatorDao().getOperatorByName(op.name)
-                if (existing == null) {
-                    db.operatorDao().insertOperator(op)
-                } else if (existing.isBuiltin) {
-                    // Update tariff values from file without affecting user ID
-                    db.operatorDao().updateOperator(
-                        existing.copy(
-                            type = op.type,
-                            subType = op.subType,
-                            priceAc = op.priceAc,
-                            priceDc = op.priceDc,
-                            nightPriceAc = op.nightPriceAc,
-                            nightPriceDc = op.nightPriceDc,
-                            nightStartHour = op.nightStartHour,
-                            nightEndHour = op.nightEndHour,
-                            penaltyIdlePerMin = op.penaltyIdlePerMin,
-                            penaltyFreeMinutes = op.penaltyFreeMinutes,
-                            comment = op.comment,
-                            isFree = op.isFree
+            // Only seed default operators if never seeded before, or if user explicitly requested forceReinsert
+            if ((!alreadySeeded && currentOpCount == 0) || forceReinsert) {
+                // 2. Load standard tariffs from external default_tariffs.json
+                val operatorsFromFile = loadTariffsFromAssets(context)
+
+                // 3. Upsert operators by name to prevent duplicate creation
+                for (op in operatorsFromFile) {
+                    val existing = db.operatorDao().getOperatorByName(op.name)
+                    if (existing == null) {
+                        db.operatorDao().insertOperator(op)
+                    } else if (existing.isBuiltin && forceReinsert) {
+                        // Update tariff values from file without affecting user ID
+                        db.operatorDao().updateOperator(
+                            existing.copy(
+                                type = op.type,
+                                subType = op.subType,
+                                priceAc = op.priceAc,
+                                priceDc = op.priceDc,
+                                nightPriceAc = op.nightPriceAc,
+                                nightPriceDc = op.nightPriceDc,
+                                nightStartHour = op.nightStartHour,
+                                nightEndHour = op.nightEndHour,
+                                penaltyIdlePerMin = op.penaltyIdlePerMin,
+                                penaltyFreeMinutes = op.penaltyFreeMinutes,
+                                comment = op.comment,
+                                isFree = op.isFree
+                            )
                         )
-                    )
+                    }
                 }
-            }
 
-            // 4. Default car if none exists
-            if (db.carDao().countCars() == 0) {
-                val defaultCar = Car(
-                    name = "Электромобиль",
-                    declaredCapacityKwh = 60.0,
-                    usableCapacityKwh = 58.0,
-                    initialOdometer = 12000.0,
-                    currentSoc = 65.0,
-                    isActive = true
-                )
-                db.carDao().insertCar(defaultCar)
-            }
+                // 4. Default car if none exists
+                if (db.carDao().countCars() == 0) {
+                    val defaultCar = Car(
+                        name = "Электромобиль",
+                        declaredCapacityKwh = 60.0,
+                        usableCapacityKwh = 58.0,
+                        initialOdometer = 12000.0,
+                        currentSoc = 65.0,
+                        isActive = true
+                    )
+                    db.carDao().insertCar(defaultCar)
+                }
 
-            // 5. Default tags if needed
-            if (db.tagDao().countTags() == 0) {
-                val defaultTags = listOf(
-                    Tag(name = "Дом", color = 0xFF10B981, isBuiltin = true),
-                    Tag(name = "Работа", color = 0xFF3B82F6, isBuiltin = true),
-                    Tag(name = "Трасса", color = 0xFFF59E0B, isBuiltin = true),
-                    Tag(name = "Быстрая", color = 0xFF8B5CF6, isBuiltin = true),
-                    Tag(name = "Ночная", color = 0xFF6366F1, isBuiltin = true)
-                )
-                db.tagDao().insertAll(defaultTags)
+                // 5. Default tags if needed
+                if (db.tagDao().countTags() == 0) {
+                    val defaultTags = listOf(
+                        Tag(name = "Дом", color = 0xFF10B981, isBuiltin = true),
+                        Tag(name = "Работа", color = 0xFF3B82F6, isBuiltin = true),
+                        Tag(name = "Трасса", color = 0xFFF59E0B, isBuiltin = true),
+                        Tag(name = "Быстрая", color = 0xFF8B5CF6, isBuiltin = true),
+                        Tag(name = "Ночная", color = 0xFF6366F1, isBuiltin = true)
+                    )
+                    db.tagDao().insertAll(defaultTags)
+                }
+
+                context.dataStore.edit {
+                    it[SettingsManager.KEY_INITIAL_SEED_COMPLETED] = true
+                }
+            } else if (!alreadySeeded) {
+                // If operators already existed in DB, mark seeded so we don't re-insert deleted items later
+                context.dataStore.edit {
+                    it[SettingsManager.KEY_INITIAL_SEED_COMPLETED] = true
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error syncing tariffs: ${e.message}", e)

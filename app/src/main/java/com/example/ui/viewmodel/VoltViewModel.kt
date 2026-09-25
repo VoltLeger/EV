@@ -425,7 +425,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshTariffsFromFile() {
         viewModelScope.launch(Dispatchers.IO) {
-            DefaultTariffsLoader.syncTariffsAndCleanDuplicates(getApplication(), db)
+            DefaultTariffsLoader.syncTariffsAndCleanDuplicates(getApplication(), db, forceReinsert = true)
         }
     }
 
