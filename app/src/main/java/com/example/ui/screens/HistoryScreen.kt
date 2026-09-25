@@ -110,12 +110,17 @@ fun HistoryScreen(
     topCategories: List<String> = emptyList(),
     defaultOdometer: Double? = null,
     activeCar: Car? = null,
+    allCars: List<Car> = emptyList(),
+    allSessions: List<ChargingSession> = emptyList(),
+    onSelectCar: ((Car) -> Unit)? = null,
+    onReassignAllSessionsToActiveCar: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
     val currency = LocalCurrency.current
 
     var currentTab by remember { mutableStateOf(HistoryTab.CHARGING) }
+    var showAllCarsSessions by remember { mutableStateOf(false) }
 
     // Charging session states
     var searchQuery by remember { mutableStateOf("") }
@@ -131,12 +136,17 @@ fun HistoryScreen(
     var editingExpense by remember { mutableStateOf<CarExpense?>(null) }
     var expenseToDelete by remember { mutableStateOf<CarExpense?>(null) }
 
+    // Effective sessions to display
+    val sourceSessions = remember(sessions, allSessions, showAllCarsSessions) {
+        if (showAllCarsSessions) allSessions else sessions
+    }
+
     // Filter sessions
-    val filtered = remember(sessions, searchQuery) {
-        if (searchQuery.isBlank()) sessions
+    val filtered = remember(sourceSessions, searchQuery) {
+        if (searchQuery.isBlank()) sourceSessions
         else {
             val q = searchQuery.trim().lowercase(Locale.getDefault())
-            sessions.filter {
+            sourceSessions.filter {
                 it.operatorName.lowercase(Locale.getDefault()).contains(q) ||
                         it.stationType.lowercase(Locale.getDefault()).contains(q) ||
                         (it.operatorComment?.lowercase(Locale.getDefault())?.contains(q) == true) ||
@@ -469,21 +479,104 @@ fun HistoryScreen(
                     }
                 }
 
+                // Car Filter toggle (if multiple cars or more sessions exist in DB)
+                if (allCars.size > 1 || allSessions.size > sessions.size) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            FilterChip(
+                                selected = !showAllCarsSessions,
+                                onClick = { showAllCarsSessions = false },
+                                label = { Text("${activeCar?.name ?: "Текущий авто"} (${sessions.size})", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = ElectricCyan.copy(alpha = 0.22f),
+                                    selectedLabelColor = ElectricCyan
+                                )
+                            )
+                            FilterChip(
+                                selected = showAllCarsSessions,
+                                onClick = { showAllCarsSessions = true },
+                                label = { Text("Все авто (${allSessions.size})", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = ElectricCyan.copy(alpha = 0.22f),
+                                    selectedLabelColor = ElectricCyan
+                                )
+                            )
+                        }
+                    }
+                }
+
                 // Sessions List
                 if (sortedSessions.isEmpty()) {
                     item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 48.dp, horizontal = 20.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (searchQuery.isNotEmpty()) "Зарядок по вашему запросу не найдено" else "История зарядок пуста",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
+                        if (allSessions.isNotEmpty() && !showAllCarsSessions) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 24.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(ElectricCyan.copy(alpha = 0.08f))
+                                    .border(1.dp, ElectricCyan.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                                    .padding(16.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = Icons.Default.ElectricBolt,
+                                        contentDescription = null,
+                                        tint = ElectricCyan,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "В базе найдено ${allSessions.size} зарядок из бэкапа или от других авто, но они привязаны к другому авто.",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { showAllCarsSessions = true },
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = SoftBlue)
+                                        ) {
+                                            Text("Показать все (${allSessions.size})", fontSize = 11.sp)
+                                        }
+                                        Button(
+                                            onClick = { onReassignAllSessionsToActiveCar?.invoke() },
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan)
+                                        ) {
+                                            Text("Привязать к ${activeCar?.name ?: "авто"}", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 48.dp, horizontal = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (searchQuery.isNotEmpty()) "Зарядок по вашему запросу не найдено" else "История зарядок пуста",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     }
                 } else {

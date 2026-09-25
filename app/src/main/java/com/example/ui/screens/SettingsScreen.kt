@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Refresh
@@ -63,6 +64,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -143,7 +146,12 @@ fun SettingsScreen(
     onTestAchievementProgress: () -> Unit = {},
     onExportCsv: () -> String,
     onExportJson: () -> String,
-    onImportJson: (String) -> Unit,
+    onImportJson: (String) -> Unit = {},
+    onImportBackup: ((content: String, replace: Boolean, onResult: (com.example.data.repository.VoltRepository.RestoreResult) -> Unit) -> Unit)? = null,
+    onParsePreview: ((content: String) -> com.example.util.BackupData?)? = null,
+    onReassignAllSessionsToActiveCar: (((Int) -> Unit) -> Unit)? = null,
+    totalSessionsCount: Int = 0,
+    activeCarSessionsCount: Int = 0,
     onRefreshTariffs: () -> Unit = {},
     userProfile: UserProfile? = null,
     onOpenProfile: (() -> Unit)? = null,
@@ -175,6 +183,11 @@ fun SettingsScreen(
     var operatorToDelete by remember { mutableStateOf<Operator?>(null) }
     var showImportJsonDialog by remember { mutableStateOf(false) }
     var importJsonText by remember { mutableStateOf("") }
+    var pendingBackupContent by remember { mutableStateOf<String?>(null) }
+    var pendingBackupData by remember { mutableStateOf<com.example.util.BackupData?>(null) }
+    var restoreReplaceMode by remember { mutableStateOf(true) }
+    var restoreResultMessage by remember { mutableStateOf<String?>(null) }
+    var isRestoring by remember { mutableStateOf(false) }
     var showEmailDialog by remember { mutableStateOf(false) }
     var emailInput by remember(userProfile?.email) { mutableStateOf(userProfile?.email ?: "") }
     var showPhoneTransferAdviceDialog by remember { mutableStateOf(false) }
@@ -205,13 +218,19 @@ fun SettingsScreen(
                     stream.bufferedReader().readText()
                 }
                 if (!content.isNullOrBlank()) {
-                    onImportJson(content)
-                    Toast.makeText(context, "Резервная копия успешно восстановлена!", Toast.LENGTH_LONG).show()
+                    val preview = onParsePreview?.invoke(content) ?: com.example.util.CsvJsonBackupHelper.parseAnyBackup(content)
+                    if (preview != null && (preview.sessions.isNotEmpty() || preview.cars.isNotEmpty() || preview.expenses.isNotEmpty())) {
+                        pendingBackupContent = content
+                        pendingBackupData = preview
+                        restoreReplaceMode = true
+                    } else {
+                        restoreResultMessage = "Не удалось распознать данные в выбранном файле. Убедитесь, что это файл резервной копии VoltLedger (JSON или CSV)."
+                    }
                 } else {
                     Toast.makeText(context, "Выбранный файл пуст", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(context, "Ошибка чтения: ${e.message}", Toast.LENGTH_LONG).show()
+                restoreResultMessage = "Ошибка чтения файла: ${e.message}"
             }
         }
     }
@@ -1564,7 +1583,82 @@ fun SettingsScreen(
                     ) {
                         Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Вставить текст JSON вручную", fontSize = 11.sp)
+                        Text("Вставить текст JSON / CSV вручную", fontSize = 11.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Diagnostic and History Repair card
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
+                            .padding(14.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Info, contentDescription = null, tint = SoftBlue, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Диагностика истории зарядок", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Текущий авто: ${activeCar?.name ?: "Не выбран"}\nЗарядок для этого авто: $activeCarSessionsCount (всего в базе: $totalSessionsCount)",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 16.sp
+                            )
+
+                            if (totalSessionsCount > activeCarSessionsCount) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(SoftBlue.copy(alpha = 0.15f))
+                                        .border(1.dp, SoftBlue.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                                        .padding(10.dp)
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "⚠️ В базе найдено ${totalSessionsCount - activeCarSessionsCount} зарядок от другого авто или бэкапа, которые не отображаются для текущего авто!",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Button(
+                                            onClick = {
+                                                onReassignAllSessionsToActiveCar?.invoke { count ->
+                                                    Toast.makeText(context, "Все $count зарядок привязаны к ${activeCar?.name}!", Toast.LENGTH_LONG).show()
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text("⚡ Привязать все $totalSessionsCount зарядок к ${activeCar?.name}", fontSize = 11.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            } else if (totalSessionsCount > 0) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedButton(
+                                    onClick = {
+                                        onReassignAllSessionsToActiveCar?.invoke { count ->
+                                            Toast.makeText(context, "Проверка завершена. Все $count зарядок привязаны к ${activeCar?.name}!", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp), tint = SoftBlue)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Обновить привязку истории", fontSize = 11.sp)
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -1624,7 +1718,7 @@ fun SettingsScreen(
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = "v2.4.1",
+                                        text = "v2.4.2",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = SoftBlue
@@ -2027,26 +2121,200 @@ fun SettingsScreen(
             title = { Text(strings.importData) },
             text = {
                 Column {
-                    Text("Вставьте JSON или текст резервной копии:", fontSize = 12.sp)
+                    Text("Вставьте JSON или текст CSV резервной копии:", fontSize = 12.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = importJsonText,
                         onValueChange = { importJsonText = it },
-                        modifier = Modifier.fillMaxWidth().height(150.dp),
-                        placeholder = { Text("{ ... }") }
+                        modifier = Modifier.fillMaxWidth().height(160.dp),
+                        placeholder = { Text("{ ... } или id,car_id,...") }
                     )
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     if (importJsonText.isNotBlank()) {
-                        onImportJson(importJsonText.trim())
-                        showImportJsonDialog = false
+                        val preview = onParsePreview?.invoke(importJsonText) ?: com.example.util.CsvJsonBackupHelper.parseAnyBackup(importJsonText)
+                        if (preview != null && (preview.sessions.isNotEmpty() || preview.cars.isNotEmpty() || preview.expenses.isNotEmpty())) {
+                            pendingBackupContent = importJsonText
+                            pendingBackupData = preview
+                            restoreReplaceMode = true
+                            showImportJsonDialog = false
+                        } else {
+                            restoreResultMessage = "Не удалось распознать формат данных в тексте. Убедитесь, что вставлен корректный JSON или CSV бэкап."
+                        }
                     }
-                }) { Text("Импортировать") }
+                }) { Text("Проверить и восстановить") }
             },
             dismissButton = {
                 TextButton(onClick = { showImportJsonDialog = false }) { Text(strings.cancel) }
+            }
+        )
+    }
+
+    // Dialog: Confirm & Preview Backup Restore
+    if (pendingBackupData != null) {
+        val data = pendingBackupData!!
+        AlertDialog(
+            onDismissRequest = {
+                if (!isRestoring) {
+                    pendingBackupData = null
+                    pendingBackupContent = null
+                }
+            },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CloudDownload, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Восстановление данных")
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "В резервной копии найдено:",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(ElectricCyan.copy(alpha = 0.08f))
+                            .border(1.dp, ElectricCyan.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text("⚡ Зарядок: ${data.sessions.size}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ElectricCyan)
+                        if (data.cars.isNotEmpty()) {
+                            Text("🚗 Автомобилей: ${data.cars.size} (${data.cars.joinToString { it.name }})", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                        } else {
+                            Text("🚗 Привязка: к текущему авто (${activeCar?.name ?: "Мой Электромобиль"})", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                        if (data.expenses.isNotEmpty()) {
+                            Text("💰 Трат: ${data.expenses.size}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                        if (data.operators.isNotEmpty()) {
+                            Text("🏢 Операторов/тарифов: ${data.operators.size}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+
+                    Text(
+                        text = "Выберите режим восстановления:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Mode 1: Replace (Clean restore)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { restoreReplaceMode = true }
+                            .background(if (restoreReplaceMode) ElectricCyan.copy(alpha = 0.12f) else Color.Transparent)
+                            .border(1.dp, if (restoreReplaceMode) ElectricCyan else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = restoreReplaceMode,
+                            onClick = { restoreReplaceMode = true },
+                            colors = RadioButtonDefaults.colors(selectedColor = ElectricCyan)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column {
+                            Text("Заменить все данные (Чистый бэкап)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Рекомендуется при переносе на новый телефон или переустановке.", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
+                    // Mode 2: Merge (Append)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { restoreReplaceMode = false }
+                            .background(if (!restoreReplaceMode) ElectricCyan.copy(alpha = 0.12f) else Color.Transparent)
+                            .border(1.dp, if (!restoreReplaceMode) ElectricCyan else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = !restoreReplaceMode,
+                            onClick = { restoreReplaceMode = false },
+                            colors = RadioButtonDefaults.colors(selectedColor = ElectricCyan)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column {
+                            Text("Объединить с текущими", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Добавит историю к уже имеющимся данным без удаления.", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val text = pendingBackupContent ?: return@Button
+                        val isReplace = restoreReplaceMode
+                        isRestoring = true
+                        if (onImportBackup != null) {
+                            onImportBackup.invoke(text, isReplace) { result ->
+                                isRestoring = false
+                                pendingBackupData = null
+                                pendingBackupContent = null
+                                restoreResultMessage = if (result.success) {
+                                    "✅ ${result.message}\n\nИстория и данные успешно восстановлены и отображаются в приложении!"
+                                } else {
+                                    "❌ Ошибка восстановления: ${result.message}"
+                                }
+                            }
+                        } else {
+                            onImportJson(text)
+                            isRestoring = false
+                            pendingBackupData = null
+                            pendingBackupContent = null
+                            restoreResultMessage = "Резервная копия отправлена на импорт."
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan),
+                    enabled = !isRestoring
+                ) {
+                    if (isRestoring) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Восстановление...", color = Color.Black, fontSize = 12.sp)
+                    } else {
+                        Text("Восстановить", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        pendingBackupData = null
+                        pendingBackupContent = null
+                    },
+                    enabled = !isRestoring
+                ) {
+                    Text(strings.cancel)
+                }
+            }
+        )
+    }
+
+    if (restoreResultMessage != null) {
+        AlertDialog(
+            onDismissRequest = { restoreResultMessage = null },
+            title = { Text("Восстановление данных") },
+            text = { Text(restoreResultMessage ?: "") },
+            confirmButton = {
+                Button(onClick = { restoreResultMessage = null }) {
+                    Text("OK")
+                }
             }
         )
     }

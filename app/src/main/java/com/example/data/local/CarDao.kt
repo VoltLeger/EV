@@ -23,6 +23,9 @@ interface CarDao {
     @Query("SELECT * FROM cars WHERE isActive = 1 LIMIT 1")
     fun getActiveCar(): Flow<Car?>
 
+    @Query("SELECT * FROM cars WHERE isActive = 1 LIMIT 1")
+    suspend fun getActiveCarDirect(): Car?
+
     @Query("SELECT * FROM cars ORDER BY createdAt ASC")
     suspend fun getAllCarsList(): List<Car>
 

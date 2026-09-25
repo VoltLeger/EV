@@ -44,6 +44,15 @@ interface ChargingSessionDao {
     @Query("SELECT COUNT(*) FROM charging_sessions")
     suspend fun countAllSessions(): Int
 
+    @Query("SELECT * FROM charging_sessions ORDER BY startTime DESC")
+    suspend fun getAllSessionsDirect(): List<ChargingSession>
+
+    @Query("UPDATE charging_sessions SET carId = :newCarId WHERE carId = :oldCarId")
+    suspend fun reassignCarId(oldCarId: Long, newCarId: Long)
+
+    @Query("UPDATE charging_sessions SET carId = :targetCarId")
+    suspend fun reassignAllSessionsToCar(targetCarId: Long)
+
     @Query("DELETE FROM charging_sessions")
     suspend fun clearAll()
 }

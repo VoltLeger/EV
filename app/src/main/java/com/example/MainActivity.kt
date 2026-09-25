@@ -379,7 +379,15 @@ class MainActivity : ComponentActivity() {
                                                 onDeleteExpense = { viewModel.deleteExpense(it) },
                                                 topCategories = topExpenseCategories,
                                                 defaultOdometer = activeCar?.initialOdometer,
-                                                activeCar = activeCar
+                                                activeCar = activeCar,
+                                                allCars = allCars,
+                                                allSessions = allSessions,
+                                                onSelectCar = { viewModel.selectCar(it.id) },
+                                                onReassignAllSessionsToActiveCar = {
+                                                    viewModel.reassignAllSessionsToActiveCar { count ->
+                                                        Toast.makeText(this@MainActivity, "Все $count зарядок привязаны к ${activeCar?.name}!", Toast.LENGTH_LONG).show()
+                                                    }
+                                                }
                                             )
                                             2 -> StatisticsScreen(
                                                 activeCar = activeCar,
@@ -418,6 +426,17 @@ class MainActivity : ComponentActivity() {
                                                 onExportCsv = { viewModel.exportCsvData() },
                                                 onExportJson = { viewModel.exportJsonBackup() },
                                                 onImportJson = { viewModel.importBackupJson(it, replace = false) },
+                                                onImportBackup = { content, replace, onResult ->
+                                                    viewModel.importBackupData(content, replace, onResult)
+                                                },
+                                                onParsePreview = { content ->
+                                                    viewModel.parseBackupPreview(content)
+                                                },
+                                                onReassignAllSessionsToActiveCar = { onResult ->
+                                                    viewModel.reassignAllSessionsToActiveCar(onResult)
+                                                },
+                                                totalSessionsCount = allSessions.size,
+                                                activeCarSessionsCount = activeCarSessions.size,
                                                 onRefreshTariffs = { viewModel.refreshTariffsFromFile() },
                                                 userProfile = userProfile,
                                                 onOpenProfile = { showProfileAwardsDialog = true },

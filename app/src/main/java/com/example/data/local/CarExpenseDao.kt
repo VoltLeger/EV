@@ -32,6 +32,15 @@ interface CarExpenseDao {
     @Query("DELETE FROM car_expenses WHERE carId = :carId")
     suspend fun deleteExpensesForCar(carId: Long)
 
+    @Query("SELECT * FROM car_expenses ORDER BY timestamp DESC")
+    suspend fun getAllExpensesDirect(): List<CarExpense>
+
+    @Query("UPDATE car_expenses SET carId = :newCarId WHERE carId = :oldCarId")
+    suspend fun reassignCarId(oldCarId: Long, newCarId: Long)
+
+    @Query("UPDATE car_expenses SET carId = :targetCarId")
+    suspend fun reassignAllExpensesToCar(targetCarId: Long)
+
     @Query("DELETE FROM car_expenses")
     suspend fun clearAll()
 }

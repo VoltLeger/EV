@@ -14,6 +14,9 @@ interface TagDao {
     @Query("SELECT * FROM tags ORDER BY isBuiltin DESC, name ASC")
     fun getAllTags(): Flow<List<Tag>>
 
+    @Query("SELECT * FROM tags WHERE name = :name LIMIT 1")
+    suspend fun getTagByName(name: String): Tag?
+
     @Query("DELETE FROM tags WHERE id NOT IN (SELECT MIN(id) FROM tags GROUP BY name)")
     suspend fun deleteDuplicateTags()
 

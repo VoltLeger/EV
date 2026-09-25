@@ -44,6 +44,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             seedDefaultData(application, db)
             repository.getOrCreateUserProfile()
+            repository.fixOrphanSessions()
         }
     }
 
@@ -721,23 +722,58 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    fun parseBackupPreview(content: String): com.example.util.BackupData? {
+        val carId = activeCar.value?.id ?: 1L
+        return CsvJsonBackupHelper.parseAnyBackup(content, defaultCarId = carId)
+    }
+
+    fun importBackupData(
+        content: String,
+        replace: Boolean,
+        onComplete: ((VoltRepository.RestoreResult) -> Unit)? = null
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val targetCarId = activeCar.value?.id ?: 1L
+            val backup = CsvJsonBackupHelper.parseAnyBackup(content, defaultCarId = targetCarId)
+            if (backup == null || (backup.sessions.isEmpty() && backup.cars.isEmpty() && backup.expenses.isEmpty())) {
+                withContext(Dispatchers.Main) {
+                    onComplete?.invoke(
+                        VoltRepository.RestoreResult(
+                            success = false,
+                            sessionsCount = 0,
+                            carsCount = 0,
+                            expensesCount = 0,
+                            operatorsCount = 0,
+                            message = "Неверный формат резервной копии. Поддерживаются файлы JSON и CSV."
+                        )
+                    )
+                }
+                return@launch
+            }
+            val result = repository.restoreFullBackup(backup, replace, targetCarId = targetCarId)
+            withContext(Dispatchers.Main) {
+                onComplete?.invoke(result)
+            }
+        }
+    }
+
+    fun reassignAllSessionsToActiveCar(onComplete: ((Int) -> Unit)? = null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val targetCarId = activeCar.value?.id ?: 1L
+            val count = repository.reassignAllSessionsToCar(targetCarId)
+            withContext(Dispatchers.Main) {
+                onComplete?.invoke(count)
+            }
+        }
+    }
+
     fun importBackupJson(
         jsonString: String,
         replace: Boolean,
         onComplete: ((Boolean, String) -> Unit)? = null
     ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val backup = CsvJsonBackupHelper.parseFullBackupJson(jsonString)
-            if (backup == null) {
-                withContext(Dispatchers.Main) {
-                    onComplete?.invoke(false, "Неверный формат резервной копии")
-                }
-                return@launch
-            }
-            repository.restoreFullBackup(backup, replace)
-            withContext(Dispatchers.Main) {
-                onComplete?.invoke(true, "Данные успешно импортированы")
-            }
+        importBackupData(jsonString, replace) { result ->
+            onComplete?.invoke(result.success, result.message)
         }
     }
 
@@ -755,13 +791,9 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun importCsvData(csvText: String, replace: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val carId = activeCar.value?.id ?: 1L
-            val list = CsvJsonBackupHelper.parseSessionsFromCsv(csvText, carId)
-            if (list.isNotEmpty()) {
-                repository.restoreSessions(list, replace)
-            }
+    fun importCsvData(csvText: String, replace: Boolean, onComplete: ((Boolean, String) -> Unit)? = null) {
+        importBackupData(csvText, replace) { result ->
+            onComplete?.invoke(result.success, result.message)
         }
     }
 }
