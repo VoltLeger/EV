@@ -1,5 +1,8 @@
 package com.example.util
 
+const val APP_VERSION = "2.5.1"
+const val APP_VERSION_NAME = "v2.5.1"
+
 class AppStrings(val isEn: Boolean) {
     val appName = "VoltLedger"
     val slogan = if (isEn) "EV charging, consumption & range tracker" else "Учёт заряда, расхода\nи прогноз пробега EV"

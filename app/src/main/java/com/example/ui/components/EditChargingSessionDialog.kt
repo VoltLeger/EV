@@ -87,6 +87,7 @@ fun EditChargingSessionDialog(
     var editOdometer by remember(session.id) { mutableStateOf(session.startOdometer.toInt().toString()) }
     var editComment by remember(session.id) { mutableStateOf(session.operatorComment ?: "") }
     var editDateTimeText by remember(session.id) { mutableStateOf(dateFormat.format(Date(session.startTime))) }
+    var editCurrency by remember(session.id) { mutableStateOf(session.currency.ifBlank { currency }) }
 
     fun recalculateCost() {
         val kwh = editKwh.toDoubleOrNull() ?: 0.0
@@ -201,6 +202,29 @@ fun EditChargingSessionDialog(
                     )
                 }
 
+                // Currency selector for session
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Валюта оплаты:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("BYN", "PLN", "EUR", "USD", "RUB").forEach { curr ->
+                            FilterChip(
+                                selected = editCurrency == curr,
+                                onClick = { editCurrency = curr },
+                                label = { Text(curr, fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = ElectricCyan,
+                                    selectedLabelColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+                }
+
                 // Delivered kWh and Price per kWh
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
@@ -215,7 +239,7 @@ fun EditChargingSessionDialog(
                     OutlinedTextField(
                         value = editPricePerKwh,
                         onValueChange = { editPricePerKwh = it },
-                        label = { Text("Тариф ($currency)") },
+                        label = { Text("Тариф ($editCurrency)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier.weight(0.9f),
@@ -232,7 +256,7 @@ fun EditChargingSessionDialog(
                     OutlinedTextField(
                         value = editCost,
                         onValueChange = { editCost = it },
-                        label = { Text("Итоговая сумма ($currency)") },
+                        label = { Text("Итоговая сумма ($editCurrency)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier.weight(1f),
@@ -321,6 +345,7 @@ fun EditChargingSessionDialog(
                         penaltyCost = penalty,
                         fixedAmount = fixed,
                         totalCost = cost,
+                        currency = editCurrency,
                         energyCost = kwh * price,
                         startOdometer = editOdometer.toDoubleOrNull() ?: session.startOdometer,
                         operatorComment = editComment.trim().ifEmpty { null },

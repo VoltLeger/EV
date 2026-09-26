@@ -360,8 +360,8 @@ class MainActivity : ComponentActivity() {
                                                 onDeleteCar = { viewModel.deleteCar(it) },
                                                 onUpdateSession = { viewModel.updateSession(it) },
                                                 onDeleteSession = { viewModel.deleteSession(it) },
-                                                onAddExpense = { category, amount, odometer, comment ->
-                                                    viewModel.addExpense(category, amount, odometer, comment)
+                                                onAddExpense = { category, amount, odometer, comment, curr ->
+                                                    viewModel.addExpense(category, amount, odometer, comment, currency = curr)
                                                 },
                                                 topExpenseCategories = topExpenseCategories,
                                                 appSettings = settings,
@@ -372,8 +372,8 @@ class MainActivity : ComponentActivity() {
                                                 onUpdateSession = { viewModel.updateSession(it) },
                                                 onDeleteSession = { viewModel.deleteSession(it) },
                                                 expenses = activeCarExpenses,
-                                                onAddExpense = { category, amount, odometer, comment ->
-                                                    viewModel.addExpense(category, amount, odometer, comment)
+                                                onAddExpense = { category, amount, odometer, comment, curr ->
+                                                    viewModel.addExpense(category, amount, odometer, comment, currency = curr)
                                                 },
                                                 onUpdateExpense = { viewModel.updateExpense(it) },
                                                 onDeleteExpense = { viewModel.deleteExpense(it) },
@@ -479,7 +479,7 @@ class MainActivity : ComponentActivity() {
                                 operators = operators,
                                 autoNightTariffEnabled = settings.autoNightTariff,
                                 onBack = { navController.popBackStack() },
-                                onStartCharging = { odo, soc, type, op, customName, power, price, time, night ->
+                                onStartCharging = { odo, soc, type, op, customName, power, price, time, night, curr ->
                                     navController.popBackStack()
                                     viewModel.startCharging(
                                         odometer = odo,
@@ -490,7 +490,8 @@ class MainActivity : ComponentActivity() {
                                         avgPowerKw = power,
                                         pricePerKwh = price,
                                         startTime = time,
-                                        nightTariffApplied = night
+                                        nightTariffApplied = night,
+                                        currency = curr
                                     )
                                 }
                             )

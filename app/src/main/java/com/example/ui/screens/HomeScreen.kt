@@ -121,7 +121,7 @@ fun HomeScreen(
     onOpenProfile: (() -> Unit)? = null,
     onUpdateCar: ((Car) -> Unit)? = null,
     onDeleteCar: ((Car) -> Unit)? = null,
-    onAddExpense: ((category: String, amount: Double, odometer: Double?, comment: String?) -> Unit)? = null,
+    onAddExpense: ((category: String, amount: Double, odometer: Double?, comment: String?, currency: String) -> Unit)? = null,
     topExpenseCategories: List<String> = emptyList(),
     appSettings: com.example.data.model.AppSettings? = null,
     onNavigateToSettings: (() -> Unit)? = null,
@@ -194,12 +194,14 @@ fun HomeScreen(
 
     // Lower block metrics
     val lastSession = remember(completedSessions) { completedSessions.maxByOrNull { it.startTime } }
-    val costPer100Km = remember(lastSession, realAvg, monthConsumption) {
+    val costPer100Km = remember(lastSession, realAvg, monthConsumption, currency) {
         if (lastSession != null && lastSession.kwhDeliveredByStation > 0 && lastSession.totalCost > 0) {
-            val pricePerKwh = lastSession.totalCost / lastSession.kwhDeliveredByStation
+            val totalCostInMain = com.example.util.CurrencyConverter.convert(lastSession.totalCost, lastSession.currency, currency)
+            val pricePerKwh = totalCostInMain / lastSession.kwhDeliveredByStation
             pricePerKwh * realAvg
         } else if (monthConsumption != null && lastSession != null) {
-            lastSession.pricePerKwh * monthConsumption
+            val priceInMain = com.example.util.CurrencyConverter.convert(lastSession.pricePerKwh, lastSession.currency, currency)
+            priceInMain * monthConsumption
         } else null
     }
 
@@ -598,9 +600,17 @@ fun HomeScreen(
                                 ) {
                                     Text(
                                         text = if (lastSession != null && lastSession.totalCost > 0) {
-                                            "${String.format(Locale.US, "%.2f", lastSession.totalCost)} $currency"
+                                            val sessionCurr = lastSession.currency.trim().uppercase().ifBlank { currency }
+                                            if (sessionCurr.equals(currency, ignoreCase = true)) {
+                                                "${String.format(Locale.US, "%.2f", lastSession.totalCost)} $currency"
+                                            } else {
+                                                val converted = com.example.util.CurrencyConverter.convert(lastSession.totalCost, sessionCurr, currency)
+                                                "${String.format(Locale.US, "%.1f", lastSession.totalCost)} $sessionCurr (~${String.format(Locale.US, "%.1f", converted)} $currency)"
+                                            }
                                         } else "кВт·ч",
-                                        fontSize = 11.sp,
+                                        fontSize = 10.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
@@ -1338,8 +1348,8 @@ fun HomeScreen(
             topCategories = topExpenseCategories,
             currency = currency,
             onDismiss = { showAddExpenseDialog = false },
-            onSave = { cat, amt, odo, comm ->
-                onAddExpense?.invoke(cat, amt, odo, comm)
+            onSave = { cat, amt, odo, comm, curr ->
+                onAddExpense?.invoke(cat, amt, odo, comm, curr)
                 showAddExpenseDialog = false
             }
         )
@@ -1401,13 +1411,25 @@ fun RecentSessionCard(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                val sessionCurr = session.currency.trim().uppercase().ifBlank { currency }
+                val isForeign = !sessionCurr.equals(currency, ignoreCase = true)
+
+                Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = formatCurrency(session.totalCost, currency),
+                        text = formatCurrency(session.totalCost, sessionCurr),
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         color = ElectricCyan
                     )
+                    if (isForeign) {
+                        val converted = com.example.util.CurrencyConverter.convert(session.totalCost, sessionCurr, currency)
+                        Text(
+                            text = "≈ ${String.format(Locale.US, "%.2f", converted)} $currency",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SoftBlue
+                        )
+                    }
                 }
             }
 

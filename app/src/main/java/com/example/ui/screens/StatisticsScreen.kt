@@ -147,13 +147,15 @@ fun StatisticsScreen(
         completedSessions.filter { it.startTime >= periodStartMillis }
     }
 
-    // Car Expenses in current period
+    // Car Expenses in current period - converted to main currency
     val currentPeriodExpenses = remember(carExpenses, carId, periodStartMillis) {
         carExpenses.filter {
             (carId == 0L || it.carId == carId) && it.timestamp >= periodStartMillis
         }
     }
-    val totalExpensesCost = remember(currentPeriodExpenses) { currentPeriodExpenses.sumOf { it.amount } }
+    val totalExpensesCost = remember(currentPeriodExpenses, currency) {
+        currentPeriodExpenses.sumOf { com.example.util.CurrencyConverter.convert(it.amount, it.currency, currency) }
+    }
 
     // Prior period comparison
     val periodDuration = remember(periodStartMillis, now) { now - periodStartMillis }
@@ -163,11 +165,17 @@ fun StatisticsScreen(
         }
     }
 
-    // Totals
+    // Totals converted to main currency
     val totalDeliveredKwh = remember(currentPeriodSessions) { currentPeriodSessions.sumOf { it.kwhDeliveredByStation } }
-    val totalCost = remember(currentPeriodSessions) { currentPeriodSessions.sumOf { it.totalCost } }
-    val totalEnergyCost = remember(currentPeriodSessions) { currentPeriodSessions.sumOf { it.energyCost } }
-    val totalPenaltyCost = remember(currentPeriodSessions) { currentPeriodSessions.sumOf { it.penaltyCost } }
+    val totalCost = remember(currentPeriodSessions, currency) {
+        currentPeriodSessions.sumOf { com.example.util.CurrencyConverter.convert(it.totalCost, it.currency, currency) }
+    }
+    val totalEnergyCost = remember(currentPeriodSessions, currency) {
+        currentPeriodSessions.sumOf { com.example.util.CurrencyConverter.convert(it.energyCost, it.currency, currency) }
+    }
+    val totalPenaltyCost = remember(currentPeriodSessions, currency) {
+        currentPeriodSessions.sumOf { com.example.util.CurrencyConverter.convert(it.penaltyCost, it.currency, currency) }
+    }
 
     // Total Car Spending (Charging + Maintenance & Other Expenses)
     val totalCarSpend = totalCost + totalExpensesCost
@@ -185,7 +193,9 @@ fun StatisticsScreen(
     val totalCostPer100Km = totalCostPerKm * 100.0
 
     // Prior period total spent comparison
-    val priorTotalCost = remember(priorPeriodSessions) { priorPeriodSessions.sumOf { it.totalCost } }
+    val priorTotalCost = remember(priorPeriodSessions, currency) {
+        priorPeriodSessions.sumOf { com.example.util.CurrencyConverter.convert(it.totalCost, it.currency, currency) }
+    }
     val spentDiffPercent = if (priorTotalCost > 0) {
         ((totalCost - priorTotalCost) / priorTotalCost) * 100.0
     } else 0.0
@@ -193,13 +203,20 @@ fun StatisticsScreen(
     // Free charges savings
     val freeSessions = remember(currentPeriodSessions) { currentPeriodSessions.filter { it.isFreeCharge || it.pricePerKwh <= 0.0001 } }
     val freeChargesCount = freeSessions.size
-    val moneySaved = remember(freeSessions) { freeSessions.sumOf { it.kwhDeliveredByStation * 0.73 } }
+    val moneySaved = remember(freeSessions, currency) {
+        val baseByn = freeSessions.sumOf { it.kwhDeliveredByStation * 0.73 }
+        com.example.util.CurrencyConverter.convert(baseByn, "BYN", currency)
+    }
 
     // AC vs DC breakdown
     val acSessions = remember(currentPeriodSessions) { currentPeriodSessions.filter { it.stationType.equals("AC", ignoreCase = true) } }
     val dcSessions = remember(currentPeriodSessions) { currentPeriodSessions.filter { it.stationType.equals("DC", ignoreCase = true) } }
-    val acCost = remember(acSessions) { acSessions.sumOf { it.totalCost } }
-    val dcCost = remember(dcSessions) { dcSessions.sumOf { it.totalCost } }
+    val acCost = remember(acSessions, currency) {
+        acSessions.sumOf { com.example.util.CurrencyConverter.convert(it.totalCost, it.currency, currency) }
+    }
+    val dcCost = remember(dcSessions, currency) {
+        dcSessions.sumOf { com.example.util.CurrencyConverter.convert(it.totalCost, it.currency, currency) }
+    }
 
     // Average consumption in period (taking battery SoC discharge and usable capacity into account)
     val periodUsableCapacity = activeCar?.usableCapacityKwh ?: 57.0
@@ -248,8 +265,8 @@ fun StatisticsScreen(
     )
 
     // Month vs month comparative stats
-    val monthComparison = remember(completedSessions) {
-        EVCalculator.calculateMonthToMonthStats(completedSessions)
+    val monthComparison = remember(completedSessions, currency) {
+        EVCalculator.calculateMonthToMonthStats(completedSessions, currency)
     }
 
     // Top-3 Stations calculations
@@ -264,8 +281,8 @@ fun StatisticsScreen(
     }
 
     // Operator grouped statistics
-    val operatorStats = remember(completedSessions) {
-        EVCalculator.getOperatorDetailedStats(completedSessions)
+    val operatorStats = remember(completedSessions, currency) {
+        EVCalculator.getOperatorDetailedStats(completedSessions, currency)
     }
 
     LiquidGlassBackground(modifier = modifier) {

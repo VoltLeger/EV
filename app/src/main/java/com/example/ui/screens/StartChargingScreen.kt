@@ -96,7 +96,8 @@ fun StartChargingScreen(
         avgPowerKw: Double?,
         pricePerKwh: Double,
         startTime: Long,
-        nightTariffApplied: Boolean
+        nightTariffApplied: Boolean,
+        currency: String
     ) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -107,6 +108,8 @@ fun StartChargingScreen(
     val prevSoc = activeCar?.currentSoc ?: 80.0
     val usableCapacity = activeCar?.usableCapacityKwh ?: 57.0
     val avgConsumption = 17.5 // baseline consumption
+
+    var selectedCurrency by remember { mutableStateOf(currency) }
 
     // Swap % and Odometer: First SoC, then Odometer
     var socText by remember {
@@ -498,11 +501,41 @@ fun StartChargingScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Currency selector for session
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Валюта оплаты:",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("BYN", "PLN", "EUR", "USD", "RUB").forEach { curr ->
+                            FilterChip(
+                                selected = selectedCurrency == curr,
+                                onClick = { selectedCurrency = curr },
+                                label = { Text(curr, fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = ElectricCyan,
+                                    selectedLabelColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
                 // Price per kWh
                 OutlinedTextField(
                     value = pricePerKwhText,
                     onValueChange = { pricePerKwhText = it },
-                    label = { Text("${strings.pricePerKwh} ($currency)") },
+                    label = { Text("${strings.pricePerKwh} ($selectedCurrency)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier
@@ -628,7 +661,8 @@ fun StartChargingScreen(
                                 avgPowerVal,
                                 priceVal,
                                 startTimestamp,
-                                nightTariffApplied
+                                nightTariffApplied,
+                                selectedCurrency
                             )
                         }
                     },

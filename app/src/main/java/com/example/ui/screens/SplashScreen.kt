@@ -212,6 +212,16 @@ fun SplashScreen(
                     color = Color(0xFF8EA4C2),
                     letterSpacing = 3.sp
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = com.example.util.APP_VERSION_NAME,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ElectricCyan.copy(alpha = 0.8f),
+                    letterSpacing = 1.sp
+                )
             }
         }
     }

@@ -311,8 +311,12 @@ object EVCalculator {
 
     /**
      * Calculates Month-to-Month comparison (current calendar month vs previous calendar month)
+     * All costs are converted to the selected [mainCurrency] using CurrencyConverter.
      */
-    fun calculateMonthToMonthStats(completedSessions: List<ChargingSession>): MonthComparisonStats {
+    fun calculateMonthToMonthStats(
+        completedSessions: List<ChargingSession>,
+        mainCurrency: String = "BYN"
+    ): MonthComparisonStats {
         val cal = Calendar.getInstance()
         val curYear = cal.get(Calendar.YEAR)
         val curMonth = cal.get(Calendar.MONTH)
@@ -332,8 +336,8 @@ object EVCalculator {
             tempCal.get(Calendar.YEAR) == prevYear && tempCal.get(Calendar.MONTH) == prevMonth
         }
 
-        val curCost = curSessions.sumOf { it.totalCost }
-        val prevCost = prevSessions.sumOf { it.totalCost }
+        val curCost = curSessions.sumOf { CurrencyConverter.convert(it.totalCost, it.currency, mainCurrency) }
+        val prevCost = prevSessions.sumOf { CurrencyConverter.convert(it.totalCost, it.currency, mainCurrency) }
         val costDiff = if (prevCost > 0.0) ((curCost - prevCost) / prevCost) * 100.0 else null
 
         val curDist = if (curSessions.isNotEmpty()) {
@@ -366,20 +370,20 @@ object EVCalculator {
     }
 
     /**
-     * Top-3 Cheapest Stations (lowest effective cost per delivered kWh)
+     * Top-3 Cheapest Stations (lowest effective cost per delivered kWh in [mainCurrency])
      */
-    fun getTopCheapestStations(sessions: List<ChargingSession>, currency: String): List<TopStationRank> {
+    fun getTopCheapestStations(sessions: List<ChargingSession>, mainCurrency: String): List<TopStationRank> {
         val grouped = sessions.filter { it.kwhDeliveredByStation > 0 && it.operatorName.isNotBlank() }
             .groupBy { it.operatorName }
 
         return grouped.map { (opName, list) ->
             val totalKwh = list.sumOf { it.kwhDeliveredByStation }
-            val totalCost = list.sumOf { it.totalCost }
-            val avgPrice = if (totalKwh > 0) totalCost / totalKwh else 0.0
+            val totalCostMain = list.sumOf { CurrencyConverter.convert(it.totalCost, it.currency, mainCurrency) }
+            val avgPrice = if (totalKwh > 0) totalCostMain / totalKwh else 0.0
             TopStationRank(
                 name = opName,
                 metricValue = avgPrice,
-                formattedValue = String.format(java.util.Locale.US, "%.2f %s/кВт·ч", avgPrice, currency),
+                formattedValue = String.format(java.util.Locale.US, "%.2f %s/кВт·ч", avgPrice, mainCurrency),
                 subtitle = "${list.size} зарядок • ${String.format(java.util.Locale.US, "%.1f", totalKwh)} кВт·ч"
             )
         }.sortedBy { it.metricValue }.take(3)
@@ -436,14 +440,17 @@ object EVCalculator {
     /**
      * Detailed Operator Aggregated Statistics (with avg power & duration)
      */
-    fun getOperatorDetailedStats(sessions: List<ChargingSession>): List<OperatorStatSummary> {
+    fun getOperatorDetailedStats(
+        sessions: List<ChargingSession>,
+        mainCurrency: String = "BYN"
+    ): List<OperatorStatSummary> {
         val grouped = sessions.filter { it.status == "completed" && it.operatorName.isNotBlank() }
             .groupBy { it.operatorName }
 
         return grouped.map { (name, list) ->
             val count = list.size
             val totalKwh = list.sumOf { it.kwhDeliveredByStation }
-            val totalCost = list.sumOf { it.totalCost }
+            val totalCost = list.sumOf { CurrencyConverter.convert(it.totalCost, it.currency, mainCurrency) }
             val avgPrice = if (totalKwh > 0) totalCost / totalKwh else 0.0
 
             val powers = list.mapNotNull { it.avgPowerKw }.filter { it > 0 }

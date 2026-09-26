@@ -1172,20 +1172,69 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     // Currency selector
-                    Text(text = strings.currency, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = "Основная валюта отчётов и сводок", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "В этой валюте отображается общая статистика и средние показатели. Каждая запись (зарядка/расход) сохраняет свою реальную валюту чека (BYN, PLN и др.).",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 15.sp
+                    )
                     Spacer(modifier = Modifier.height(6.dp))
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        listOf("BYN", "RUB", "PLN", "USD", "EUR").forEach { curr ->
+                        listOf("BYN", "RUB", "PLN", "USD", "EUR", "KZT").forEach { curr ->
                             FilterChip(
                                 selected = settings.currency == curr,
                                 onClick = { onUpdateCurrency(curr) },
                                 label = { Text(curr) },
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SoftBlue, selectedLabelColor = Color.White),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = ElectricCyan,
+                                    selectedLabelColor = Color.Black
+                                ),
                                 shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Multi-currency live rates reference card
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(ElectricCyan.copy(alpha = 0.08f))
+                            .border(1.dp, ElectricCyan.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                            .padding(10.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("💱 ", fontSize = 13.sp)
+                                Text(
+                                    text = "Справедливый мультивалютный пересчёт",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ElectricCyan
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "При поездке за границу (например, в Польшу за PLN) VoltLedger не приравнивает 1 PLN к 1 BYN. В чеке сохраняется PLN, а в статистике сумма пересчитывается по справедливому кросс-курсу:",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 15.sp
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "• 1 PLN ≈ 0.82 BYN (1 BYN ≈ 1.22 PLN)\n• 1 EUR ≈ 3.60 BYN  • 1 USD ≈ 3.30 BYN\n• 100 RUB ≈ 3.50 BYN",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = SoftBlue,
+                                lineHeight = 16.sp
                             )
                         }
                     }
@@ -1723,7 +1772,7 @@ fun SettingsScreen(
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                  ) {
                                      Text(
-                                         text = "v2.5.0",
+                                         text = com.example.util.APP_VERSION_NAME,
                                          fontSize = 10.sp,
                                          fontWeight = FontWeight.Bold,
                                          color = ElectricCyan
@@ -1825,7 +1874,7 @@ fun SettingsScreen(
                         text = {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text(
-                                    text = "VoltLedger v2.4.1",
+                                    text = "VoltLedger ${com.example.util.APP_VERSION_NAME}",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = ElectricCyan
@@ -1870,7 +1919,7 @@ fun SettingsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "VoltLedger v2.4.1",
+                        text = "VoltLedger ${com.example.util.APP_VERSION_NAME}",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

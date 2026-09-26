@@ -104,7 +104,7 @@ fun HistoryScreen(
     onUpdateSession: (ChargingSession) -> Unit,
     onDeleteSession: (ChargingSession) -> Unit,
     expenses: List<CarExpense> = emptyList(),
-    onAddExpense: ((category: String, amount: Double, odometer: Double?, comment: String?) -> Unit)? = null,
+    onAddExpense: ((category: String, amount: Double, odometer: Double?, comment: String?, currency: String) -> Unit)? = null,
     onUpdateExpense: ((CarExpense) -> Unit)? = null,
     onDeleteExpense: ((CarExpense) -> Unit)? = null,
     topCategories: List<String> = emptyList(),
@@ -167,8 +167,13 @@ fun HistoryScreen(
         }
     }
 
-    // Charging totals
-    val totalCost = remember(filtered) { filtered.sumOf { it.totalCost } }
+    // Charging totals with multi-currency conversion to main currency
+    val totalCost = remember(filtered, currency) {
+        filtered.sumOf { com.example.util.CurrencyConverter.convert(it.totalCost, it.currency, currency) }
+    }
+    val hasMultiCurrencyCharges = remember(filtered, currency) {
+        filtered.any { !it.currency.equals(currency, ignoreCase = true) }
+    }
     val totalKwh = remember(filtered) { filtered.sumOf { it.kwhDeliveredByStation } }
     val minOdo = remember(filtered) { filtered.minOfOrNull { it.startOdometer } ?: 0.0 }
     val maxOdo = remember(filtered) { filtered.maxOfOrNull { it.startOdometer } ?: 0.0 }
@@ -188,7 +193,12 @@ fun HistoryScreen(
         }.sortedByDescending { it.timestamp }
     }
 
-    val totalExpensesCost = remember(filteredExpenses) { filteredExpenses.sumOf { it.amount } }
+    val totalExpensesCost = remember(filteredExpenses, currency) {
+        filteredExpenses.sumOf { com.example.util.CurrencyConverter.convert(it.amount, it.currency, currency) }
+    }
+    val hasMultiCurrencyExpenses = remember(filteredExpenses, currency) {
+        filteredExpenses.any { !it.currency.equals(currency, ignoreCase = true) }
+    }
 
     LiquidGlassBackground(modifier = modifier) {
         LazyColumn(
@@ -364,6 +374,16 @@ fun HistoryScreen(
                                             color = BatteryGreen
                                         )
                                     }
+                                }
+
+                                if (hasMultiCurrencyCharges) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "🔄 Включает сессии в разных валютах, пересчитанные в $currency",
+                                        fontSize = 10.sp,
+                                        color = SoftBlue,
+                                        fontWeight = FontWeight.Medium
+                                    )
                                 }
                             }
                         }
@@ -659,6 +679,16 @@ fun HistoryScreen(
                                         )
                                     }
                                 }
+
+                                if (hasMultiCurrencyExpenses) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "🔄 Включает расходы в разных валютах, пересчитанные в $currency",
+                                        fontSize = 10.sp,
+                                        color = SoftBlue,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
                         }
                     }
@@ -839,8 +869,8 @@ fun HistoryScreen(
             topCategories = topCategories,
             currency = currency,
             onDismiss = { showAddExpenseDialog = false },
-            onSave = { category, amount, odometer, comment ->
-                onAddExpense?.invoke(category, amount, odometer, comment)
+            onSave = { category, amount, odometer, comment, expCurr ->
+                onAddExpense?.invoke(category, amount, odometer, comment, expCurr)
                 showAddExpenseDialog = false
             }
         )
@@ -855,12 +885,13 @@ fun HistoryScreen(
             topCategories = topCategories,
             currency = currency,
             onDismiss = { editingExpense = null },
-            onSave = { category, amount, odometer, comment ->
+            onSave = { category, amount, odometer, comment, expCurr ->
                 val updated = exp.copy(
                     category = category,
                     amount = amount,
                     odometer = odometer,
-                    comment = comment
+                    comment = comment,
+                    currency = expCurr
                 )
                 onUpdateExpense?.invoke(updated)
                 editingExpense = null
@@ -977,15 +1008,27 @@ fun HistorySessionItemCard(
                     }
                 }
 
+                val sessionCurr = session.currency.trim().uppercase().ifBlank { currency }
+                val isForeign = !sessionCurr.equals(currency, ignoreCase = true)
+
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = formatCurrency(session.totalCost, currency),
+                        text = formatCurrency(session.totalCost, sessionCurr),
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 16.sp,
                         color = ElectricCyan
                     )
+                    if (isForeign) {
+                        val converted = com.example.util.CurrencyConverter.convert(session.totalCost, sessionCurr, currency)
+                        Text(
+                            text = "≈ ${String.format(Locale.US, "%.2f", converted)} $currency",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SoftBlue
+                        )
+                    }
                     Text(
-                        text = "${String.format(Locale.US, "%.2f", session.pricePerKwh)} $currency/кВт·ч",
+                        text = "${String.format(Locale.US, "%.2f", session.pricePerKwh)} $sessionCurr/кВт·ч",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1160,13 +1203,27 @@ fun HistoryExpenseItemCard(
                     }
                 }
 
+                val expCurr = expense.currency.trim().uppercase().ifBlank { currency }
+                val isForeignExp = !expCurr.equals(currency, ignoreCase = true)
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = formatCurrency(expense.amount, currency),
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 16.sp,
-                        color = ElectricCyan
-                    )
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = formatCurrency(expense.amount, expCurr),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp,
+                            color = ElectricCyan
+                        )
+                        if (isForeignExp) {
+                            val converted = com.example.util.CurrencyConverter.convert(expense.amount, expCurr, currency)
+                            Text(
+                                text = "≈ ${String.format(Locale.US, "%.2f", converted)} $currency",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = SoftBlue
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.width(4.dp))
 

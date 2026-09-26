@@ -83,12 +83,13 @@ fun AddEditExpenseDialog(
     topCategories: List<String> = listOf("Мойка", "ТО", "Страховка", "Шиномонтаж", "Парковка"),
     currency: String = "BYN",
     onDismiss: () -> Unit,
-    onSave: (category: String, amount: Double, odometer: Double?, comment: String?) -> Unit
+    onSave: (category: String, amount: Double, odometer: Double?, comment: String?, currency: String) -> Unit
 ) {
     var selectedCategory by remember {
         mutableStateOf(initialExpense?.category ?: topCategories.firstOrNull() ?: "Мойка")
     }
     var showCategoryDropdown by remember { mutableStateOf(false) }
+    var selectedCurrency by remember { mutableStateOf(initialExpense?.currency ?: currency) }
     var amountText by remember {
         mutableStateOf(if (initialExpense != null && initialExpense.amount > 0) String.format(Locale.US, "%.2f", initialExpense.amount) else "")
     }
@@ -202,11 +203,34 @@ fun AddEditExpenseDialog(
                     }
                 }
 
+                // Currency selector
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Валюта расхода:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("BYN", "PLN", "EUR", "USD", "RUB").forEach { curr ->
+                            FilterChip(
+                                selected = selectedCurrency == curr,
+                                onClick = { selectedCurrency = curr },
+                                label = { Text(curr, fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = ElectricCyan,
+                                    selectedLabelColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+                }
+
                 // Amount input
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { amountText = it },
-                    label = { Text("Сумма ($currency) *") },
+                    label = { Text("Сумма ($selectedCurrency) *") },
                     placeholder = { Text("напр. 35.00") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -262,7 +286,8 @@ fun AddEditExpenseDialog(
                             selectedCategory,
                             parsedAmount,
                             odo,
-                            commentText.trim().ifBlank { null }
+                            commentText.trim().ifBlank { null },
+                            selectedCurrency
                         )
                     }
                 },

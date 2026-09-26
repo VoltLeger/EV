@@ -241,12 +241,14 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         avgPowerKw: Double?,
         pricePerKwh: Double,
         startTime: Long,
-        nightTariffApplied: Boolean
+        nightTariffApplied: Boolean,
+        currency: String? = null
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             val car = activeCar.value ?: allCars.value.firstOrNull() ?: return@launch
             val isFree = operator?.isFree == true || pricePerKwh <= 0.0001
             val effectivePrice = if (isFree) 0.00001 else pricePerKwh
+            val sessionCurrency = currency?.trim()?.uppercase()?.ifBlank { settings.value.currency } ?: settings.value.currency
 
             val session = ChargingSession(
                 carId = car.id,
@@ -254,7 +256,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                 startSoc = startSoc,
                 endSoc = startSoc,
                 pricePerKwh = effectivePrice,
-                currency = settings.value.currency,
+                currency = sessionCurrency,
                 stationType = stationType,
                 operatorId = operator?.id,
                 operatorName = operator?.name ?: customOperatorName ?: "",
