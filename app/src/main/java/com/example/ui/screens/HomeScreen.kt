@@ -55,6 +55,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -107,11 +109,12 @@ fun HomeScreen(
     allCars: List<Car>,
     activeSession: ChargingSession?,
     monthConsumption: Double?,
+    effectiveMonthConsumption: com.example.util.EVCalculator.EffectiveMonthConsumption? = null,
     recentSessions: List<ChargingSession>,
     onSelectCar: (Long) -> Unit,
     onAddChargeClick: () -> Unit,
     onCalculateRangeClick: () -> Unit,
-    onQuickHomeCharge: ((Double, Double?, Double?, String?, Boolean?) -> Unit)? = null,
+    onQuickHomeCharge: ((Double, Double?, Double?, String?, Boolean?, Double?) -> Unit)? = null,
     onCompleteChargeClick: (ChargingSession) -> Unit,
     onCancelActiveCharge: (ChargingSession) -> Unit,
     onNavigateToHistory: (() -> Unit)? = null,
@@ -125,6 +128,7 @@ fun HomeScreen(
     topExpenseCategories: List<String> = emptyList(),
     appSettings: com.example.data.model.AppSettings? = null,
     onNavigateToSettings: (() -> Unit)? = null,
+    latestOdometer: Double? = null,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
@@ -134,10 +138,14 @@ fun HomeScreen(
     var showHomeNotConfiguredDialog by remember { mutableStateOf(false) }
 
     // Dynamic Latest Odometer: calculated across car, sessions, and expenses
-    val latestOdometer = remember(activeCar?.initialOdometer, recentSessions) {
-        val carOdo = activeCar?.initialOdometer ?: 0.0
-        val maxSessionOdo = recentSessions.maxOfOrNull { maxOf(it.startOdometer, 0.0) } ?: 0.0
-        maxOf(carOdo, maxSessionOdo)
+    val latestEffectiveOdometer = remember(latestOdometer, activeCar?.initialOdometer, recentSessions) {
+        if (latestOdometer != null && latestOdometer > 0) {
+            latestOdometer
+        } else {
+            val carOdo = activeCar?.initialOdometer ?: 0.0
+            val maxSessionOdo = recentSessions.maxOfOrNull { maxOf(it.startOdometer, 0.0) } ?: 0.0
+            maxOf(carOdo, maxSessionOdo)
+        }
     }
 
     // Session Edit & Delete state
@@ -145,22 +153,37 @@ fun HomeScreen(
     var sessionToDelete by remember { mutableStateOf<ChargingSession?>(null) }
     var sessionToShare by remember { mutableStateOf<ChargingSession?>(null) }
 
-    // Quick Home Charge Dialog State
+    // Quick Home Charge Dialog State (Persisted and protected from background resets)
     var showHomeChargeDialog by remember { mutableStateOf(false) }
-    var homeChargeSocText by remember(activeCar?.currentSoc) {
-        mutableStateOf(activeCar?.currentSoc?.toInt()?.toString() ?: "30")
-    }
+    var homeChargeSocText by remember { mutableStateOf("") }
+    var homeChargeOdoText by remember { mutableStateOf("") }
     var homeChargeMeterText by remember { mutableStateOf("") }
     // Tariff mode selection in dialog: "auto" (default active), "standard", "two_tariff", "three_tariff"
     var selectedTariffMode by remember { mutableStateOf("auto") }
+
+    // When the dialog opens, only populate empty fields; NEVER reset user-entered text during recompositions
+    LaunchedEffect(showHomeChargeDialog) {
+        if (showHomeChargeDialog) {
+            if (homeChargeSocText.isBlank()) {
+                homeChargeSocText = activeCar?.currentSoc?.toInt()?.toString() ?: "30"
+            }
+            if (homeChargeOdoText.isBlank() && latestEffectiveOdometer > 0) {
+                homeChargeOdoText = latestEffectiveOdometer.toInt().toString()
+            }
+            if (homeChargeMeterText.isBlank() && appSettings?.homeLastMeterKwh != null && appSettings.homeLastMeterKwh > 0) {
+                homeChargeMeterText = String.format(Locale.US, "%.1f", appSettings.homeLastMeterKwh)
+            }
+        }
+    }
 
     val usableCapacity = activeCar?.usableCapacityKwh ?: 57.0
     val carSoc = activeCar?.currentSoc ?: 80.0
 
     // Compute baseline consumption
     val completedSessions = remember(recentSessions) { recentSessions.filter { it.status == "completed" } }
-    val realAvg = remember(completedSessions, monthConsumption, usableCapacity, carSoc) {
-        monthConsumption ?: run {
+    val effectiveCons = effectiveMonthConsumption?.consumption ?: monthConsumption
+    val realAvg = remember(completedSessions, effectiveCons, usableCapacity, carSoc) {
+        effectiveCons ?: run {
             val forecast = EVCalculator.calculateRangeForecast(completedSessions, usableCapacity, carSoc)
             forecast.realConsumptionPer100Km
         }
@@ -194,14 +217,14 @@ fun HomeScreen(
 
     // Lower block metrics
     val lastSession = remember(completedSessions) { completedSessions.maxByOrNull { it.startTime } }
-    val costPer100Km = remember(lastSession, realAvg, monthConsumption, currency) {
+    val costPer100Km = remember(lastSession, realAvg, effectiveCons, currency) {
         if (lastSession != null && lastSession.kwhDeliveredByStation > 0 && lastSession.totalCost > 0) {
             val totalCostInMain = com.example.util.CurrencyConverter.convert(lastSession.totalCost, lastSession.currency, currency)
             val pricePerKwh = totalCostInMain / lastSession.kwhDeliveredByStation
             pricePerKwh * realAvg
-        } else if (monthConsumption != null && lastSession != null) {
+        } else if (effectiveCons != null && lastSession != null) {
             val priceInMain = com.example.util.CurrencyConverter.convert(lastSession.pricePerKwh, lastSession.currency, currency)
-            priceInMain * monthConsumption
+            priceInMain * effectiveCons
         } else null
     }
 
@@ -325,7 +348,7 @@ fun HomeScreen(
                                     )
                                 }
                                 Text(
-                                    text = "${latestOdometer.toInt()} км",
+                                    text = "${latestEffectiveOdometer.toInt()} км",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -451,8 +474,18 @@ fun HomeScreen(
                                     modifier = Modifier.size(15.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
+                                val cardHeader = if (lastTwoConsumption.hasEnoughData && lastTwoConsumption.avgConsumption != null) {
+                                    "СРЕДНИЙ РАСХОД ЗА 2 ПОСЛЕДНИЕ ЗАРЯДКИ"
+                                } else if (effectiveMonthConsumption?.isPreviousMonth == true && effectiveMonthConsumption.consumption != null) {
+                                    val mName = effectiveMonthConsumption.monthName.ifBlank { "ПРЕД. МЕСЯЦ" }
+                                    "СРЕДНИЙ РАСХОД (ЗА ${mName.uppercase()})"
+                                } else if (effectiveMonthConsumption?.consumption != null) {
+                                    "СРЕДНИЙ РАСХОД ЗА МЕСЯЦ"
+                                } else {
+                                    "СРЕДНИЙ РАСХОД"
+                                }
                                 Text(
-                                    text = "СРЕДНИЙ РАСХОД ЗА 2 ПОСЛЕДНИЕ ЗАРЯДКИ",
+                                    text = cardHeader,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = ElectricCyan,
@@ -461,6 +494,12 @@ fun HomeScreen(
                             }
 
                             Spacer(modifier = Modifier.height(12.dp))
+
+                            val displayConsumption = if (lastTwoConsumption.hasEnoughData && lastTwoConsumption.avgConsumption != null) {
+                                lastTwoConsumption.avgConsumption
+                            } else {
+                                effectiveCons
+                            }
 
                             // Large Glowing Number with luminous shadow aura
                             Row(
@@ -478,9 +517,9 @@ fun HomeScreen(
                                     blurRadius = 14f
                                 )
 
-                                if (lastTwoConsumption.hasEnoughData && lastTwoConsumption.avgConsumption != null) {
+                                if (displayConsumption != null && displayConsumption > 0.0) {
                                     Text(
-                                        text = String.format(Locale.US, "%.1f", lastTwoConsumption.avgConsumption),
+                                        text = String.format(Locale.US, "%.1f", displayConsumption),
                                         fontSize = 54.sp,
                                         fontWeight = FontWeight.Black,
                                         color = Color.White,
@@ -496,9 +535,8 @@ fun HomeScreen(
                                         modifier = Modifier.padding(bottom = 10.dp)
                                     )
                                 } else {
-                                    val isVal = monthConsumption != null && monthConsumption > 0.0
                                     Text(
-                                        text = if (isVal) String.format(Locale.US, "%.1f", monthConsumption) else "—",
+                                        text = "—",
                                         fontSize = 48.sp,
                                         fontWeight = FontWeight.Black,
                                         color = Color.White,
@@ -525,6 +563,23 @@ fun HomeScreen(
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Medium
+                                )
+                            } else if (effectiveMonthConsumption?.isPreviousMonth == true && effectiveMonthConsumption.consumption != null) {
+                                val mText = if (effectiveMonthConsumption.monthName.isNotBlank()) "за ${effectiveMonthConsumption.monthName.lowercase()}" else "за прошлый месяц"
+                                val extraStats = if (effectiveMonthConsumption.distanceKm >= 5.0 && effectiveMonthConsumption.totalKwh > 0.0) {
+                                    " (${effectiveMonthConsumption.distanceKm.toInt()} км • ${String.format(Locale.US, "%.1f", effectiveMonthConsumption.totalKwh)} кВт·ч)"
+                                } else ""
+                                Text(
+                                    text = "Расход $mText$extraStats • Сохраняется до новых зарядок",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            } else if (displayConsumption != null) {
+                                Text(
+                                    text = "Средний расход электромобиля",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             } else {
                                 Text(
@@ -634,8 +689,13 @@ fun HomeScreen(
                                     modifier = Modifier.height(22.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
+                                    val headerText = if (effectiveMonthConsumption?.isPreviousMonth == true && effectiveMonthConsumption.consumption != null) {
+                                        "РАСХОД / ПРЕД. МЕС"
+                                    } else {
+                                        "РАСХОД / МЕСЯЦ"
+                                    }
                                     Text(
-                                        text = "РАСХОД / МЕСЯЦ",
+                                        text = headerText,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = SoftBlue,
@@ -650,9 +710,10 @@ fun HomeScreen(
                                     modifier = Modifier.height(26.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
+                                    val consVal = effectiveMonthConsumption?.consumption ?: monthConsumption
                                     Text(
-                                        text = if (monthConsumption != null && monthConsumption > 0.0) {
-                                            String.format(Locale.US, "%.1f", monthConsumption)
+                                        text = if (consVal != null && consVal > 0.0) {
+                                            String.format(Locale.US, "%.1f", consVal)
                                         } else "—",
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold,
@@ -667,10 +728,15 @@ fun HomeScreen(
                                     modifier = Modifier.height(18.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
+                                    val unitText = if (effectiveMonthConsumption?.isPreviousMonth == true && effectiveMonthConsumption.consumption != null) {
+                                        if (effectiveMonthConsumption.monthName.isNotBlank()) effectiveMonthConsumption.monthName.lowercase() else "пред. месяц"
+                                    } else {
+                                        strings.kwhPer100Km
+                                    }
                                     Text(
-                                        text = strings.kwhPer100Km,
+                                        text = unitText,
                                         fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (effectiveMonthConsumption?.isPreviousMonth == true) ElectricCyan else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -815,7 +881,13 @@ fun HomeScreen(
                     OutlinedButton(
                         onClick = {
                             val isConfigured = appSettings?.homeChargeConfigured == true
-                            if (appSettings?.homeLastMeterKwh != null && appSettings.homeLastMeterKwh > 0) {
+                            if (homeChargeSocText.isBlank()) {
+                                homeChargeSocText = activeCar?.currentSoc?.toInt()?.toString() ?: "30"
+                            }
+                            if (homeChargeOdoText.isBlank() && latestEffectiveOdometer > 0) {
+                                homeChargeOdoText = latestEffectiveOdometer.toInt().toString()
+                            }
+                            if (homeChargeMeterText.isBlank() && appSettings?.homeLastMeterKwh != null && appSettings.homeLastMeterKwh > 0) {
                                 homeChargeMeterText = String.format(Locale.US, "%.1f", appSettings.homeLastMeterKwh)
                             }
                             if (!isConfigured) {
@@ -1030,7 +1102,11 @@ fun HomeScreen(
         val estCost = neededKwh * estPrice
 
         AlertDialog(
-            onDismissRequest = { showHomeChargeDialog = false },
+            onDismissRequest = { /* Do not auto-dismiss on outside tap so user's data is never lost */ },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            ),
             icon = { Icon(Icons.Default.Home, contentDescription = null, tint = BatteryGreen, modifier = Modifier.size(28.dp)) },
             title = {
                 Text(
@@ -1103,23 +1179,48 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(2.dp))
 
                     Text(
-                        text = "Введите текущий остаток батареи и показания счётчика электроэнергии:",
+                        text = "Введите остаток батареи, текущий пробег и показания счётчика:",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    // Input 1: Remaining battery %
-                    OutlinedTextField(
-                        value = homeChargeSocText,
-                        onValueChange = { homeChargeSocText = it },
-                        label = { Text("Остаток заряда (%)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    // Input 1 & 2: SoC % and Odometer (km) pre-filled with last entered mileage
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = homeChargeSocText,
+                            onValueChange = { homeChargeSocText = it },
+                            label = { Text("Остаток (%)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(0.9f).testTag("home_charge_soc_input"),
+                            shape = RoundedCornerShape(14.dp)
+                        )
 
-                    // Input 2: Current meter reading in kWh (with prompt button for last reading if available)
+                        OutlinedTextField(
+                            value = homeChargeOdoText,
+                            onValueChange = { homeChargeOdoText = it },
+                            label = { Text("Пробег (км)") },
+                            placeholder = { Text(if (latestEffectiveOdometer > 0) latestEffectiveOdometer.toInt().toString() else "0") },
+                            supportingText = {
+                                if (latestEffectiveOdometer > 0) {
+                                    Text(
+                                        text = "Посл.: ${latestEffectiveOdometer.toInt()} км",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1.1f).testTag("home_charge_odometer_input"),
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                    }
+
+                    // Input 3: Current meter reading in kWh (pre-filled with the last entered reading)
                     OutlinedTextField(
                         value = homeChargeMeterText,
                         onValueChange = { homeChargeMeterText = it },
@@ -1135,7 +1236,7 @@ fun HomeScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "Предыдущее: ${String.format(Locale.US, "%.1f", appSettings.homeLastMeterKwh)} кВт·ч (нажмите, чтобы подставить)",
+                                        text = "Предыдущее: ${String.format(Locale.US, "%.1f", appSettings.homeLastMeterKwh)} кВт·ч (нажмите для сброса)",
                                         fontSize = 10.sp,
                                         color = ElectricCyan
                                     )
@@ -1195,14 +1296,19 @@ fun HomeScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        val parsedOdo = homeChargeOdoText.toDoubleOrNull() ?: latestEffectiveOdometer.takeIf { it > 0 }
                         onQuickHomeCharge?.invoke(
                             parsedSoc,
                             parsedMeter,
                             effectiveTariff.pricePerKwh,
                             effectiveTariff.tariffName,
-                            effectiveTariff.isNight
+                            effectiveTariff.isNight,
+                            parsedOdo
                         )
                         showHomeChargeDialog = false
+                        homeChargeSocText = ""
+                        homeChargeOdoText = ""
+                        homeChargeMeterText = ""
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = BatteryGreen),
                     modifier = Modifier.testTag("confirm_quick_home_charge_button")
@@ -1211,7 +1317,12 @@ fun HomeScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showHomeChargeDialog = false }) {
+                TextButton(onClick = {
+                    showHomeChargeDialog = false
+                    homeChargeSocText = ""
+                    homeChargeOdoText = ""
+                    homeChargeMeterText = ""
+                }) {
                     Text(strings.cancel)
                 }
             }
@@ -1344,7 +1455,7 @@ fun HomeScreen(
     // Add Expense Dialog
     if (showAddExpenseDialog) {
         AddEditExpenseDialog(
-            defaultOdometer = activeCar?.initialOdometer,
+            defaultOdometer = latestEffectiveOdometer,
             topCategories = topExpenseCategories,
             currency = currency,
             onDismiss = { showAddExpenseDialog = false },

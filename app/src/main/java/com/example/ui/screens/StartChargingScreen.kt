@@ -99,12 +99,13 @@ fun StartChargingScreen(
         nightTariffApplied: Boolean,
         currency: String
     ) -> Unit,
+    latestOdometer: Double? = null,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
     val currency = LocalCurrency.current
 
-    val prevOdometer = activeCar?.initialOdometer ?: 0.0
+    val prevOdometer = latestOdometer ?: activeCar?.initialOdometer ?: 0.0
     val prevSoc = activeCar?.currentSoc ?: 80.0
     val usableCapacity = activeCar?.usableCapacityKwh ?: 57.0
     val avgConsumption = 17.5 // baseline consumption
@@ -115,8 +116,9 @@ fun StartChargingScreen(
     var socText by remember {
         mutableStateOf(activeCar?.currentSoc?.toInt()?.toString() ?: "25")
     }
+    // Pre-filled with the latest entered odometer number so the session starts correctly
     var odometerText by remember {
-        mutableStateOf(prevOdometer.toInt().toString())
+        mutableStateOf(if (prevOdometer > 0) prevOdometer.toInt().toString() else "")
     }
 
     // Default flag is DC
@@ -136,18 +138,6 @@ fun StartChargingScreen(
             !it.name.contains("Дом", ignoreCase = true) &&
                     (it.type.equals(selectedStationType, ignoreCase = true) || it.type.equals("both", ignoreCase = true))
         }
-    }
-
-    // Auto-calculate estimated odometer based on SoC change and last trip
-    fun updateEstimatedOdometer(enteredSoc: Double) {
-        val estimatedOdo = EVCalculator.estimateOdometerFromSoc(
-            currentSoc = enteredSoc,
-            carOdometer = prevOdometer,
-            carSoc = prevSoc,
-            usableCapacityKwh = usableCapacity,
-            avgConsumption = avgConsumption
-        )
-        odometerText = estimatedOdo.toInt().toString()
     }
 
     // Initialize or reset selected operator when station type changes
@@ -189,8 +179,8 @@ fun StartChargingScreen(
     val priceVal = pricePerKwhText.toDoubleOrNull() ?: 0.0
     val avgPowerVal: Double? = null
 
-    // Odometer validation: cannot be less than previous odometer
-    val isOdoValid = odoVal >= prevOdometer
+    // Odometer validation: must be a positive number
+    val isOdoValid = odoVal > 0.0
     val isSocValid = socVal in 0.0..100.0
     val isFormValid = isOdoValid && isSocValid
 
@@ -223,7 +213,7 @@ fun StartChargingScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {
-                // 1. Swapped Inputs: FIRST SoC %, SECOND Odometer (km)
+                // 1. Inputs: SoC %, Odometer (km) pre-filled with latest entered number
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -233,10 +223,6 @@ fun StartChargingScreen(
                         value = socText,
                         onValueChange = {
                             socText = it
-                            val parsed = it.toDoubleOrNull()
-                            if (parsed != null && parsed in 0.0..100.0) {
-                                updateEstimatedOdometer(parsed)
-                            }
                         },
                         label = { Text("Остаток заряда (%)") },
                         singleLine = true,
@@ -247,15 +233,21 @@ fun StartChargingScreen(
                         shape = RoundedCornerShape(14.dp)
                     )
 
-                    // Input 2: Odometer (km) with validation (cannot be less than previous)
+                    // Input 2: Odometer (km) pre-filled with latest entered number
                     OutlinedTextField(
                         value = odometerText,
                         onValueChange = { odometerText = it },
                         label = { Text(strings.startOdometer) },
-                        isError = !isOdoValid && odometerText.isNotBlank(),
-                        supportingText = if (!isOdoValid && odometerText.isNotBlank()) {
-                            { Text("Не может быть меньше ${prevOdometer.toInt()} км", color = MaterialTheme.colorScheme.error) }
-                        } else null,
+                        placeholder = { Text(if (prevOdometer > 0) prevOdometer.toInt().toString() else "0") },
+                        supportingText = {
+                            if (prevOdometer > 0) {
+                                Text(
+                                    text = "Предыдущий пробег: ${prevOdometer.toInt()} км",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier

@@ -225,16 +225,40 @@ object EVCalculator {
         )
     }
 
+    data class MonthConsumptionStats(
+        val consumption: Double?,
+        val distanceKm: Double = 0.0,
+        val totalKwh: Double = 0.0,
+        val sessionCount: Int = 0
+    )
+
+    fun getMonthNameRu(monthIndex: Int): String {
+        return when (monthIndex) {
+            Calendar.JANUARY -> "Январь"
+            Calendar.FEBRUARY -> "Февраль"
+            Calendar.MARCH -> "Март"
+            Calendar.APRIL -> "Апрель"
+            Calendar.MAY -> "Май"
+            Calendar.JUNE -> "Июнь"
+            Calendar.JULY -> "Июль"
+            Calendar.AUGUST -> "Август"
+            Calendar.SEPTEMBER -> "Сентябрь"
+            Calendar.OCTOBER -> "Октябрь"
+            Calendar.NOVEMBER -> "Ноябрь"
+            Calendar.DECEMBER -> "Декабрь"
+            else -> ""
+        }
+    }
+
     /**
-     * Calculates average consumption for a specific month (kWh / 100 km)
-     * Incorporates real battery SoC discharge when available.
+     * Calculates detailed statistics for a specific month (kWh / 100 km, distance, consumed energy).
      */
-    fun calculateMonthConsumption(
+    fun calculateMonthConsumptionDetailed(
         completedSessions: List<ChargingSession>,
         year: Int,
         month: Int, // 0-based, Calendar.MONTH
         usableCapacityKwh: Double = 57.0
-    ): Double? {
+    ): MonthConsumptionStats {
         val cal = Calendar.getInstance()
         val monthSessions = completedSessions.filter { session ->
             if (session.status != "completed") return@filter false
@@ -243,7 +267,13 @@ object EVCalculator {
         }.sortedBy { it.startTime }
 
         if (monthSessions.size < 2) {
-            return null
+            val singleKwh = monthSessions.firstOrNull()?.kwhDeliveredByStation ?: 0.0
+            return MonthConsumptionStats(
+                consumption = null,
+                distanceKm = 0.0,
+                totalKwh = singleKwh,
+                sessionCount = monthSessions.size
+            )
         }
 
         var accumulatedKm = 0.0
@@ -273,11 +303,164 @@ object EVCalculator {
             }
         }
 
-        return if (accumulatedKm >= 10.0 && accumulatedKwh > 0.0) {
+        val consumption = if (accumulatedKm >= 10.0 && accumulatedKwh > 0.0) {
             (accumulatedKwh / accumulatedKm) * 100.0
         } else {
             null
         }
+
+        return MonthConsumptionStats(
+            consumption = consumption,
+            distanceKm = accumulatedKm,
+            totalKwh = accumulatedKwh,
+            sessionCount = monthSessions.size
+        )
+    }
+
+    /**
+     * Calculates average consumption for a specific month (kWh / 100 km)
+     * Incorporates real battery SoC discharge when available.
+     */
+    fun calculateMonthConsumption(
+        completedSessions: List<ChargingSession>,
+        year: Int,
+        month: Int, // 0-based, Calendar.MONTH
+        usableCapacityKwh: Double = 57.0
+    ): Double? {
+        return calculateMonthConsumptionDetailed(completedSessions, year, month, usableCapacityKwh).consumption
+    }
+
+    data class EffectiveMonthConsumption(
+        val consumption: Double?,
+        val isPreviousMonth: Boolean = false,
+        val label: String = "РАСХОД / МЕСЯЦ",
+        val subtitle: String = "кВт·ч / 100 км",
+        val monthName: String = "",
+        val distanceKm: Double = 0.0,
+        val totalKwh: Double = 0.0
+    )
+
+    /**
+     * Calculates the effective monthly consumption.
+     * When a new month begins and has fewer than 2 charging sessions, it does NOT
+     * drop to null or show "—", but seamlessly continues showing the previous month's
+     * consumption so the driver's telemetry remains intact.
+     */
+    fun calculateEffectiveMonthConsumption(
+        completedSessions: List<ChargingSession>,
+        usableCapacityKwh: Double = 57.0,
+        passportConsumption: Double = 16.0
+    ): EffectiveMonthConsumption {
+        val now = Calendar.getInstance()
+        val curYear = now.get(Calendar.YEAR)
+        val curMonth = now.get(Calendar.MONTH)
+
+        // 1. Try current month
+        val curDetailed = calculateMonthConsumptionDetailed(completedSessions, curYear, curMonth, usableCapacityKwh)
+        if (curDetailed.consumption != null && curDetailed.consumption > 0.0) {
+            val monthName = getMonthNameRu(curMonth)
+            return EffectiveMonthConsumption(
+                consumption = curDetailed.consumption,
+                isPreviousMonth = false,
+                label = "РАСХОД / ТЕК. МЕСЯЦ",
+                subtitle = "кВт·ч / 100 км",
+                monthName = monthName,
+                distanceKm = curDetailed.distanceKm,
+                totalKwh = curDetailed.totalKwh
+            )
+        }
+
+        // 2. Seamless fallback to previous month (transitioning to a new month)
+        val prevCal = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
+        val prevYear = prevCal.get(Calendar.YEAR)
+        val prevMonth = prevCal.get(Calendar.MONTH)
+        val prevDetailed = calculateMonthConsumptionDetailed(completedSessions, prevYear, prevMonth, usableCapacityKwh)
+        if (prevDetailed.consumption != null && prevDetailed.consumption > 0.0) {
+            val monthName = getMonthNameRu(prevMonth)
+            return EffectiveMonthConsumption(
+                consumption = prevDetailed.consumption,
+                isPreviousMonth = true,
+                label = "РАСХОД / ПРЕД. МЕСЯЦ",
+                subtitle = "кВт·ч (за ${monthName.lowercase()})",
+                monthName = monthName,
+                distanceKm = prevDetailed.distanceKm,
+                totalKwh = prevDetailed.totalKwh
+            )
+        }
+
+        // 3. Scan backwards up to 12 months for the most recent month with valid stats
+        val scanCal = Calendar.getInstance()
+        for (i in 2..12) {
+            scanCal.add(Calendar.MONTH, -1)
+            val pastDetailed = calculateMonthConsumptionDetailed(
+                completedSessions,
+                scanCal.get(Calendar.YEAR),
+                scanCal.get(Calendar.MONTH),
+                usableCapacityKwh
+            )
+            if (pastDetailed.consumption != null && pastDetailed.consumption > 0.0) {
+                val monthName = getMonthNameRu(scanCal.get(Calendar.MONTH))
+                return EffectiveMonthConsumption(
+                    consumption = pastDetailed.consumption,
+                    isPreviousMonth = true,
+                    label = "РАСХОД / АРХИВ",
+                    subtitle = "кВт·ч ($monthName)",
+                    monthName = monthName,
+                    distanceKm = pastDetailed.distanceKm,
+                    totalKwh = pastDetailed.totalKwh
+                )
+            }
+        }
+
+        // 4. Fallback to rolling last 2 charges across all history (even if spanning month boundaries)
+        val lastTwo = calculateLastTwoChargesConsumption(completedSessions, usableCapacityKwh)
+        if (lastTwo.hasEnoughData && lastTwo.avgConsumption != null && lastTwo.avgConsumption > 0.0) {
+            return EffectiveMonthConsumption(
+                consumption = lastTwo.avgConsumption,
+                isPreviousMonth = true,
+                label = "СРЕДНИЙ РАСХОД",
+                subtitle = "кВт·ч / 100 км",
+                monthName = "история",
+                distanceKm = lastTwo.distanceKm,
+                totalKwh = lastTwo.totalKwh
+            )
+        }
+
+        val lastThree = calculateLastThreeChargesConsumption(completedSessions, usableCapacityKwh)
+        if (lastThree.hasEnoughData && lastThree.avgConsumption != null && lastThree.avgConsumption > 0.0) {
+            return EffectiveMonthConsumption(
+                consumption = lastThree.avgConsumption,
+                isPreviousMonth = true,
+                label = "СРЕДНИЙ РАСХОД",
+                subtitle = "кВт·ч / 100 км",
+                monthName = "история",
+                distanceKm = lastThree.distanceKm,
+                totalKwh = lastThree.totalKwh
+            )
+        }
+
+        // 5. If sessions exist with odometer distance, calculate forecast
+        if (completedSessions.isNotEmpty()) {
+            val forecast = calculateRangeForecast(completedSessions, usableCapacityKwh, 80.0)
+            if (forecast.realConsumptionPer100Km > 0.0) {
+                return EffectiveMonthConsumption(
+                    consumption = forecast.realConsumptionPer100Km,
+                    isPreviousMonth = true,
+                    label = "СРЕДНИЙ РАСХОД",
+                    subtitle = "кВт·ч (по истории)",
+                    monthName = "история",
+                    distanceKm = forecast.basisDistanceKm,
+                    totalKwh = forecast.remainingKwh
+                )
+            }
+        }
+
+        return EffectiveMonthConsumption(
+            consumption = null,
+            isPreviousMonth = false,
+            label = "РАСХОД / МЕСЯЦ",
+            subtitle = "кВт·ч / 100 км"
+        )
     }
 
     /**
@@ -568,9 +751,24 @@ object EVCalculator {
                 hasEnoughData = false
             )
         }
-        val latest = sorted[0]
-        val previous = sorted[1]
-        val distance = (latest.startOdometer - previous.startOdometer).coerceAtLeast(0.0)
+        // Try the latest pair first; if distance < 5 km (e.g. odometer not updated), look for the latest valid pair
+        var latest = sorted[0]
+        var previous = sorted[1]
+        var distance = (latest.startOdometer - previous.startOdometer).coerceAtLeast(0.0)
+
+        if (distance < 5.0 && sorted.size > 2) {
+            for (i in 0 until sorted.size - 1) {
+                val c = sorted[i]
+                val p = sorted[i + 1]
+                val d = c.startOdometer - p.startOdometer
+                if (d >= 5.0) {
+                    latest = c
+                    previous = p
+                    distance = d
+                    break
+                }
+            }
+        }
 
         // Effective energy consumed during the trip between the two charges
         val tripDischargePercent = if (previous.endSoc > 0 && latest.startSoc > 0 && previous.endSoc >= latest.startSoc) {

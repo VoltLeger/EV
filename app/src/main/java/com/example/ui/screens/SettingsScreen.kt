@@ -1899,6 +1899,22 @@ fun SettingsScreen(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        try {
+                                            val intent = Intent(
+                                                Intent.ACTION_VIEW,
+                                                android.net.Uri.parse("https://t.me/VoltLeger")
+                                            )
+                                            context.startActivity(intent)
+                                        } catch (_: Exception) {}
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF229ED9))
+                                ) {
+                                    Text("📢 Telegram-канал проекта: @VoltLeger", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
                             }
                         },
                         confirmButton = {
@@ -1930,6 +1946,27 @@ fun SettingsScreen(
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                try {
+                                    val intent = Intent(
+                                        Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("https://t.me/VoltLeger")
+                                    )
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {}
+                            }
+                            .background(Color(0xFF229ED9).copy(alpha = 0.12f))
+                            .border(0.8.dp, Color(0xFF229ED9).copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text("📢 Telegram-канал: @VoltLeger", fontSize = 12.sp, color = Color(0xFF229ED9), fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }

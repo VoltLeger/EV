@@ -82,6 +82,8 @@ fun FinishChargingScreen(
         comment: String?,
         endOdometer: Double?
     ) -> Unit,
+    latestOdometer: Double? = null,
+    lastMeterKwh: Double? = null,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
@@ -103,14 +105,16 @@ fun FinishChargingScreen(
             .find(comment)?.groupValues?.get(1)?.toDoubleOrNull()
     }
 
-    var initialMeterText by remember {
-        mutableStateOf(initialMeterFromSession?.let { String.format(Locale.US, "%.1f", it) } ?: "")
+    val defaultMeter = initialMeterFromSession ?: (if (isHomeCharging) lastMeterKwh else null)
+    var initialMeterText by remember(defaultMeter) {
+        mutableStateOf(defaultMeter?.let { String.format(Locale.US, "%.1f", it) } ?: "")
     }
     var finalMeterText by remember { mutableStateOf("") }
 
     var endSocText by remember { mutableStateOf("90") }
+    val defaultOdo = if (session.startOdometer > 0) session.startOdometer else (latestOdometer ?: 0.0)
     var odometerText by remember {
-        mutableStateOf(if (session.startOdometer > 0) session.startOdometer.toInt().toString() else "")
+        mutableStateOf(if (defaultOdo > 0) defaultOdo.toInt().toString() else "")
     }
     var kwhDeliveredText by remember { mutableStateOf(if (isHomeCharging && initialMeterFromSession != null) "" else "35.0") }
     var kwhReceivedText by remember { mutableStateOf("") }

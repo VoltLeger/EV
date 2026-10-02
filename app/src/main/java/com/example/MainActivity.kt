@@ -104,6 +104,8 @@ class MainActivity : ComponentActivity() {
             val allSessions by viewModel.allSessions.collectAsState()
             val activeSession by viewModel.activeSession.collectAsState()
             val monthAvgConsumption by viewModel.monthAvgConsumption.collectAsState()
+            val effectiveMonthConsumption by viewModel.effectiveMonthConsumption.collectAsState()
+            val latestCarOdometer by viewModel.latestCarOdometer.collectAsState()
             val operators by viewModel.allOperators.collectAsState()
             val tags by viewModel.allTags.collectAsState()
             val userProfile by viewModel.userProfile.collectAsState()
@@ -339,12 +341,13 @@ class MainActivity : ComponentActivity() {
                                                 allCars = allCars,
                                                 activeSession = activeSession,
                                                 monthConsumption = monthAvgConsumption,
+                                                effectiveMonthConsumption = effectiveMonthConsumption,
                                                 recentSessions = activeCarSessions,
                                                 onSelectCar = { viewModel.selectCar(it) },
                                                 onAddChargeClick = { navController.navigate("start_charging") },
                                                 onCalculateRangeClick = { showRangeForecastDialog = true },
-                                                onQuickHomeCharge = { currentSoc, meterKwh, customPrice, tariffName, isNight ->
-                                                    viewModel.startQuickHomeCharge(currentSoc, meterKwh, customPrice, tariffName, isNight)
+                                                onQuickHomeCharge = { currentSoc, meterKwh, customPrice, tariffName, isNight, odo ->
+                                                    viewModel.startQuickHomeCharge(currentSoc, meterKwh, customPrice, tariffName, isNight, odo)
                                                 },
                                                 onNavigateToHistory = { selectedTab = 1 },
                                                 onCompleteChargeClick = { session ->
@@ -365,7 +368,8 @@ class MainActivity : ComponentActivity() {
                                                 },
                                                 topExpenseCategories = topExpenseCategories,
                                                 appSettings = settings,
-                                                onNavigateToSettings = { selectedTab = 3 }
+                                                onNavigateToSettings = { selectedTab = 3 },
+                                                latestOdometer = latestCarOdometer
                                             )
                                             1 -> HistoryScreen(
                                                 sessions = activeCarSessions,
@@ -378,7 +382,7 @@ class MainActivity : ComponentActivity() {
                                                 onUpdateExpense = { viewModel.updateExpense(it) },
                                                 onDeleteExpense = { viewModel.deleteExpense(it) },
                                                 topCategories = topExpenseCategories,
-                                                defaultOdometer = activeCar?.initialOdometer,
+                                                defaultOdometer = latestCarOdometer ?: activeCar?.initialOdometer,
                                                 activeCar = activeCar,
                                                 allCars = allCars,
                                                 allSessions = allSessions,
@@ -478,6 +482,7 @@ class MainActivity : ComponentActivity() {
                                 activeCar = activeCar,
                                 operators = operators,
                                 autoNightTariffEnabled = settings.autoNightTariff,
+                                latestOdometer = latestCarOdometer,
                                 onBack = { navController.popBackStack() },
                                 onStartCharging = { odo, soc, type, op, customName, power, price, time, night, curr ->
                                     navController.popBackStack()
@@ -505,6 +510,8 @@ class MainActivity : ComponentActivity() {
                                 FinishChargingScreen(
                                     session = currentSession,
                                     operator = op,
+                                    latestOdometer = latestCarOdometer,
+                                    lastMeterKwh = settings.homeLastMeterKwh,
                                     onBack = {
                                         sessionToFinish = null
                                         navController.popBackStack()
@@ -512,9 +519,15 @@ class MainActivity : ComponentActivity() {
                                     onComplete = { endSoc, kwhDelivered, kwhReceived, penalty, fixed, endTime, comment, endOdo ->
                                         navController.popBackStack()
                                         sessionToFinish = null
+                                        val effectiveStartOdo = if (currentSession.startOdometer > 0) {
+                                            if (endOdo != null && endOdo > currentSession.startOdometer) endOdo else currentSession.startOdometer
+                                        } else {
+                                            endOdo ?: 0.0
+                                        }
                                         val energyCost = kwhDelivered * currentSession.pricePerKwh
                                         val totalCost = energyCost + penalty + fixed
                                         val finished = currentSession.copy(
+                                            startOdometer = effectiveStartOdo,
                                             endSoc = endSoc,
                                             kwhDeliveredByStation = kwhDelivered,
                                             kwhReceivedByCar = kwhReceived,

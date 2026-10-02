@@ -130,18 +130,39 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = listOf("Мойка", "ТО", "Страховка", "Шиномонтаж", "Парковка")
     )
 
-    // Current month consumption:
-    val monthAvgConsumption: StateFlow<Double?> = combine(allSessions, activeCar) { sessions, car ->
-        val carId = car?.id ?: return@combine null
-        val carSessions = sessions.filter { it.carId == carId && it.status == "completed" }
-        val now = Calendar.getInstance()
-        val capacity = car.usableCapacityKwh.takeIf { it > 0.0 } ?: 57.0
-        EVCalculator.calculateMonthConsumption(carSessions, now.get(Calendar.YEAR), now.get(Calendar.MONTH), capacity)
+    // Current latest odometer across active car, sessions and expenses
+    val latestCarOdometer: StateFlow<Double> = combine(activeCar, allSessions, allExpenses) { car, sessions, expenses ->
+        if (car == null) return@combine 0.0
+        val carOdo = car.initialOdometer
+        val sessionMax = sessions.filter { it.carId == car.id }.maxOfOrNull { it.startOdometer } ?: 0.0
+        val expenseMax = expenses.filter { it.carId == car.id }.mapNotNull { it.odometer }.maxOrNull() ?: 0.0
+        maxOf(carOdo, sessionMax, expenseMax)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
-        initialValue = null
+        initialValue = 0.0
     )
+
+    // Effective month consumption: seamlessly preserves previous month's consumption
+    // when a new month begins without dropping to null or requiring 2 new charges!
+    val effectiveMonthConsumption: StateFlow<EVCalculator.EffectiveMonthConsumption> = combine(allSessions, activeCar) { sessions, car ->
+        val carId = car?.id ?: return@combine EVCalculator.EffectiveMonthConsumption(null)
+        val carSessions = sessions.filter { it.carId == carId && it.status == "completed" }
+        val capacity = car.usableCapacityKwh.takeIf { it > 0.0 } ?: 57.0
+        val passport = car.passportConsumption.takeIf { it > 0.0 } ?: 16.0
+        EVCalculator.calculateEffectiveMonthConsumption(carSessions, capacity, passport)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = EVCalculator.EffectiveMonthConsumption(null)
+    )
+
+    val monthAvgConsumption: StateFlow<Double?> = effectiveMonthConsumption.map { it.consumption }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null
+        )
 
     private val _forecastState = MutableStateFlow<RangeForecastResult?>(null)
     val forecastState: StateFlow<RangeForecastResult?> = _forecastState.asStateFlow()
@@ -268,6 +289,15 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                 status = "active"
             )
             repository.insertSession(session)
+
+            // Immediately update car's current odometer and SOC upon starting charge
+            val newOdo = if (odometer > 0) maxOf(car.initialOdometer, odometer) else car.initialOdometer
+            repository.updateCar(
+                car.copy(
+                    initialOdometer = newOdo,
+                    currentSoc = startSoc.coerceIn(0.0, 100.0)
+                )
+            )
         }
     }
 
@@ -291,7 +321,14 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
             val car = activeCar.value ?: currentCars.find { it.id == session.carId }
             val prevAwards = AwardCalculator.calculateAwards(prevSessions, currentCars, car)
 
+            val effectiveStartOdo = if (session.startOdometer > 0) {
+                if (endOdometer != null && endOdometer > session.startOdometer) endOdometer else session.startOdometer
+            } else {
+                endOdometer ?: session.startOdometer
+            }
+
             val updatedSession = session.copy(
+                startOdometer = effectiveStartOdo,
                 endSoc = endSoc,
                 kwhDeliveredByStation = kwhDelivered,
                 kwhReceivedByCar = kwhReceived,
@@ -307,14 +344,22 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
 
             // Update car's current SOC and odometer
             if (car != null) {
-                val candidateOdo = endOdometer ?: session.startOdometer
-                val newOdo = maxOf(car.initialOdometer, candidateOdo)
+                val candidateOdo = endOdometer ?: effectiveStartOdo
+                val newOdo = if (candidateOdo > 0) maxOf(car.initialOdometer, candidateOdo) else car.initialOdometer
                 repository.updateCar(
                     car.copy(
                         currentSoc = endSoc,
                         initialOdometer = newOdo
                     )
                 )
+            }
+
+            // If home charging meter reading is present in comment, persist last meter reading
+            val meterMatch = Regex("""(?:Счётчик|Счетчик|Meter):\s*.*?(?:→|->)\s*([0-9]+(?:\.[0-9]+)?)""", RegexOption.IGNORE_CASE)
+                .find(updatedSession.operatorComment ?: "")
+            val finalMeter = meterMatch?.groupValues?.get(1)?.toDoubleOrNull()
+            if (finalMeter != null && finalMeter > 0.0) {
+                settingsManager.updateHomeLastMeterKwh(finalMeter)
             }
 
             // Check achievement progress and unlocks
@@ -574,6 +619,16 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
     fun updateSession(session: ChargingSession) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.updateSession(session)
+            val car = activeCar.value ?: allCars.value.find { it.id == session.carId }
+            if (car != null && session.startOdometer > car.initialOdometer) {
+                repository.updateCar(car.copy(initialOdometer = session.startOdometer))
+            }
+            val meterMatch = Regex("""(?:Счётчик|Счетчик|Meter):\s*.*?(?:→|->)\s*([0-9]+(?:\.[0-9]+)?)""", RegexOption.IGNORE_CASE)
+                .find(session.operatorComment ?: "")
+            val finalMeter = meterMatch?.groupValues?.get(1)?.toDoubleOrNull()
+            if (finalMeter != null && finalMeter > 0.0) {
+                settingsManager.updateHomeLastMeterKwh(finalMeter)
+            }
         }
     }
 
@@ -666,7 +721,8 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         meterKwh: Double? = null,
         customPrice: Double? = null,
         tariffModeName: String? = null,
-        isNightTariff: Boolean? = null
+        isNightTariff: Boolean? = null,
+        odometer: Double? = null
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             val car = activeCar.value ?: allCars.value.firstOrNull() ?: return@launch
@@ -681,11 +737,14 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                 settingsManager.updateHomeLastMeterKwh(meterKwh)
             }
 
+            val maxHistOdo = allSessions.value.filter { it.carId == car.id }.maxOfOrNull { it.startOdometer } ?: 0.0
+            val effectiveOdo = if (odometer != null && odometer > 0) odometer else maxOf(car.initialOdometer, maxHistOdo)
+
             val homeOp = allOperators.value.find { it.name.contains("Дом", ignoreCase = true) || it.name.contains("Home", ignoreCase = true) }
 
             val session = ChargingSession(
                 carId = car.id,
-                startOdometer = car.initialOdometer,
+                startOdometer = effectiveOdo,
                 startSoc = currentSoc.coerceIn(0.0, 100.0),
                 endSoc = 100.0,
                 pricePerKwh = price,
@@ -706,6 +765,14 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                 status = "active"
             )
             repository.insertSession(session)
+
+            val newOdo = maxOf(car.initialOdometer, effectiveOdo)
+            repository.updateCar(
+                car.copy(
+                    initialOdometer = newOdo,
+                    currentSoc = currentSoc.coerceIn(0.0, 100.0)
+                )
+            )
         }
     }
 

@@ -1,7 +1,7 @@
 package com.example.util
 
-const val APP_VERSION = "2.5.1"
-const val APP_VERSION_NAME = "v2.5.1"
+const val APP_VERSION = "2.5.4"
+const val APP_VERSION_NAME = "v2.5.4"
 
 class AppStrings(val isEn: Boolean) {
     val appName = "VoltLedger"
