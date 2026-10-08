@@ -291,9 +291,10 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
             repository.insertSession(session)
 
             // Immediately update car's current odometer and SOC upon starting charge
-            val newOdo = if (odometer > 0) maxOf(car.initialOdometer, odometer) else car.initialOdometer
+            val directCar = repository.getCarByIdDirect(car.id) ?: car
+            val newOdo = if (odometer > 0) odometer else directCar.initialOdometer
             repository.updateCar(
-                car.copy(
+                directCar.copy(
                     initialOdometer = newOdo,
                     currentSoc = startSoc.coerceIn(0.0, 100.0)
                 )
@@ -343,11 +344,12 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
             repository.updateSession(updatedSession)
 
             // Update car's current SOC and odometer
-            if (car != null) {
+            val directCar = repository.getCarByIdDirect(session.carId) ?: car
+            if (directCar != null) {
                 val candidateOdo = endOdometer ?: effectiveStartOdo
-                val newOdo = if (candidateOdo > 0) maxOf(car.initialOdometer, candidateOdo) else car.initialOdometer
+                val newOdo = if (candidateOdo > 0) candidateOdo else directCar.initialOdometer
                 repository.updateCar(
-                    car.copy(
+                    directCar.copy(
                         currentSoc = endSoc,
                         initialOdometer = newOdo
                     )
@@ -766,9 +768,10 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
             )
             repository.insertSession(session)
 
-            val newOdo = maxOf(car.initialOdometer, effectiveOdo)
+            val directCar = repository.getCarByIdDirect(car.id) ?: car
+            val newOdo = if (effectiveOdo > 0) effectiveOdo else directCar.initialOdometer
             repository.updateCar(
-                car.copy(
+                directCar.copy(
                     initialOdometer = newOdo,
                     currentSoc = currentSoc.coerceIn(0.0, 100.0)
                 )

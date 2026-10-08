@@ -54,6 +54,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -110,25 +111,29 @@ fun StartChargingScreen(
     val usableCapacity = activeCar?.usableCapacityKwh ?: 57.0
     val avgConsumption = 17.5 // baseline consumption
 
-    var selectedCurrency by remember { mutableStateOf(currency) }
+    var userEditedSoc by rememberSaveable { mutableStateOf(false) }
+    var userEditedOdo by rememberSaveable { mutableStateOf(false) }
+    var userEditedPrice by rememberSaveable { mutableStateOf(false) }
+
+    var selectedCurrency by rememberSaveable { mutableStateOf(currency) }
 
     // Swap % and Odometer: First SoC, then Odometer
-    var socText by remember {
+    var socText by rememberSaveable {
         mutableStateOf(activeCar?.currentSoc?.toInt()?.toString() ?: "25")
     }
     // Pre-filled with the latest entered odometer number so the session starts correctly
-    var odometerText by remember {
+    var odometerText by rememberSaveable {
         mutableStateOf(if (prevOdometer > 0) prevOdometer.toInt().toString() else "")
     }
 
     // Default flag is DC
-    var selectedStationType by remember { mutableStateOf("DC") }
+    var selectedStationType by rememberSaveable { mutableStateOf("DC") }
     var selectedOperator by remember { mutableStateOf<Operator?>(null) }
     var operatorMenuExpanded by remember { mutableStateOf(false) }
-    var customOperatorName by remember { mutableStateOf("") }
-    var pricePerKwhText by remember { mutableStateOf("0.55") }
-    var nightTariffApplied by remember { mutableStateOf(false) }
-    var startTimestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var customOperatorName by rememberSaveable { mutableStateOf("") }
+    var pricePerKwhText by rememberSaveable { mutableStateOf("0.55") }
+    var nightTariffApplied by rememberSaveable { mutableStateOf(false) }
+    var startTimestamp by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
     var showTimeAdjustDialog by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
 
@@ -143,7 +148,7 @@ fun StartChargingScreen(
     // Initialize or reset selected operator when station type changes
     LaunchedEffect(filteredOperators, selectedStationType) {
         if (filteredOperators.isNotEmpty()) {
-            if (selectedOperator == null || !filteredOperators.contains(selectedOperator)) {
+            if (selectedOperator == null || filteredOperators.none { it.id == selectedOperator?.id }) {
                 selectedOperator = filteredOperators.first()
             }
         } else {
@@ -153,7 +158,7 @@ fun StartChargingScreen(
 
     // Update price when operator, station type, or manual tariff selection changes
     fun recalculatePrice(op: Operator?, type: String, applyNight: Boolean) {
-        if (op == null) return
+        if (op == null || userEditedPrice) return
         if (op.isFree) {
             pricePerKwhText = "0.00"
             nightTariffApplied = false
@@ -171,7 +176,9 @@ fun StartChargingScreen(
     }
 
     LaunchedEffect(selectedOperator, selectedStationType) {
-        recalculatePrice(selectedOperator, selectedStationType, applyNight = nightTariffApplied)
+        if (!userEditedPrice) {
+            recalculatePrice(selectedOperator, selectedStationType, applyNight = nightTariffApplied)
+        }
     }
 
     val odoVal = odometerText.toDoubleOrNull() ?: 0.0
@@ -223,6 +230,7 @@ fun StartChargingScreen(
                         value = socText,
                         onValueChange = {
                             socText = it
+                            userEditedSoc = true
                         },
                         label = { Text("Остаток заряда (%)") },
                         singleLine = true,
@@ -236,7 +244,10 @@ fun StartChargingScreen(
                     // Input 2: Odometer (km) pre-filled with latest entered number
                     OutlinedTextField(
                         value = odometerText,
-                        onValueChange = { odometerText = it },
+                        onValueChange = {
+                            odometerText = it
+                            userEditedOdo = true
+                        },
                         label = { Text(strings.startOdometer) },
                         placeholder = { Text(if (prevOdometer > 0) prevOdometer.toInt().toString() else "0") },
                         supportingText = {
@@ -270,14 +281,20 @@ fun StartChargingScreen(
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     SegmentedButton(
                         selected = selectedStationType == "DC",
-                        onClick = { selectedStationType = "DC" },
+                        onClick = {
+                            selectedStationType = "DC"
+                            userEditedPrice = false
+                        },
                         shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
                     ) {
                         Text("DC (Быстрая • Фиолетовый)")
                     }
                     SegmentedButton(
                         selected = selectedStationType == "AC",
-                        onClick = { selectedStationType = "AC" },
+                        onClick = {
+                            selectedStationType = "AC"
+                            userEditedPrice = false
+                        },
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
                     ) {
                         Text("AC (Медленная • Голубой)")
@@ -420,6 +437,7 @@ fun StartChargingScreen(
                                 },
                                 onClick = {
                                     selectedOperator = op
+                                    userEditedPrice = false
                                     recalculatePrice(op, selectedStationType, applyNight = false)
                                     operatorMenuExpanded = false
                                 }
@@ -470,6 +488,7 @@ fun StartChargingScreen(
                                     },
                                     onClick = {
                                         selectedOperator = op
+                                        userEditedPrice = false
                                         recalculatePrice(op, selectedStationType, applyNight = true)
                                         operatorMenuExpanded = false
                                     }
@@ -526,7 +545,10 @@ fun StartChargingScreen(
                 // Price per kWh
                 OutlinedTextField(
                     value = pricePerKwhText,
-                    onValueChange = { pricePerKwhText = it },
+                    onValueChange = {
+                        pricePerKwhText = it
+                        userEditedPrice = true
+                    },
                     label = { Text("${strings.pricePerKwh} ($selectedCurrency)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),

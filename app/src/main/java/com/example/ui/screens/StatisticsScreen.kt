@@ -65,6 +65,7 @@ import com.example.data.model.CarExpense
 import com.example.data.model.ChargingSession
 import com.example.ui.components.ChartPoint
 import com.example.ui.components.ConsumptionLineChart
+import com.example.ui.components.SmoothConsumptionMonthChart
 import com.example.ui.components.DonutBreakdownChart
 import com.example.ui.components.DonutSlice
 import com.example.ui.components.LiquidGlassBackground
@@ -285,6 +286,15 @@ fun StatisticsScreen(
         EVCalculator.getOperatorDetailedStats(completedSessions, currency)
     }
 
+    // Smooth monthly consumption curve trend points (даты месяца снизу, расход сверху)
+    val monthlyTrendPoints = remember(currentPeriodSessions, completedSessions, periodUsableCapacity) {
+        val targetSessions = if (currentPeriodSessions.size >= 2) currentPeriodSessions else completedSessions
+        val rawPoints = EVCalculator.calculateMonthlyConsumptionTrend(targetSessions, periodUsableCapacity)
+        rawPoints.map {
+            ChartPoint(label = it.dateLabel, value = it.consumption)
+        }
+    }
+
     LiquidGlassBackground(modifier = modifier) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -468,6 +478,17 @@ fun StatisticsScreen(
                                 )
                             )
                         }
+                    }
+                }
+
+                // Smooth Monthly Consumption Curve Chart (снизу даты месяца, сверху расход и плавная кривая расходов как идёт)
+                item {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
+                        SmoothConsumptionMonthChart(
+                            points = monthlyTrendPoints,
+                            averageVal = periodConsumption ?: (if (monthlyTrendPoints.isNotEmpty()) monthlyTrendPoints.map { it.value.toDouble() }.average() else null),
+                            passportVal = passportVal
+                        )
                     }
                 }
 

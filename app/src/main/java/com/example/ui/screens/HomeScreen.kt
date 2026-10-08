@@ -475,7 +475,11 @@ fun HomeScreen(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 val cardHeader = if (lastTwoConsumption.hasEnoughData && lastTwoConsumption.avgConsumption != null) {
-                                    "СРЕДНИЙ РАСХОД ЗА 2 ПОСЛЕДНИЕ ЗАРЯДКИ"
+                                    if (lastTwoConsumption.distanceKm >= 200.0 && lastTwoConsumption.chargesCount <= 2) {
+                                        "СРЕДНИЙ РАСХОД ЗА 2 ПОСЛЕДНИЕ ЗАРЯДКИ"
+                                    } else {
+                                        "СРЕДНИЙ РАСХОД"
+                                    }
                                 } else if (effectiveMonthConsumption?.isPreviousMonth == true && effectiveMonthConsumption.consumption != null) {
                                     val mName = effectiveMonthConsumption.monthName.ifBlank { "ПРЕД. МЕСЯЦ" }
                                     "СРЕДНИЙ РАСХОД (ЗА ${mName.uppercase()})"

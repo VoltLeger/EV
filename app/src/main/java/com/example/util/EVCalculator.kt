@@ -3,6 +3,7 @@ package com.example.util
 import com.example.data.model.ChargingSession
 import com.example.data.model.Operator
 import java.util.Calendar
+import java.util.Locale
 
 data class RangeForecastResult(
     val estimatedRangeKm: Double,
@@ -728,12 +729,9 @@ object EVCalculator {
      * 2. Battery SoC change: energy discharged between end of previous charge and start of current charge
      *    OR energy delivered by station adjusted for net SoC delta (endSoc of latest - endSoc of previous).
      *
-     * Example:
-     * 1st session: charged to 99% at 14081 km.
-     * 2nd session: arrived with 66% at 14193 km (delta = 112 km, battery discharged 99% -> 66% = 33%).
-     * Charged 10 kWh to 83%.
-     * Real energy consumed on the 112 km trip = 33% of usable battery (~17 kWh).
-     * Consumption = (17 kWh / 112 km) * 100 = 15.2 kWh/100 km (matches vehicle dashboard perfectly).
+     * If user drove >= 200 km between the last 2 charges, calculates consumption strictly for those 2 charges.
+     * If distance is < 200 km, seamlessly accumulates across multiple recent charges (even if charged by a few percent)
+     * until at least 200 km is accumulated (or across all available history).
      */
     fun calculateLastTwoChargesConsumption(
         completedSessions: List<ChargingSession>,
@@ -748,57 +746,133 @@ object EVCalculator {
                 distanceKm = 0.0,
                 totalKwh = single?.kwhDeliveredByStation ?: 0.0,
                 lastChargeKwh = single?.kwhDeliveredByStation,
+                chargesCount = sorted.size,
                 hasEnoughData = false
             )
         }
-        // Try the latest pair first; if distance < 5 km (e.g. odometer not updated), look for the latest valid pair
-        var latest = sorted[0]
-        var previous = sorted[1]
-        var distance = (latest.startOdometer - previous.startOdometer).coerceAtLeast(0.0)
 
-        if (distance < 5.0 && sorted.size > 2) {
-            for (i in 0 until sorted.size - 1) {
-                val c = sorted[i]
-                val p = sorted[i + 1]
-                val d = c.startOdometer - p.startOdometer
-                if (d >= 5.0) {
-                    latest = c
-                    previous = p
-                    distance = d
-                    break
-                }
+        fun computeIntervalKwh(curr: ChargingSession, prev: ChargingSession): Double {
+            val tripDischargePercent = if (prev.endSoc > 0 && curr.startSoc > 0 && prev.endSoc >= curr.startSoc) {
+                prev.endSoc - curr.startSoc
+            } else null
+
+            return if (tripDischargePercent != null && tripDischargePercent > 0.0 && usableCapacityKwh > 0.0) {
+                (tripDischargePercent / 100.0) * usableCapacityKwh
+            } else {
+                val endSocDelta = if (curr.endSoc > 0 && prev.endSoc > 0) curr.endSoc - prev.endSoc else 0.0
+                val netAdjustmentKwh = (endSocDelta / 100.0) * usableCapacityKwh
+                val estimated = (curr.kwhDeliveredByStation - netAdjustmentKwh).coerceAtLeast(0.0)
+                if (estimated > 0.0) estimated else curr.kwhDeliveredByStation
             }
         }
 
-        // Effective energy consumed during the trip between the two charges
-        val tripDischargePercent = if (previous.endSoc > 0 && latest.startSoc > 0 && previous.endSoc >= latest.startSoc) {
-            previous.endSoc - latest.startSoc
-        } else null
+        val latest = sorted[0]
+        val second = sorted[1]
+        val initialDist = (latest.startOdometer - second.startOdometer).coerceAtLeast(0.0)
 
-        val consumedKwh: Double = if (tripDischargePercent != null && tripDischargePercent > 0.0 && usableCapacityKwh > 0.0) {
-            // Physical energy taken from battery: delta SoC * usable capacity
-            (tripDischargePercent / 100.0) * usableCapacityKwh
-        } else {
-            // Fallback: If SoC at arrival is missing, adjust delivered kWh by endSoc difference
-            val endSocDelta = if (latest.endSoc > 0 && previous.endSoc > 0) {
-                latest.endSoc - previous.endSoc
-            } else 0.0
-            val netAdjustmentKwh = (endSocDelta / 100.0) * usableCapacityKwh
-            val estimated = (latest.kwhDeliveredByStation - netAdjustmentKwh).coerceAtLeast(0.0)
-            if (estimated > 0.0) estimated else latest.kwhDeliveredByStation
+        // If distance between last 2 charges is >= 200 km, calculate purely between those 2 charges
+        if (initialDist >= 200.0) {
+            val consumedKwh = computeIntervalKwh(latest, second)
+            val consumption = if (consumedKwh > 0.0) (consumedKwh / initialDist) * 100.0 else null
+            return LastTwoChargesConsumption(
+                avgConsumption = consumption,
+                distanceKm = initialDist,
+                totalKwh = consumedKwh,
+                lastChargeKwh = latest.kwhDeliveredByStation,
+                chargesCount = 2,
+                hasEnoughData = consumption != null
+            )
         }
 
-        val consumption = if (distance >= 5.0 && consumedKwh > 0.0) {
-            (consumedKwh / distance) * 100.0
+        // If distance < 200 km, accumulate across multiple charges until reaching >= 200 km or end of list
+        var accumulatedDist = 0.0
+        var totalConsumedKwh = 0.0
+        var count = 1
+
+        for (i in 0 until sorted.size - 1) {
+            val curr = sorted[i]
+            val prev = sorted[i + 1]
+            val stepDist = (curr.startOdometer - prev.startOdometer).coerceAtLeast(0.0)
+            val stepKwh = computeIntervalKwh(curr, prev)
+
+            accumulatedDist += stepDist
+            totalConsumedKwh += stepKwh
+            count++
+
+            if (accumulatedDist >= 200.0) {
+                break
+            }
+        }
+
+        val totalDist = (sorted.first().startOdometer - sorted[count - 1].startOdometer).coerceAtLeast(accumulatedDist)
+        val consumption = if (totalDist >= 5.0 && totalConsumedKwh > 0.0) {
+            (totalConsumedKwh / totalDist) * 100.0
         } else null
 
         return LastTwoChargesConsumption(
             avgConsumption = consumption,
-            distanceKm = distance,
-            totalKwh = consumedKwh,
+            distanceKm = totalDist,
+            totalKwh = totalConsumedKwh,
             lastChargeKwh = latest.kwhDeliveredByStation,
+            chargesCount = count,
             hasEnoughData = consumption != null
         )
+    }
+
+    data class DateConsumptionPoint(
+        val dateLabel: String,
+        val timestamp: Long,
+        val consumption: Float,
+        val distanceKm: Float,
+        val kwh: Float
+    )
+
+    /**
+     * Extracts consumption data points for dates of the month to build a smooth curve in Statistics.
+     */
+    fun calculateMonthlyConsumptionTrend(
+        completedSessions: List<ChargingSession>,
+        usableCapacityKwh: Double = 57.0
+    ): List<DateConsumptionPoint> {
+        val sortedAsc = completedSessions.filter { it.status == "completed" }
+            .sortedBy { it.startTime }
+        if (sortedAsc.size < 2) return emptyList()
+
+        val points = mutableListOf<DateConsumptionPoint>()
+        val dateFormat = java.text.SimpleDateFormat("dd.MM", Locale.getDefault())
+
+        for (i in 1 until sortedAsc.size) {
+            val prev = sortedAsc[i - 1]
+            val curr = sortedAsc[i]
+            val dist = (curr.startOdometer - prev.startOdometer).coerceAtLeast(0.0)
+
+            val tripDischargePercent = if (prev.endSoc > 0 && curr.startSoc > 0 && prev.endSoc >= curr.startSoc) {
+                prev.endSoc - curr.startSoc
+            } else null
+
+            val effectiveKwh = if (tripDischargePercent != null && tripDischargePercent > 0.0 && usableCapacityKwh > 0.0) {
+                (tripDischargePercent / 100.0) * usableCapacityKwh
+            } else {
+                val endSocDelta = if (curr.endSoc > 0 && prev.endSoc > 0) curr.endSoc - prev.endSoc else 0.0
+                val netAdjustmentKwh = (endSocDelta / 100.0) * usableCapacityKwh
+                val estimated = (curr.kwhDeliveredByStation - netAdjustmentKwh).coerceAtLeast(0.0)
+                if (estimated > 0.0) estimated else curr.kwhDeliveredByStation
+            }
+
+            if (dist >= 3.0 && effectiveKwh > 0.0) {
+                val c = ((effectiveKwh / dist) * 100.0).coerceIn(5.0, 65.0)
+                points.add(
+                    DateConsumptionPoint(
+                        dateLabel = dateFormat.format(curr.startTime),
+                        timestamp = curr.startTime,
+                        consumption = c.toFloat(),
+                        distanceKm = dist.toFloat(),
+                        kwh = effectiveKwh.toFloat()
+                    )
+                )
+            }
+        }
+        return points
     }
 
     /**
@@ -825,6 +899,7 @@ data class LastTwoChargesConsumption(
     val distanceKm: Double,
     val totalKwh: Double,
     val lastChargeKwh: Double?,
+    val chargesCount: Int = 2,
     val hasEnoughData: Boolean
 )
 

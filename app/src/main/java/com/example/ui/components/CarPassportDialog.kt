@@ -507,6 +507,12 @@ fun CarPassportDialog(
                         )
 
                         PassportDataRow(
+                            label = "Текущий пробег:",
+                            value = "${maxOf(car.initialOdometer, maxOdo).toInt()} км",
+                            valueColor = ElectricCyan
+                        )
+
+                        PassportDataRow(
                             label = "Начальный пробег:",
                             value = "${car.initialOdometer.toInt()} км"
                         )
@@ -615,7 +621,7 @@ fun CarPassportDialog(
                             vin = editVin.trim().ifEmpty { null },
                             purchaseDate = editPurchaseDate.trim().ifEmpty { null },
                             purchasePrice = editPurchasePrice.toDoubleOrNull(),
-                            initialOdometer = editInitialOdo.toDoubleOrNull() ?: car.initialOdometer,
+                            initialOdometer = editCurrentOdo.toDoubleOrNull() ?: editInitialOdo.toDoubleOrNull() ?: car.initialOdometer,
                             declaredCapacityKwh = editDeclaredCapacity.toDoubleOrNull() ?: car.declaredCapacityKwh,
                             registrationNumber = editRegistrationNumber.trim().ifEmpty { null },
                             insuranceNumber = editInsuranceNumber.trim().ifEmpty { null }

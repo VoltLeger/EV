@@ -347,3 +347,214 @@ fun EmptyChartPlaceholder(text: String = "Нет данных для графи�
         )
     }
 }
+
+/**
+ * High-precision smooth monthly consumption chart.
+ * Top: consumption metric & min/max bounds.
+ * Center: smooth cubic Bezier curve showing how consumption evolves.
+ * Bottom: dates of the month.
+ */
+@Composable
+fun SmoothConsumptionMonthChart(
+    points: List<ChartPoint>,
+    modifier: Modifier = Modifier,
+    averageVal: Double? = null,
+    passportVal: Double? = null
+) {
+    VoltCard(
+        modifier = modifier.fillMaxWidth(),
+        cornerRadius = 22.dp,
+        borderColor = ElectricCyan.copy(alpha = 0.45f)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // 1. Top Section: Header & Numbers (сверху расход)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "📈 КРИВАЯ РАСХОДА ЭНЕРГИИ",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = ElectricCyan,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    val displayAvg = averageVal ?: (points.map { it.value.toDouble() }.average().takeIf { !it.isNaN() })
+                    if (displayAvg != null && displayAvg > 0.0) {
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = String.format(Locale.US, "%.1f", displayAvg),
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "кВт·ч / 100 км",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = ElectricCyan,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "— кВт·ч / 100 км",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Min and Max badges on top right
+                if (points.isNotEmpty()) {
+                    val maxVal = points.maxOf { it.value }
+                    val minVal = points.minOf { it.value }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Макс: ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = "${String.format(Locale.US, "%.1f", maxVal)}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BatteryOrange
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Мин: ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = "${String.format(Locale.US, "%.1f", minVal)}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BatteryGreen
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 2. Body: Smooth Curve Canvas
+            if (points.isEmpty()) {
+                EmptyChartPlaceholder(text = "Заряжайте авто для построения кривой расхода")
+            } else {
+                val maxVal = remember(points) {
+                    val m = points.maxOfOrNull { it.value } ?: 20f
+                    (m * 1.15f).coerceAtLeast(15f)
+                }
+                val minVal = remember(points) {
+                    val m = points.minOfOrNull { it.value } ?: 10f
+                    (m * 0.85f).coerceAtLeast(0f)
+                }
+                val range = remember(maxVal, minVal) { (maxVal - minVal).coerceAtLeast(1f) }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val w = size.width
+                        val h = size.height - 18.dp.toPx()
+
+                        // Grid lines
+                        val gridLines = 3
+                        for (i in 0..gridLines) {
+                            val y = h * (i.toFloat() / gridLines)
+                            drawLine(
+                                color = Color.White.copy(alpha = 0.08f),
+                                start = Offset(0f, y),
+                                end = Offset(w, y),
+                                strokeWidth = 1.dp.toPx()
+                            )
+                        }
+
+                        if (points.size == 1) {
+                            val cx = w / 2f
+                            val cy = h - ((points[0].value - minVal) / range) * h
+                            drawCircle(color = ElectricCyan.copy(alpha = 0.3f), radius = 12.dp.toPx(), center = Offset(cx, cy))
+                            drawCircle(color = ElectricCyan, radius = 6.dp.toPx(), center = Offset(cx, cy))
+                            drawCircle(color = Color.White, radius = 3.dp.toPx(), center = Offset(cx, cy))
+                            return@Canvas
+                        }
+
+                        val path = Path()
+                        val fillPath = Path()
+                        val stepX = w / (points.size - 1)
+
+                        points.forEachIndexed { i, pt ->
+                            val x = i * stepX
+                            val y = h - ((pt.value - minVal) / range) * h
+                            if (i == 0) {
+                                path.moveTo(x, y)
+                                fillPath.moveTo(x, h)
+                                fillPath.lineTo(x, y)
+                            } else {
+                                val prevX = (i - 1) * stepX
+                                val prevY = h - ((points[i - 1].value - minVal) / range) * h
+                                val cx1 = prevX + (x - prevX) / 2f
+                                val cx2 = cx1
+                                path.cubicTo(cx1, prevY, cx2, y, x, y)
+                                fillPath.cubicTo(cx1, prevY, cx2, y, x, y)
+                            }
+                            if (i == points.size - 1) {
+                                fillPath.lineTo(x, h)
+                                fillPath.close()
+                            }
+                        }
+
+                        // Gradient fill under curve
+                        drawPath(
+                            path = fillPath,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(ElectricCyan.copy(alpha = 0.40f), BatteryGreen.copy(alpha = 0.15f), Color.Transparent)
+                            )
+                        )
+
+                        // Smooth curve stroke
+                        drawPath(
+                            path = path,
+                            brush = Brush.horizontalGradient(listOf(ElectricCyan, BatteryGreen)),
+                            style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round)
+                        )
+
+                        // Points with luminous glow
+                        points.forEachIndexed { i, pt ->
+                            val x = i * stepX
+                            val y = h - ((pt.value - minVal) / range) * h
+                            drawCircle(color = ElectricCyan.copy(alpha = 0.35f), radius = 8.dp.toPx(), center = Offset(x, y))
+                            drawCircle(color = ElectricCyan, radius = 4.5.dp.toPx(), center = Offset(x, y))
+                            drawCircle(color = Color.White, radius = 2.5.dp.toPx(), center = Offset(x, y))
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // 3. Bottom Section: Dates of the month (снизу даты месяца)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    val step = if (points.size > 6) points.size / 5 else 1
+                    points.forEachIndexed { i, pt ->
+                        if (i % step == 0 || i == points.size - 1) {
+                            Text(
+                                text = pt.label,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
