@@ -145,8 +145,8 @@ fun StartChargingScreen(
         }
     }
 
-    // Initialize or reset selected operator when station type changes
-    LaunchedEffect(filteredOperators, selectedStationType) {
+    // Initialize or reset selected operator when station type changes, only if not yet set or invalid
+    LaunchedEffect(filteredOperators.map { it.id }, selectedStationType) {
         if (filteredOperators.isNotEmpty()) {
             if (selectedOperator == null || filteredOperators.none { it.id == selectedOperator?.id }) {
                 selectedOperator = filteredOperators.first()

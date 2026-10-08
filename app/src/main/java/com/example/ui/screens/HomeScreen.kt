@@ -99,6 +99,7 @@ import com.example.ui.theme.BatteryOrange
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.LocalCurrency
+import com.example.ui.theme.LocalCurrentTheme
 import com.example.ui.theme.SoftBlue
 import com.example.util.EVCalculator
 import java.util.Locale
@@ -284,19 +285,24 @@ fun HomeScreen(
                         }
 
                         // Center: Vehicle selector / Car Passport
+                        val currentThemeKey = LocalCurrentTheme.current
+                        val isLight = currentThemeKey == "light"
+                        val primaryColor = MaterialTheme.colorScheme.primary
+                        val secondaryColor = MaterialTheme.colorScheme.secondary
+
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(16.dp))
-                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = if (isLight) 0.95f else 0.85f))
                                 .border(
                                     1.dp,
                                     Brush.linearGradient(
                                         listOf(
-                                            Color.White.copy(alpha = 0.35f),
-                                            SoftBlue.copy(alpha = 0.35f),
-                                            Color.White.copy(alpha = 0.08f)
+                                            if (isLight) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.35f),
+                                            primaryColor.copy(alpha = 0.35f),
+                                            if (isLight) MaterialTheme.colorScheme.outline.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.08f)
                                         )
                                     ),
                                     RoundedCornerShape(16.dp)
@@ -413,6 +419,11 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 8.dp)
                 ) {
+                    val currentThemeKey = LocalCurrentTheme.current
+                    val isLight = currentThemeKey == "light"
+                    val primaryColor = MaterialTheme.colorScheme.primary
+                    val secondaryColor = MaterialTheme.colorScheme.secondary
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -420,19 +431,27 @@ fun HomeScreen(
                             // Base gradient background smoothly transitioning into ambient theme
                             .background(
                                 Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFF131D31).copy(alpha = 0.85f),
-                                        Color(0xFF0F172A).copy(alpha = 0.90f),
-                                        Color(0xFF0B1120).copy(alpha = 0.85f)
-                                    )
+                                    colors = if (isLight) {
+                                        listOf(
+                                            Color.White,
+                                            Color(0xFFF8FAFC),
+                                            Color(0xFFF1F5F9)
+                                        )
+                                    } else {
+                                        listOf(
+                                            MaterialTheme.colorScheme.surface,
+                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
+                                            MaterialTheme.colorScheme.background
+                                        )
+                                    }
                                 )
                             )
                             // Soft radial glow in the center that smoothly dissolves toward borders
                             .background(
                                 Brush.radialGradient(
                                     colors = listOf(
-                                        ElectricCyan.copy(alpha = 0.20f),
-                                        SoftBlue.copy(alpha = 0.07f),
+                                        primaryColor.copy(alpha = if (isLight) 0.12f else 0.20f),
+                                        secondaryColor.copy(alpha = if (isLight) 0.05f else 0.08f),
                                         Color.Transparent
                                     ),
                                     radius = 420f
@@ -442,10 +461,10 @@ fun HomeScreen(
                                 width = 1.2.dp,
                                 brush = Brush.linearGradient(
                                     listOf(
-                                        Color.White.copy(alpha = 0.35f),
-                                        ElectricCyan.copy(alpha = 0.45f),
-                                        SoftBlue.copy(alpha = 0.25f),
-                                        Color.White.copy(alpha = 0.08f)
+                                        if (isLight) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.35f),
+                                        primaryColor.copy(alpha = if (isLight) 0.5f else 0.45f),
+                                        secondaryColor.copy(alpha = if (isLight) 0.35f else 0.25f),
+                                        if (isLight) MaterialTheme.colorScheme.outline.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.08f)
                                     )
                                 ),
                                 shape = RoundedCornerShape(26.dp)
@@ -463,14 +482,14 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.Center,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(ElectricCyan.copy(alpha = 0.12f))
-                                    .border(1.dp, ElectricCyan.copy(alpha = 0.30f), RoundedCornerShape(10.dp))
+                                    .background(primaryColor.copy(alpha = if (isLight) 0.15f else 0.12f))
+                                    .border(1.dp, primaryColor.copy(alpha = if (isLight) 0.40f else 0.30f), RoundedCornerShape(10.dp))
                                     .padding(horizontal = 12.dp, vertical = 4.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Speed,
                                     contentDescription = null,
-                                    tint = ElectricCyan,
+                                    tint = primaryColor,
                                     modifier = Modifier.size(15.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -492,7 +511,7 @@ fun HomeScreen(
                                     text = cardHeader,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = ElectricCyan,
+                                    color = primaryColor,
                                     letterSpacing = 0.6.sp
                                 )
                             }
@@ -511,14 +530,14 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 val numberGlow = Shadow(
-                                    color = ElectricCyan.copy(alpha = 0.75f),
+                                    color = primaryColor.copy(alpha = if (isLight) 0.25f else 0.75f),
                                     offset = Offset(0f, 0f),
-                                    blurRadius = 26f
+                                    blurRadius = if (isLight) 8f else 26f
                                 )
                                 val unitGlow = Shadow(
-                                    color = ElectricCyan.copy(alpha = 0.45f),
+                                    color = primaryColor.copy(alpha = if (isLight) 0.15f else 0.45f),
                                     offset = Offset(0f, 0f),
-                                    blurRadius = 14f
+                                    blurRadius = if (isLight) 6f else 14f
                                 )
 
                                 if (displayConsumption != null && displayConsumption > 0.0) {
@@ -526,7 +545,7 @@ fun HomeScreen(
                                         text = String.format(Locale.US, "%.1f", displayConsumption),
                                         fontSize = 54.sp,
                                         fontWeight = FontWeight.Black,
-                                        color = Color.White,
+                                        color = if (isLight) MaterialTheme.colorScheme.onSurface else Color.White,
                                         style = TextStyle(shadow = numberGlow)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -534,7 +553,7 @@ fun HomeScreen(
                                         text = "кВт·ч / 100 км",
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = ElectricCyan,
+                                        color = primaryColor,
                                         style = TextStyle(shadow = unitGlow),
                                         modifier = Modifier.padding(bottom = 10.dp)
                                     )
@@ -543,7 +562,7 @@ fun HomeScreen(
                                         text = "—",
                                         fontSize = 48.sp,
                                         fontWeight = FontWeight.Black,
-                                        color = Color.White,
+                                        color = if (isLight) MaterialTheme.colorScheme.onSurface else Color.White,
                                         style = TextStyle(shadow = numberGlow)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -551,7 +570,7 @@ fun HomeScreen(
                                         text = "кВт·ч / 100 км",
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = SoftBlue,
+                                        color = secondaryColor,
                                         style = TextStyle(shadow = unitGlow),
                                         modifier = Modifier.padding(bottom = 8.dp)
                                     )
@@ -680,7 +699,7 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .width(1.dp)
                                     .height(48.dp)
-                                    .background(Color.White.copy(alpha = 0.12f))
+                                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
                             )
 
                             // Column 2: РАСХОД ЗА МЕСЯЦ (Aligned with Month up, kWh/100km down)
@@ -750,7 +769,7 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .width(1.dp)
                                     .height(48.dp)
-                                    .background(Color.White.copy(alpha = 0.12f))
+                                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
                             )
 
                             // Column 3: ЦЕНА ЗА 100 КМ
@@ -833,26 +852,32 @@ fun HomeScreen(
 
             // 5. Action Buttons (Full-Width Sleek Glass "Add Charge" & "Home Charge")
             item {
+                val currentThemeKey = LocalCurrentTheme.current
+                val isLight = currentThemeKey == "light"
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp)
                 ) {
-                    // Button 1: "Добавить зарядку" (Full width, sleek dark glass matching Home Charge with Electric Cyan accent)
+                    // Button 1: "Добавить зарядку" (Full width, sleek glass matching theme with primary accent)
+                    val primaryBtnColor = MaterialTheme.colorScheme.primary
+                    val secondaryBtnColor = MaterialTheme.colorScheme.secondary
+
                     OutlinedButton(
                         onClick = onAddChargeClick,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = if (isLight) 0.9f else 0.75f))
                             .border(
                                 width = 1.2.dp,
                                 brush = Brush.linearGradient(
                                     listOf(
-                                        ElectricCyan.copy(alpha = 0.8f),
-                                        Color.White.copy(alpha = 0.35f),
-                                        SoftBlue.copy(alpha = 0.6f)
+                                        primaryBtnColor.copy(alpha = 0.8f),
+                                        if (isLight) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.35f),
+                                        secondaryBtnColor.copy(alpha = 0.6f)
                                     )
                                 ),
                                 shape = RoundedCornerShape(18.dp)
@@ -861,13 +886,13 @@ fun HomeScreen(
                         shape = RoundedCornerShape(18.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
                             containerColor = Color.Transparent,
-                            contentColor = ElectricCyan
+                            contentColor = primaryBtnColor
                         )
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = null,
-                            tint = ElectricCyan,
+                            tint = primaryBtnColor,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -875,7 +900,7 @@ fun HomeScreen(
                             text = strings.addCharge,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = ElectricCyan
+                            color = primaryBtnColor
                         )
                     }
 

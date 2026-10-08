@@ -1262,31 +1262,91 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Theme: Single signature Dark Cyber Neon theme matching the postcard
+                    // Theme selector: Light theme, Cyber Neon Dark, and colorful Postcard themes
                     Text(text = strings.theme, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
-                            .border(1.dp, ElectricCyan.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val themeOptions = listOf(
+                        Triple("dark", "⚡ Кибер Неон (Тёмная)", "Фирменная тёмная неоновая тема"),
+                        Triple("light", "☀️ Светлая тема", "Чистая и контрастная стеклянная тема"),
+                        Triple("eco", "🌿 Эко Изумруд (Визитка)", "Изумрудно-мятные цвета визитки"),
+                        Triple("sunset", "🌅 Закатный Драйв (Визитка)", "Кораллово-янтарные тёплые цвета визитки"),
+                        Triple("cosmic", "🌌 Космос (Визитка)", "Глубокий индиго и небесный лазурный")
+                    )
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        themeOptions.forEach { (key, title, subtitle) ->
+                            val isSelected = settings.theme.lowercase().trim().let { current ->
+                                if (key == "dark") current == "dark" || current == "cyber_neon" || current == "system" || current.isBlank()
+                                else current == key || (key == "eco" && (current == "emerald" || current == "postcard_emerald"))
+                                        || (key == "sunset" && (current == "postcard_sunset"))
+                                        || (key == "cosmic" && (current == "space" || current == "postcard_space"))
+                            }
+
+                            val themeBorderColor = if (isSelected) ElectricCyan else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            val themeBgColor = if (isSelected) ElectricCyan.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+
                             Box(
                                 modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(ElectricCyan.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(themeBgColor)
+                                    .border(if (isSelected) 1.5.dp else 1.dp, themeBorderColor, RoundedCornerShape(14.dp))
+                                    .clickable { onUpdateTheme(key) }
+                                    .padding(horizontal = 14.dp, vertical = 10.dp)
                             ) {
-                                Icon(Icons.Default.ElectricBolt, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(18.dp))
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text("Тёмная тема (Кибер Неон)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
-                                Text("Фирменный стиль открытки VoltLedger", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .clip(CircleShape)
+                                                .background(if (isSelected) ElectricCyan.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            val iconChar = when (key) {
+                                                "light" -> "☀️"
+                                                "eco" -> "🌿"
+                                                "sunset" -> "🌅"
+                                                "cosmic" -> "🌌"
+                                                else -> "⚡"
+                                            }
+                                            Text(iconChar, fontSize = 16.sp)
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = title,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                                fontSize = 13.sp,
+                                                color = if (isSelected) ElectricCyan else MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = subtitle,
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = "Выбрано",
+                                            tint = ElectricCyan,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

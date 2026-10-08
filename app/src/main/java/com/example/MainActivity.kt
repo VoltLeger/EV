@@ -197,6 +197,8 @@ class MainActivity : ComponentActivity() {
 
                             Scaffold(
                                 bottomBar = {
+                                    val navSelectedColor = MaterialTheme.colorScheme.primary
+
                                     NavigationBar(
                                         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
                                         tonalElevation = 0.dp,
@@ -207,8 +209,8 @@ class MainActivity : ComponentActivity() {
                                                 width = 1.dp,
                                                 brush = Brush.verticalGradient(
                                                     listOf(
-                                                        Color.White.copy(alpha = 0.28f),
-                                                        Color.White.copy(alpha = 0.05f)
+                                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.10f)
                                                     )
                                                 ),
                                                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
@@ -233,9 +235,9 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             },
                                             colors = NavigationBarItemDefaults.colors(
-                                                selectedIconColor = ElectricCyan,
-                                                selectedTextColor = ElectricCyan,
-                                                indicatorColor = ElectricCyan.copy(alpha = 0.22f),
+                                                selectedIconColor = navSelectedColor,
+                                                selectedTextColor = navSelectedColor,
+                                                indicatorColor = navSelectedColor.copy(alpha = 0.22f),
                                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                             )
@@ -259,9 +261,9 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             },
                                             colors = NavigationBarItemDefaults.colors(
-                                                selectedIconColor = ElectricCyan,
-                                                selectedTextColor = ElectricCyan,
-                                                indicatorColor = ElectricCyan.copy(alpha = 0.22f),
+                                                selectedIconColor = navSelectedColor,
+                                                selectedTextColor = navSelectedColor,
+                                                indicatorColor = navSelectedColor.copy(alpha = 0.22f),
                                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                             )
@@ -285,9 +287,9 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             },
                                             colors = NavigationBarItemDefaults.colors(
-                                                selectedIconColor = ElectricCyan,
-                                                selectedTextColor = ElectricCyan,
-                                                indicatorColor = ElectricCyan.copy(alpha = 0.22f),
+                                                selectedIconColor = navSelectedColor,
+                                                selectedTextColor = navSelectedColor,
+                                                indicatorColor = navSelectedColor.copy(alpha = 0.22f),
                                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                             )
@@ -311,9 +313,9 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             },
                                             colors = NavigationBarItemDefaults.colors(
-                                                selectedIconColor = ElectricCyan,
-                                                selectedTextColor = ElectricCyan,
-                                                indicatorColor = ElectricCyan.copy(alpha = 0.22f),
+                                                selectedIconColor = navSelectedColor,
+                                                selectedTextColor = navSelectedColor,
+                                                indicatorColor = navSelectedColor.copy(alpha = 0.22f),
                                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                             )

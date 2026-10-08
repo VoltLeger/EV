@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.theme.BatteryGreen
 import com.example.ui.theme.BatteryOrange
 import com.example.ui.theme.ElectricCyan
+import com.example.ui.theme.LocalCurrentTheme
 import com.example.ui.theme.SoftBlue
 import java.util.Locale
 import kotlin.math.cos
@@ -361,10 +362,15 @@ fun SmoothConsumptionMonthChart(
     averageVal: Double? = null,
     passportVal: Double? = null
 ) {
+    val currentThemeKey = LocalCurrentTheme.current
+    val isLight = currentThemeKey == "light"
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val secondaryColor = MaterialTheme.colorScheme.secondary
+
     VoltCard(
         modifier = modifier.fillMaxWidth(),
         cornerRadius = 22.dp,
-        borderColor = ElectricCyan.copy(alpha = 0.45f)
+        borderColor = primaryColor.copy(alpha = if (isLight) 0.5f else 0.45f)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // 1. Top Section: Header & Numbers (сверху расход)
@@ -378,7 +384,7 @@ fun SmoothConsumptionMonthChart(
                         text = "📈 КРИВАЯ РАСХОДА ЭНЕРГИИ",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = ElectricCyan,
+                        color = primaryColor,
                         letterSpacing = 0.5.sp
                     )
                     Spacer(modifier = Modifier.height(2.dp))
@@ -389,14 +395,14 @@ fun SmoothConsumptionMonthChart(
                                 text = String.format(Locale.US, "%.1f", displayAvg),
                                 fontSize = 28.sp,
                                 fontWeight = FontWeight.Black,
-                                color = Color.White
+                                color = if (isLight) MaterialTheme.colorScheme.onSurface else Color.White
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "кВт·ч / 100 км",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = ElectricCyan,
+                                color = primaryColor,
                                 modifier = Modifier.padding(bottom = 4.dp)
                             )
                         }
@@ -468,7 +474,7 @@ fun SmoothConsumptionMonthChart(
                         for (i in 0..gridLines) {
                             val y = h * (i.toFloat() / gridLines)
                             drawLine(
-                                color = Color.White.copy(alpha = 0.08f),
+                                color = if (isLight) Color.Black.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.08f),
                                 start = Offset(0f, y),
                                 end = Offset(w, y),
                                 strokeWidth = 1.dp.toPx()
@@ -478,9 +484,9 @@ fun SmoothConsumptionMonthChart(
                         if (points.size == 1) {
                             val cx = w / 2f
                             val cy = h - ((points[0].value - minVal) / range) * h
-                            drawCircle(color = ElectricCyan.copy(alpha = 0.3f), radius = 12.dp.toPx(), center = Offset(cx, cy))
-                            drawCircle(color = ElectricCyan, radius = 6.dp.toPx(), center = Offset(cx, cy))
-                            drawCircle(color = Color.White, radius = 3.dp.toPx(), center = Offset(cx, cy))
+                            drawCircle(color = primaryColor.copy(alpha = 0.3f), radius = 12.dp.toPx(), center = Offset(cx, cy))
+                            drawCircle(color = primaryColor, radius = 6.dp.toPx(), center = Offset(cx, cy))
+                            drawCircle(color = if (isLight) Color.White else Color.White, radius = 3.dp.toPx(), center = Offset(cx, cy))
                             return@Canvas
                         }
 
@@ -513,14 +519,14 @@ fun SmoothConsumptionMonthChart(
                         drawPath(
                             path = fillPath,
                             brush = Brush.verticalGradient(
-                                colors = listOf(ElectricCyan.copy(alpha = 0.40f), BatteryGreen.copy(alpha = 0.15f), Color.Transparent)
+                                colors = listOf(primaryColor.copy(alpha = if (isLight) 0.30f else 0.40f), secondaryColor.copy(alpha = if (isLight) 0.10f else 0.15f), Color.Transparent)
                             )
                         )
 
                         // Smooth curve stroke
                         drawPath(
                             path = path,
-                            brush = Brush.horizontalGradient(listOf(ElectricCyan, BatteryGreen)),
+                            brush = Brush.horizontalGradient(listOf(primaryColor, secondaryColor)),
                             style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round)
                         )
 
@@ -528,8 +534,8 @@ fun SmoothConsumptionMonthChart(
                         points.forEachIndexed { i, pt ->
                             val x = i * stepX
                             val y = h - ((pt.value - minVal) / range) * h
-                            drawCircle(color = ElectricCyan.copy(alpha = 0.35f), radius = 8.dp.toPx(), center = Offset(x, y))
-                            drawCircle(color = ElectricCyan, radius = 4.5.dp.toPx(), center = Offset(x, y))
+                            drawCircle(color = primaryColor.copy(alpha = 0.35f), radius = 8.dp.toPx(), center = Offset(x, y))
+                            drawCircle(color = primaryColor, radius = 4.5.dp.toPx(), center = Offset(x, y))
                             drawCircle(color = Color.White, radius = 2.5.dp.toPx(), center = Offset(x, y))
                         }
                     }
