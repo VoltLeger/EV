@@ -375,11 +375,12 @@ fun SettingsScreen(
                     } else {
                         item {
                             VoltCard(modifier = Modifier.fillMaxWidth()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                     Column {
                                         Text(
                                             text = strings.carsSection,
@@ -509,6 +510,7 @@ fun SettingsScreen(
                                 }
                             }
                         }
+                    }
 
                         // Detailed Edit Form for Selected Car
                         if (carBeingEdited != null) {
@@ -521,11 +523,12 @@ fun SettingsScreen(
                                 var editConsumption by remember(carBeingEdited.id) { mutableStateOf(carBeingEdited.passportConsumption.toString()) }
 
                                 VoltCard(modifier = Modifier.fillMaxWidth()) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(
                                                 Icons.Default.Edit,
@@ -729,6 +732,7 @@ fun SettingsScreen(
                             }
                         }
                     }
+                    }
                 }
 
         // Tab 1: Tariffs (Section 2: AC, Section 3: DC, Section 4.5: Home Charging)
@@ -736,11 +740,12 @@ fun SettingsScreen(
             // Section 2: AC Operators & Tariffs
             item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "AC Операторы и Тарифы",
@@ -842,15 +847,17 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
 
             // Section 3: DC Operators & Tariffs
             item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "DC Операторы и Тарифы",
@@ -939,6 +946,7 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
 
             // Section 4.5: Home Charging Tariffs & Schedule (Домашняя зарядка)
             item {
@@ -983,11 +991,12 @@ fun SettingsScreen(
                 }
 
                 VoltCard(modifier = Modifier.fillMaxWidth().testTag("home_charging_settings_card")) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Тарифы домашней зарядки",
@@ -1169,197 +1178,200 @@ fun SettingsScreen(
                 }
             }
         }
+        }
 
         // Tab 2: System (Section 4: Currency, Language & Theme, Section 5: Smart Notifications)
         if (selectedTabIndex == 2) {
             // Section 4: Currency, Language & Theme
             item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = strings.appearanceSection,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = strings.appearanceSection,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                    // Currency selector
-                    Text(text = "Основная валюта отчётов и сводок", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "В этой валюте отображается общая статистика и средние показатели. Каждая запись (зарядка/расход) сохраняет свою реальную валюту чека (BYN, PLN и др.).",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 15.sp
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        listOf("BYN", "RUB", "PLN", "USD", "EUR", "KZT").forEach { curr ->
-                            FilterChip(
-                                selected = settings.currency == curr,
-                                onClick = { onUpdateCurrency(curr) },
-                                label = { Text(curr) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = ElectricCyan,
-                                    selectedLabelColor = Color.Black
-                                ),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Multi-currency live rates reference card
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(ElectricCyan.copy(alpha = 0.08f))
-                            .then(
-                                if (isLight) Modifier else Modifier.border(1.dp, ElectricCyan.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
-                            )
-                            .padding(10.dp)
-                    ) {
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("💱 ", fontSize = 13.sp)
-                                Text(
-                                    text = "Справедливый мультивалютный пересчёт",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = ElectricCyan
+                        // Currency selector
+                        Text(text = "Основная валюта отчётов и сводок", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "В этой валюте отображается общая статистика и средние показатели. Каждая запись (зарядка/расход) сохраняет свою реальную валюту чека (BYN, PLN и др.).",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 15.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            listOf("BYN", "RUB", "PLN", "USD", "EUR", "KZT").forEach { curr ->
+                                FilterChip(
+                                    selected = settings.currency == curr,
+                                    onClick = { onUpdateCurrency(curr) },
+                                    label = { Text(curr) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = ElectricCyan,
+                                        selectedLabelColor = Color.Black
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "При поездке за границу (например, в Польшу за PLN) VoltLedger не приравнивает 1 PLN к 1 BYN. В чеке сохраняется PLN, а в статистике сумма пересчитывается по справедливому кросс-курсу:",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 15.sp
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "• 1 PLN ≈ 0.82 BYN (1 BYN ≈ 1.22 PLN)\n• 1 EUR ≈ 3.60 BYN  • 1 USD ≈ 3.30 BYN\n• 100 RUB ≈ 3.50 BYN",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = SoftBlue,
-                                lineHeight = 16.sp
-                            )
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                    // Language selector
-                    Text(text = strings.language, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        listOf("ru" to "Русский", "en" to "English").forEach { (code, label) ->
-                            FilterChip(
-                                selected = settings.language == code,
-                                onClick = { onUpdateLanguage(code) },
-                                label = { Text(label) },
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SoftBlue, selectedLabelColor = Color.White),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Theme selector: Light theme, Cyber Neon Dark, and colorful Postcard themes
-                    Text(text = strings.theme, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    val themeOptions = listOf(
-                        Triple("dark", "⚡ Кибер Неон (Тёмная)", "Фирменная тёмная неоновая тема"),
-                        Triple("light", "☀️ Светлая тема", "Чистая и контрастная стеклянная тема"),
-                        Triple("eco", "🌿 Эко Изумруд (Визитка)", "Изумрудно-мятные цвета визитки"),
-                        Triple("sunset", "🌅 Закатный Драйв (Визитка)", "Кораллово-янтарные тёплые цвета визитки"),
-                        Triple("cosmic", "🌌 Космос (Визитка)", "Глубокий индиго и небесный лазурный")
-                    )
-
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        themeOptions.forEach { (key, title, subtitle) ->
-                            val isSelected = settings.theme.lowercase().trim().let { current ->
-                                if (key == "dark") current == "dark" || current == "cyber_neon" || current == "system" || current.isBlank()
-                                else current == key || (key == "eco" && (current == "emerald" || current == "postcard_emerald"))
-                                        || (key == "sunset" && (current == "postcard_sunset"))
-                                        || (key == "cosmic" && (current == "space" || current == "postcard_space"))
+                        // Multi-currency live rates reference card
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ElectricCyan.copy(alpha = 0.08f))
+                                .then(
+                                    if (isLight) Modifier else Modifier.border(1.dp, ElectricCyan.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                )
+                                .padding(10.dp)
+                        ) {
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("💱 ", fontSize = 13.sp)
+                                    Text(
+                                        text = "Справедливый мультивалютный пересчёт",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ElectricCyan
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "При поездке за границу (например, в Польшу за PLN) VoltLedger не приравнивает 1 PLN к 1 BYN. В чеке сохраняется PLN, а в статистике сумма пересчитывается по справедливому кросс-курсу:",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    lineHeight = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "• 1 PLN ≈ 0.82 BYN (1 BYN ≈ 1.22 PLN)\n• 1 EUR ≈ 3.60 BYN  • 1 USD ≈ 3.30 BYN\n• 100 RUB ≈ 3.50 BYN",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = SoftBlue,
+                                    lineHeight = 16.sp
+                                )
                             }
+                        }
 
-                            val themeBorderColor = if (isSelected) ElectricCyan else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                            val themeBgColor = if (isSelected) ElectricCyan.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(themeBgColor)
-                                    .border(if (isSelected) 1.5.dp else 1.dp, themeBorderColor, RoundedCornerShape(14.dp))
-                                    .clickable { onUpdateTheme(key) }
-                                    .padding(horizontal = 14.dp, vertical = 10.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                        // Language selector
+                        Text(text = strings.language, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            listOf("ru" to "Русский", "en" to "English").forEach { (code, label) ->
+                                FilterChip(
+                                    selected = settings.language == code,
+                                    onClick = { onUpdateLanguage(code) },
+                                    label = { Text(label) },
+                                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SoftBlue, selectedLabelColor = Color.White),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Theme selector: Light theme, Cyber Neon Dark, and colorful Postcard themes
+                        Text(text = strings.theme, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        val themeOptions = listOf(
+                            Triple("dark", "⚡ Кибер Неон (Тёмная)", "Фирменная тёмная неоновая тема"),
+                            Triple("light", "☀️ Светлая тема", "Чистая и контрастная стеклянная тема"),
+                            Triple("eco", "🌿 Эко Изумруд (Визитка)", "Изумрудно-мятные цвета визитки"),
+                            Triple("sunset", "🌅 Закатный Драйв (Визитка)", "Кораллово-янтарные тёплые цвета визитки"),
+                            Triple("cosmic", "🌌 Космос (Визитка)", "Глубокий индиго и небесный лазурный")
+                        )
+
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            themeOptions.forEach { (key, title, subtitle) ->
+                                val isSelected = settings.theme.lowercase().trim().let { current ->
+                                    if (key == "dark") current == "dark" || current == "cyber_neon" || current == "system" || current.isBlank()
+                                    else current == key || (key == "eco" && (current == "emerald" || current == "postcard_emerald"))
+                                            || (key == "sunset" && (current == "postcard_sunset"))
+                                            || (key == "cosmic" && (current == "space" || current == "postcard_space"))
+                                }
+
+                                val themeBorderColor = if (isSelected) ElectricCyan else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                val themeBgColor = if (isSelected) ElectricCyan.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(themeBgColor)
+                                        .border(if (isSelected) 1.5.dp else 1.dp, themeBorderColor, RoundedCornerShape(14.dp))
+                                        .clickable { onUpdateTheme(key) }
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
                                 ) {
                                     Row(
+                                        modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.weight(1f)
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(34.dp)
-                                                .clip(CircleShape)
-                                                .background(if (isSelected) ElectricCyan.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
-                                            contentAlignment = Alignment.Center
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
                                         ) {
-                                            val iconChar = when (key) {
-                                                "light" -> "☀️"
-                                                "eco" -> "🌿"
-                                                "sunset" -> "🌅"
-                                                "cosmic" -> "🌌"
-                                                else -> "⚡"
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(34.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (isSelected) ElectricCyan.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                val iconChar = when (key) {
+                                                    "light" -> "☀️"
+                                                    "eco" -> "🌿"
+                                                    "sunset" -> "🌅"
+                                                    "cosmic" -> "🌌"
+                                                    else -> "⚡"
+                                                }
+                                                Text(iconChar, fontSize = 16.sp)
                                             }
-                                            Text(iconChar, fontSize = 16.sp)
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column {
+                                                Text(
+                                                    text = title,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                                    fontSize = 13.sp,
+                                                    color = if (isSelected) ElectricCyan else MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = subtitle,
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                         }
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column {
-                                            Text(
-                                                text = title,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                                                fontSize = 13.sp,
-                                                color = if (isSelected) ElectricCyan else MaterialTheme.colorScheme.onSurface
-                                            )
-                                            Text(
-                                                text = subtitle,
-                                                fontSize = 11.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = "Выбрано",
+                                                tint = ElectricCyan,
+                                                modifier = Modifier.size(20.dp)
                                             )
                                         }
-                                    }
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = "Выбрано",
-                                            tint = ElectricCyan,
-                                            modifier = Modifier.size(20.dp)
-                                        )
                                     }
                                 }
                             }
@@ -1371,139 +1383,141 @@ fun SettingsScreen(
             // Section 5: Smart Notifications
             item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = strings.notificationsSection,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Enable notifications
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = strings.enableNotifications, fontSize = 13.sp)
-                        Switch(
-                            checked = settings.notificationsEnabled,
-                            onCheckedChange = { onUpdateNotificationsEnabled(it) },
-                            colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue, checkedTrackColor = SoftBlue.copy(alpha = 0.4f))
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = strings.notificationsSection,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                    }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                    // Unfinished charge alert
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = strings.unfinishedNotify, fontSize = 13.sp)
-                        Switch(
-                            checked = settings.notifyUnfinished,
-                            onCheckedChange = { onUpdateNotifyUnfinished(it) },
-                            enabled = settings.notificationsEnabled,
-                            colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue, checkedTrackColor = SoftBlue.copy(alpha = 0.4f))
-                        )
-                    }
-
-                    // Weekly report
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = strings.weeklyReport, fontSize = 13.sp)
-                        Switch(
-                            checked = settings.notifyWeekly,
-                            onCheckedChange = { onUpdateNotifyWeekly(it) },
-                            enabled = settings.notificationsEnabled,
-                            colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue, checkedTrackColor = SoftBlue.copy(alpha = 0.4f))
-                        )
-                    }
-
-                    // Monthly report
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = strings.monthlyReport, fontSize = 13.sp)
-                        Switch(
-                            checked = settings.notifyMonthly,
-                            onCheckedChange = { onUpdateNotifyMonthly(it) },
-                            enabled = settings.notificationsEnabled,
-                            colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue, checkedTrackColor = SoftBlue.copy(alpha = 0.4f))
-                        )
-                    }
-
-                    // Achievement notifications
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = strings.notifyAchievements, fontSize = 13.sp)
-                            Text(text = strings.notifyAchievementsDesc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(
-                            checked = settings.notifyAchievements,
-                            onCheckedChange = { onUpdateNotifyAchievements(it) },
-                            enabled = settings.notificationsEnabled,
-                            colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue, checkedTrackColor = SoftBlue.copy(alpha = 0.4f))
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onSendTestNotification,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                        // Enable notifications
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = strings.testNotification, fontSize = 11.sp)
+                            Text(text = strings.enableNotifications, fontSize = 13.sp)
+                            Switch(
+                                checked = settings.notificationsEnabled,
+                                onCheckedChange = { onUpdateNotificationsEnabled(it) },
+                                colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue, checkedTrackColor = SoftBlue.copy(alpha = 0.4f))
+                            )
                         }
 
-                        OutlinedButton(
-                            onClick = onTestDcNotification,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(text = "⚡ " + strings.testDcNotification, fontSize = 11.sp)
-                        }
-                    }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onTestAchievementUnlocked,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                        // Unfinished charge alert
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = strings.testAchievementUnlocked, fontSize = 11.sp)
+                            Text(text = strings.unfinishedNotify, fontSize = 13.sp)
+                            Switch(
+                                checked = settings.notifyUnfinished,
+                                onCheckedChange = { onUpdateNotifyUnfinished(it) },
+                                enabled = settings.notificationsEnabled,
+                                colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue, checkedTrackColor = SoftBlue.copy(alpha = 0.4f))
+                            )
                         }
 
-                        OutlinedButton(
-                            onClick = onTestAchievementProgress,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                        // Weekly report
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = strings.testAchievementProgress, fontSize = 11.sp)
+                            Text(text = strings.weeklyReport, fontSize = 13.sp)
+                            Switch(
+                                checked = settings.notifyWeekly,
+                                onCheckedChange = { onUpdateNotifyWeekly(it) },
+                                enabled = settings.notificationsEnabled,
+                                colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue, checkedTrackColor = SoftBlue.copy(alpha = 0.4f))
+                            )
+                        }
+
+                        // Monthly report
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = strings.monthlyReport, fontSize = 13.sp)
+                            Switch(
+                                checked = settings.notifyMonthly,
+                                onCheckedChange = { onUpdateNotifyMonthly(it) },
+                                enabled = settings.notificationsEnabled,
+                                colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue, checkedTrackColor = SoftBlue.copy(alpha = 0.4f))
+                            )
+                        }
+
+                        // Achievement notifications
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = strings.notifyAchievements, fontSize = 13.sp)
+                                Text(text = strings.notifyAchievementsDesc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(
+                                checked = settings.notifyAchievements,
+                                onCheckedChange = { onUpdateNotifyAchievements(it) },
+                                enabled = settings.notificationsEnabled,
+                                colors = SwitchDefaults.colors(checkedThumbColor = SoftBlue, checkedTrackColor = SoftBlue.copy(alpha = 0.4f))
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onSendTestNotification,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = strings.testNotification, fontSize = 11.sp)
+                            }
+
+                            OutlinedButton(
+                                onClick = onTestDcNotification,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(text = "⚡ " + strings.testDcNotification, fontSize = 11.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onTestAchievementUnlocked,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(text = strings.testAchievementUnlocked, fontSize = 11.sp)
+                            }
+
+                            OutlinedButton(
+                                onClick = onTestAchievementProgress,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(text = strings.testAchievementProgress, fontSize = 11.sp)
+                            }
                         }
                     }
                 }
@@ -1515,7 +1529,8 @@ fun SettingsScreen(
             // Section 6: Google Drive & Cloud Backup
             item {
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -1800,14 +1815,15 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // Phone transfer advice link
-                    TextButton(
-                        onClick = { showPhoneTransferAdviceDialog = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(16.dp), tint = ElectricCyan)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Рекомендации при смене телефона", fontSize = 12.sp, color = ElectricCyan)
+                        // Phone transfer advice link
+                        TextButton(
+                            onClick = { showPhoneTransferAdviceDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(16.dp), tint = ElectricCyan)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Рекомендации при смене телефона", fontSize = 12.sp, color = ElectricCyan)
+                        }
                     }
                 }
             }
@@ -1822,125 +1838,127 @@ fun SettingsScreen(
                         .clickable { showAboutDeveloperDialog = true }
                         .testTag("about_developer_card")
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(46.dp)
-                                .clip(CircleShape)
-                                .background(ElectricCyan.copy(alpha = 0.15f))
-                                .border(1.5.dp, ElectricCyan.copy(alpha = 0.4f), CircleShape),
-                            contentAlignment = Alignment.Center
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("⚡", fontSize = 22.sp)
-                        }
-
-                        Spacer(modifier = Modifier.width(14.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = strings.aboutDeveloper,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(ElectricCyan.copy(alpha = 0.18f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                 ) {
-                                     Text(
-                                         text = com.example.util.APP_VERSION_NAME,
-                                         fontSize = 10.sp,
-                                         fontWeight = FontWeight.Bold,
-                                         color = ElectricCyan
-                                     )
-                                 }
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(ElectricCyan.copy(alpha = 0.15f))
+                                    .border(1.5.dp, ElectricCyan.copy(alpha = 0.4f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("⚡", fontSize = 22.sp)
                             }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = strings.developerCreatedForEv,
-                                fontSize = 12.sp,
-                                color = ElectricCyan,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
 
-                    // Warm community message box
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                            .then(
-                                if (isLight) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-                            )
-                            .padding(12.dp)
-                    ) {
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("🤝 ", fontSize = 14.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = strings.aboutDeveloper,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(ElectricCyan.copy(alpha = 0.18f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                     ) {
+                                         Text(
+                                             text = com.example.util.APP_VERSION_NAME,
+                                             fontSize = 10.sp,
+                                             fontWeight = FontWeight.Bold,
+                                             color = ElectricCyan
+                                         )
+                                     }
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Спасибо за установку!",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BatteryGreen
+                                    text = strings.developerCreatedForEv,
+                                    fontSize = 12.sp,
+                                    color = ElectricCyan,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "VoltLedger создан для EV общества разработчиком Gunmetal. Приложение создано с заботой для каждого владельца электромобиля — без рекламы, без сбора данных, с прозрачными расчётами и поддержкой сообщества.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 16.sp
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Badges row
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(ElectricCyan.copy(alpha = 0.12f))
-                                .border(0.8.dp, ElectricCyan.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text("🛠️ Автор: Gunmetal", fontSize = 11.sp, color = ElectricCyan, fontWeight = FontWeight.SemiBold)
                         }
 
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Warm community message box
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(SoftBlue.copy(alpha = 0.12f))
-                                .border(0.8.dp, SoftBlue.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                                .then(
+                                    if (isLight) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                )
+                                .padding(12.dp)
                         ) {
-                            Text("🚗 EV Community Edition", fontSize = 11.sp, color = SoftBlue, fontWeight = FontWeight.SemiBold)
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("🤝 ", fontSize = 14.sp)
+                                    Text(
+                                        text = "Спасибо за установку!",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = BatteryGreen
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "VoltLedger создан для EV общества разработчиком Gunmetal. Приложение создано с заботой для каждого владельца электромобиля — без рекламы, без сбора данных, с прозрачными расчётами и поддержкой сообщества.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    lineHeight = 16.sp
+                                )
+                            }
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(BatteryGreen.copy(alpha = 0.12f))
-                                .border(0.8.dp, BatteryGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Badges row
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("🛡️ 100% Offline & Private", fontSize = 11.sp, color = BatteryGreen, fontWeight = FontWeight.SemiBold)
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(ElectricCyan.copy(alpha = 0.12f))
+                                    .border(0.8.dp, ElectricCyan.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text("🛠️ Автор: Gunmetal", fontSize = 11.sp, color = ElectricCyan, fontWeight = FontWeight.SemiBold)
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(SoftBlue.copy(alpha = 0.12f))
+                                    .border(0.8.dp, SoftBlue.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text("🚗 EV Community Edition", fontSize = 11.sp, color = SoftBlue, fontWeight = FontWeight.SemiBold)
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(BatteryGreen.copy(alpha = 0.12f))
+                                    .border(0.8.dp, BatteryGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text("🛡️ 100% Offline & Private", fontSize = 11.sp, color = BatteryGreen, fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
                 }
@@ -2010,48 +2028,48 @@ fun SettingsScreen(
                     )
                 }
             }
+        }
 
-            // Section 8: App Version & About Footer
-            item {
-                Column(
+        // Section 8: App Version & About Footer (Always shown at bottom on all tabs)
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "VoltLedger ${com.example.util.APP_VERSION_NAME}",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "EV Smart Charging & Analytics • Gunmetal Edition",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            try {
+                                val intent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://t.me/VoltLeger")
+                                )
+                                context.startActivity(intent)
+                            } catch (_: Exception) {}
+                        }
+                        .background(Color(0xFF229ED9).copy(alpha = 0.12f))
+                        .border(0.8.dp, Color(0xFF229ED9).copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "VoltLedger ${com.example.util.APP_VERSION_NAME}",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "EV Smart Charging & Analytics • Gunmetal Edition",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                try {
-                                    val intent = Intent(
-                                        Intent.ACTION_VIEW,
-                                        android.net.Uri.parse("https://t.me/VoltLeger")
-                                    )
-                                    context.startActivity(intent)
-                                } catch (_: Exception) {}
-                            }
-                            .background(Color(0xFF229ED9).copy(alpha = 0.12f))
-                            .border(0.8.dp, Color(0xFF229ED9).copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text("📢 Telegram-канал: @VoltLeger", fontSize = 12.sp, color = Color(0xFF229ED9), fontWeight = FontWeight.SemiBold)
-                    }
+                    Text("📢 Telegram-канал: @VoltLeger", fontSize = 12.sp, color = Color(0xFF229ED9), fontWeight = FontWeight.SemiBold)
                 }
             }
         }
