@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -85,14 +86,17 @@ fun formatDate(timeMillis: Long): String {
 
 @Composable
 fun StationTypeBadge(type: String, modifier: Modifier = Modifier) {
+    val isLight = LocalCurrentTheme.current == "light"
     val isDc = type.equals("DC", ignoreCase = true)
     val color = if (isDc) Color(0xFFC084FC) else Color(0xFF38BDF8)
     val label = if (isDc) "⚡ DC" else "🔌 AC"
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
-            .background(color.copy(alpha = 0.2f))
-            .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+            .background(color.copy(alpha = if (isLight) 0.15f else 0.2f))
+            .then(
+                if (isLight) Modifier else Modifier.border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+            )
             .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
         Text(
@@ -106,17 +110,21 @@ fun StationTypeBadge(type: String, modifier: Modifier = Modifier) {
 
 @Composable
 fun TagBadge(name: String, color: Long = 0xFF38BDF8, modifier: Modifier = Modifier) {
+    val isLight = LocalCurrentTheme.current == "light"
     val badgeColor = Color(color)
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
-            .background(badgeColor.copy(alpha = 0.15f))
-            .border(1.dp, badgeColor.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+            .background(if (isLight) badgeColor.copy(alpha = 0.12f) else badgeColor.copy(alpha = 0.15f))
+            .then(
+                if (isLight) Modifier else Modifier.border(1.dp, badgeColor.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+            )
             .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
         Text(
             text = name,
             fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
             color = badgeColor,
             maxLines = 1
         )
@@ -360,100 +368,98 @@ fun VoltCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     borderColor: Color? = null,
-    cornerRadius: Dp = 22.dp,
+    cornerRadius: Dp = 20.dp,
     content: @Composable () -> Unit
 ) {
     val currentThemeKey = LocalCurrentTheme.current
     val isLight = currentThemeKey == "light"
     val surfaceColor = MaterialTheme.colorScheme.surface
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
-    val primary = MaterialTheme.colorScheme.primary
-    val secondary = MaterialTheme.colorScheme.secondary
-    val outlineColor = MaterialTheme.colorScheme.outline
+    val shape = RoundedCornerShape(cornerRadius)
 
-    // Specular neon/glass gradient border
-    val glassBorderBrush = if (borderColor != null) {
-        Brush.linearGradient(
-            colors = listOf(
-                if (isLight) Color.White else GlassBorderTop,
-                borderColor,
-                borderColor.copy(alpha = if (isLight) 0.6f else 0.4f),
-                if (isLight) outlineColor else GlassBorderBottom
-            ),
-            start = Offset.Zero,
-            end = Offset.Infinite
-        )
+    val cardBorder = if (isLight) {
+        BorderStroke(1.dp, Color.Black)
     } else {
-        Brush.linearGradient(
-            colors = if (isLight) {
-                listOf(
-                    primary.copy(alpha = 0.45f),
-                    secondary.copy(alpha = 0.35f),
-                    outlineColor.copy(alpha = 0.5f)
+        BorderStroke(
+            width = 1.2.dp,
+            brush = if (borderColor != null) {
+                Brush.linearGradient(
+                    colors = listOf(
+                        GlassBorderTop,
+                        borderColor,
+                        borderColor.copy(alpha = 0.4f),
+                        GlassBorderBottom
+                    ),
+                    start = Offset.Zero,
+                    end = Offset.Infinite
                 )
             } else {
-                listOf(
-                    primary.copy(alpha = 0.65f),
-                    secondary.copy(alpha = 0.45f),
-                    outlineColor
+                Brush.linearGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
+                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.45f),
+                        MaterialTheme.colorScheme.outline
+                    ),
+                    start = Offset(0f, 0f),
+                    end = Offset(300f, 600f)
                 )
-            },
-            start = Offset(0f, 0f),
-            end = Offset(300f, 600f)
+            }
         )
     }
 
-    val shape = RoundedCornerShape(cornerRadius)
-
-    Card(
-        onClick = { onClick?.invoke() },
-        enabled = onClick != null,
-        shape = shape,
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isLight) 1.dp else 0.dp),
+    Box(
         modifier = modifier
             .clip(shape)
             .background(
-                brush = Brush.verticalGradient(
-                    colors = if (isLight) {
-                        listOf(
-                            surfaceColor,
-                            surfaceVariant.copy(alpha = 0.65f)
-                        )
-                    } else {
-                        listOf(
-                            surfaceColor,
-                            surfaceVariant.copy(alpha = 0.88f)
-                        )
-                    }
-                )
-            )
-            .border(
-                width = 1.2.dp,
-                brush = glassBorderBrush,
+                color = if (isLight) Color.White else surfaceColor,
                 shape = shape
             )
-            .drawBehind {
-                // Top inner specular light glint (sheen)
-                drawLine(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            if (isLight) Color.White.copy(alpha = 0.8f) else GlassWhiteHigh.copy(alpha = 0.45f),
-                            primary.copy(alpha = if (isLight) 0.25f else 0.3f),
-                            Color.Transparent
+            .then(
+                if (!isLight) {
+                    Modifier.background(
+                        brush = Brush.verticalGradient(
+                            listOf(
+                                surfaceColor,
+                                surfaceVariant.copy(alpha = 0.88f)
+                            )
+                        ),
+                        shape = shape
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .border(cardBorder, shape)
+            .then(
+                if (onClick != null) {
+                    Modifier.clip(shape).clickable(onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
+            .then(
+                if (!isLight) {
+                    Modifier.drawBehind {
+                        drawLine(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    GlassWhiteHigh.copy(alpha = 0.45f),
+                                    Color(0xFF00E5FF).copy(alpha = 0.3f),
+                                    Color.Transparent
+                                )
+                            ),
+                            start = Offset(24f, 1.5f),
+                            end = Offset(size.width - 24f, 1.5f),
+                            strokeWidth = 2f
                         )
-                    ),
-                    start = Offset(24f, 1.5f),
-                    end = Offset(size.width - 24f, 1.5f),
-                    strokeWidth = 2f
-                )
-            }
+                    }
+                } else {
+                    Modifier
+                }
+            )
+            .padding(14.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            content()
-        }
+        content()
     }
 }

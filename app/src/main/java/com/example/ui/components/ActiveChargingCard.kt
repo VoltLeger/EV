@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.ChargingSession
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.LocalAppStrings
+import com.example.ui.theme.LocalCurrentTheme
 import com.example.ui.theme.SoftBlue
 import kotlinx.coroutines.delay
 
@@ -91,6 +93,22 @@ fun ActiveChargingCard(
     )
 
     val shape = RoundedCornerShape(26.dp)
+    val isLight = LocalCurrentTheme.current == "light"
+    val cardBorder = if (isLight) {
+        BorderStroke(1.dp, Color.Black)
+    } else {
+        BorderStroke(
+            width = 1.5.dp,
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.6f),
+                    ElectricCyan.copy(alpha = 0.8f),
+                    SoftBlue,
+                    Color.White.copy(alpha = 0.15f)
+                )
+            )
+        )
+    }
 
     Card(
         shape = shape,
@@ -102,41 +120,47 @@ fun ActiveChargingCard(
             .fillMaxWidth()
             .clip(shape)
             .background(
-                brush = Brush.verticalGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
-                    )
-                )
-            )
-            .border(
-                width = 1.5.dp,
-                brush = Brush.linearGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = 0.6f),
-                        ElectricCyan.copy(alpha = 0.8f),
-                        SoftBlue,
-                        Color.White.copy(alpha = 0.15f)
-                    )
-                ),
+                color = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
                 shape = shape
             )
-            .drawBehind {
-                // Specular reflection line across top
-                drawLine(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.White.copy(alpha = 0.5f),
-                            ElectricCyan.copy(alpha = 0.4f),
-                            Color.Transparent
+            .then(
+                if (!isLight) {
+                    Modifier.background(
+                        brush = Brush.verticalGradient(
+                            listOf(
+                                MaterialTheme.colorScheme.surface,
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+                            )
+                        ),
+                        shape = shape
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .border(cardBorder, shape)
+            .then(
+                if (!isLight) {
+                    Modifier.drawBehind {
+                        // Specular reflection line across top
+                        drawLine(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.5f),
+                                    ElectricCyan.copy(alpha = 0.4f),
+                                    Color.Transparent
+                                )
+                            ),
+                            start = androidx.compose.ui.geometry.Offset(24f, 1.5f),
+                            end = androidx.compose.ui.geometry.Offset(size.width - 24f, 1.5f),
+                            strokeWidth = 2f
                         )
-                    ),
-                    start = androidx.compose.ui.geometry.Offset(24f, 1.5f),
-                    end = androidx.compose.ui.geometry.Offset(size.width - 24f, 1.5f),
-                    strokeWidth = 2f
-                )
-            }
+                    }
+                } else {
+                    Modifier
+                }
+            )
             .testTag("active_charging_card")
     ) {
         Column(

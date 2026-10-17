@@ -23,6 +23,8 @@ import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -52,7 +54,7 @@ import java.util.Locale
 
 @Composable
 fun OnboardingScreen(
-    onFinish: (name: String, capacity: Double, odo: Double, soc: Double, passport: Double) -> Unit,
+    onFinish: (name: String, capacity: Double, odo: Double, soc: Double, passport: Double, currency: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
@@ -61,6 +63,7 @@ fun OnboardingScreen(
     var passportText by remember { mutableStateOf("16.0") }
     var odometerText by remember { mutableStateOf("15000") }
     var socText by remember { mutableStateOf("80") }
+    var selectedCurrency by remember { mutableStateOf("BYN") }
 
     val capacityVal = capacityText.toDoubleOrNull() ?: 0.0
     val passportVal = passportText.toDoubleOrNull() ?: 16.0
@@ -288,13 +291,56 @@ fun OnboardingScreen(
             )
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Currency selection section
+        Text(
+            text = "Основная валюта расчёта",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = "Все цены, тарифы и расходы будут рассчитываться в этой валюте",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf("BYN", "RUB", "USD", "EUR", "PLN", "KZT").forEach { curr ->
+                val isSelected = selectedCurrency == curr
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { selectedCurrency = curr },
+                    label = {
+                        Text(
+                            text = curr,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = ElectricCyan,
+                        selectedLabelColor = Color.Black
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
 
         // Start Button
         Button(
             onClick = {
                 if (isValid) {
-                    onFinish(carName.trim(), capacityVal, odoVal, socVal, passportVal)
+                    onFinish(carName.trim(), capacityVal, odoVal, socVal, passportVal, selectedCurrency)
                 }
             },
             enabled = isValid,

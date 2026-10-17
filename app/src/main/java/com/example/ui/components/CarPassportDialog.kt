@@ -47,10 +47,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.example.ui.theme.LocalCurrentTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -112,21 +115,21 @@ fun CarPassportDialog(
         }
     }
 
-    // Editable state fields
-    var editName by remember(car) { mutableStateOf(car.name) }
-    var editYear by remember(car) { mutableStateOf(car.manufactureYear?.toString() ?: "") }
-    var editLicensePlate by remember(car) { mutableStateOf(car.licensePlate ?: "") }
-    var editVin by remember(car) { mutableStateOf(car.vin ?: "") }
-    var editPurchaseDate by remember(car) { mutableStateOf(car.purchaseDate ?: "") }
-    var editPurchasePrice by remember(car) { mutableStateOf(car.purchasePrice?.let { String.format(Locale.US, "%.0f", it) } ?: "") }
-    var editInitialOdo by remember(car) { mutableStateOf(car.initialOdometer.toInt().toString()) }
-    var editCurrentOdo by remember(car) {
+    // Editable state fields (persisted with rememberSaveable across orientation changes)
+    var editName by rememberSaveable(car.id) { mutableStateOf(car.name) }
+    var editYear by rememberSaveable(car.id) { mutableStateOf(car.manufactureYear?.toString() ?: "") }
+    var editLicensePlate by rememberSaveable(car.id) { mutableStateOf(car.licensePlate ?: "") }
+    var editVin by rememberSaveable(car.id) { mutableStateOf(car.vin ?: "") }
+    var editPurchaseDate by rememberSaveable(car.id) { mutableStateOf(car.purchaseDate ?: "") }
+    var editPurchasePrice by rememberSaveable(car.id) { mutableStateOf(car.purchasePrice?.let { String.format(Locale.US, "%.0f", it) } ?: "") }
+    var editInitialOdo by rememberSaveable(car.id) { mutableStateOf(car.initialOdometer.toInt().toString()) }
+    var editCurrentOdo by rememberSaveable(car.id) {
         val maxSessionOdo = sessions.filter { it.carId == car.id }.maxOfOrNull { it.startOdometer } ?: car.initialOdometer
         mutableStateOf(maxSessionOdo.toInt().toString())
     }
-    var editDeclaredCapacity by remember(car) { mutableStateOf(car.declaredCapacityKwh.toString()) }
-    var editRegistrationNumber by remember(car) { mutableStateOf(car.registrationNumber ?: "") }
-    var editInsuranceNumber by remember(car) { mutableStateOf(car.insuranceNumber ?: "") }
+    var editDeclaredCapacity by rememberSaveable(car.id) { mutableStateOf(car.declaredCapacityKwh.toString()) }
+    var editRegistrationNumber by rememberSaveable(car.id) { mutableStateOf(car.registrationNumber ?: "") }
+    var editInsuranceNumber by rememberSaveable(car.id) { mutableStateOf(car.insuranceNumber ?: "") }
 
     // Ownership stats for "Sell Car" report
     val carSessions = sessions.filter { it.carId == car.id && it.status == "completed" }
@@ -136,9 +139,18 @@ fun CarPassportDialog(
     val totalDistanceDriven = (maxOdo - car.initialOdometer).coerceAtLeast(0.0)
     val avgCostPerKm = if (totalDistanceDriven > 0) totalChargingCost / totalDistanceDriven else 0.0
 
+    val isLight = LocalCurrentTheme.current == "light"
+
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
+        ),
+        modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
         shape = RoundedCornerShape(26.dp),
+        tonalElevation = 0.dp,
+        containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -659,7 +671,10 @@ fun CarPassportDialog(
     if (showSellConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showSellConfirmDialog = false },
+            modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(24.dp)) else Modifier,
             shape = RoundedCornerShape(24.dp),
+            tonalElevation = 0.dp,
+            containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
             icon = {
                 Icon(
                     imageVector = Icons.Default.Sell,

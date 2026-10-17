@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.ui.theme.LocalCurrentTheme
 import com.example.data.model.Car
 import com.example.data.model.ChargingSession
 import com.example.ui.theme.BatteryGreen
@@ -93,9 +95,18 @@ fun ShareSessionCardDialog(
     val bgEndCompose = Color(currentTheme.bgEndColor)
     val cardBgCompose = Color(currentTheme.cardBgColor)
     val cardBorderCompose = Color(currentTheme.cardBorderColor)
+    val isLight = LocalCurrentTheme.current == "light"
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
+        ),
+        modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+        shape = RoundedCornerShape(26.dp),
+        tonalElevation = 0.dp,
+        containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -478,7 +489,6 @@ fun ShareSessionCardDialog(
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("Текстом", fontSize = 12.sp)
             }
-        },
-        shape = RoundedCornerShape(24.dp)
+        }
     )
 }

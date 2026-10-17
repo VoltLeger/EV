@@ -84,6 +84,7 @@ import com.example.ui.screens.StartChargingScreen
 import com.example.ui.screens.StatisticsScreen
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.LocalAppStrings
+import com.example.ui.theme.LocalCurrentTheme
 import com.example.ui.theme.SoftBlue
 import com.example.ui.theme.VoltLedgerTheme
 import com.example.ui.viewmodel.VoltViewModel
@@ -139,9 +140,9 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val navController = rememberNavController()
-                var showRangeForecastDialog by remember { mutableStateOf(false) }
-                var showProfileAwardsDialog by remember { mutableStateOf(false) }
-                var sessionToFinish by remember { mutableStateOf<ChargingSession?>(null) }
+                var showRangeForecastDialog by rememberSaveable { mutableStateOf(false) }
+                var showProfileAwardsDialog by rememberSaveable { mutableStateOf(false) }
+                var sessionToFinishId by rememberSaveable { mutableStateOf<Long?>(null) }
                 var sessionToSharePostcard by remember { mutableStateOf<ChargingSession?>(null) }
 
                 // Periodic active session notification check (e.g. DC charging > 2 hours)
@@ -181,7 +182,8 @@ class MainActivity : ComponentActivity() {
                         // 2. Onboarding Screen
                         composable("onboarding") {
                             OnboardingScreen(
-                                onFinish = { name, capacity, odo, soc, passport ->
+                                onFinish = { name, capacity, odo, soc, passport, currency ->
+                                    viewModel.updateCurrency(currency)
                                     viewModel.completeOnboarding(name, capacity, odo, soc, passport)
                                     navController.navigate("main") {
                                         popUpTo("onboarding") { inclusive = true }
@@ -207,12 +209,7 @@ class MainActivity : ComponentActivity() {
                                             .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                                             .border(
                                                 width = 1.dp,
-                                                brush = Brush.verticalGradient(
-                                                    listOf(
-                                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
-                                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.10f)
-                                                    )
-                                                ),
+                                                color = if (LocalCurrentTheme.current == "light") Color.Black else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
                                                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
                                             )
                                             .testTag("bottom_nav_bar")
@@ -353,7 +350,7 @@ class MainActivity : ComponentActivity() {
                                                 },
                                                 onNavigateToHistory = { selectedTab = 1 },
                                                 onCompleteChargeClick = { session ->
-                                                    sessionToFinish = session
+                                                    sessionToFinishId = session.id
                                                     navController.navigate("finish_charging")
                                                 },
                                                 onCancelActiveCharge = { session ->
@@ -407,7 +404,10 @@ class MainActivity : ComponentActivity() {
                                                 operators = operators,
                                                 tags = tags,
                                                 onSelectCar = { viewModel.selectCar(it) },
-                                                onAddCar = { name, cap, odo, soc, passport -> viewModel.addCar(name, cap, odo, soc, passport) },
+                                                onAddCar = { name, cap, odo, soc, passport, curr ->
+                                                    viewModel.updateCurrency(curr)
+                                                    viewModel.addCar(name, cap, odo, soc, passport)
+                                                },
                                                 onDeleteCar = { viewModel.deleteCar(it) },
                                                 onUpdateCar = { viewModel.updateCar(it) },
                                                 onAddOperator = { viewModel.addOperator(it) },
@@ -506,7 +506,9 @@ class MainActivity : ComponentActivity() {
 
                         // 5. Finish Charging (Stage 2)
                         composable("finish_charging") {
-                            val currentSession = remember { sessionToFinish ?: activeSession }
+                            val currentSession = remember(allSessions, sessionToFinishId, activeSession) {
+                                allSessions.find { it.id == sessionToFinishId } ?: activeSession
+                            }
                             if (currentSession != null) {
                                 val op = operators.find { it.id == currentSession.operatorId }
                                 FinishChargingScreen(
@@ -515,12 +517,12 @@ class MainActivity : ComponentActivity() {
                                     latestOdometer = latestCarOdometer,
                                     lastMeterKwh = settings.homeLastMeterKwh,
                                     onBack = {
-                                        sessionToFinish = null
+                                        sessionToFinishId = null
                                         navController.popBackStack()
                                     },
                                     onComplete = { endSoc, kwhDelivered, kwhReceived, penalty, fixed, endTime, comment, endOdo ->
                                         navController.popBackStack()
-                                        sessionToFinish = null
+                                        sessionToFinishId = null
                                         val effectiveStartOdo = if (currentSession.startOdometer > 0) {
                                             if (endOdo != null && endOdo > currentSession.startOdometer) endOdo else currentSession.startOdometer
                                         } else {
@@ -557,7 +559,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             } else {
                                 LaunchedEffect(Unit) {
-                                    sessionToFinish = null
+                                    sessionToFinishId = null
                                     navController.popBackStack()
                                 }
                             }

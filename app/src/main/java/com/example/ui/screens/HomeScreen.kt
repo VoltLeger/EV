@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -59,6 +60,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +71,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -134,9 +137,10 @@ fun HomeScreen(
 ) {
     val strings = LocalAppStrings.current
     val currency = LocalCurrency.current
-    var showCarPassportDialog by remember { mutableStateOf(false) }
-    var showAddExpenseDialog by remember { mutableStateOf(false) }
-    var showHomeNotConfiguredDialog by remember { mutableStateOf(false) }
+    val isLightHomeCharge = LocalCurrentTheme.current == "light"
+    var showCarPassportDialog by rememberSaveable { mutableStateOf(false) }
+    var showAddExpenseDialog by rememberSaveable { mutableStateOf(false) }
+    var showHomeNotConfiguredDialog by rememberSaveable { mutableStateOf(false) }
 
     // Dynamic Latest Odometer: calculated across car, sessions, and expenses
     val latestEffectiveOdometer = remember(latestOdometer, activeCar?.initialOdometer, recentSessions) {
@@ -149,22 +153,33 @@ fun HomeScreen(
         }
     }
 
-    // Session Edit & Delete state
-    var editingSession by remember { mutableStateOf<ChargingSession?>(null) }
-    var sessionToDelete by remember { mutableStateOf<ChargingSession?>(null) }
-    var sessionToShare by remember { mutableStateOf<ChargingSession?>(null) }
+    // Session Edit & Delete state persisted by ID across orientation changes
+    var editingSessionId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var sessionToDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var sessionToShareId by rememberSaveable { mutableStateOf<Long?>(null) }
 
-    // Quick Home Charge Dialog State (Persisted and protected from background resets)
-    var showHomeChargeDialog by remember { mutableStateOf(false) }
-    var homeChargeSocText by remember { mutableStateOf("") }
-    var homeChargeOdoText by remember { mutableStateOf("") }
-    var homeChargeMeterText by remember { mutableStateOf("") }
+    val editingSession = remember(recentSessions, editingSessionId) {
+        recentSessions.find { it.id == editingSessionId }
+    }
+    val sessionToDelete = remember(recentSessions, sessionToDeleteId) {
+        recentSessions.find { it.id == sessionToDeleteId }
+    }
+    val sessionToShare = remember(recentSessions, sessionToShareId) {
+        recentSessions.find { it.id == sessionToShareId }
+    }
+
+    // Quick Home Charge Dialog State (Persisted with rememberSaveable across orientation and lifecycle changes)
+    var showHomeChargeDialog by rememberSaveable { mutableStateOf(false) }
+    var homeChargeSocText by rememberSaveable { mutableStateOf("") }
+    var homeChargeOdoText by rememberSaveable { mutableStateOf("") }
+    var homeChargeMeterText by rememberSaveable { mutableStateOf("") }
     // Tariff mode selection in dialog: "auto" (default active), "standard", "two_tariff", "three_tariff"
-    var selectedTariffMode by remember { mutableStateOf("auto") }
+    var selectedTariffMode by rememberSaveable { mutableStateOf("auto") }
+    var homeChargeInitialized by rememberSaveable { mutableStateOf(false) }
 
-    // When the dialog opens, only populate empty fields; NEVER reset user-entered text during recompositions
+    // When the dialog opens for the first time, populate initial values once. NEVER overwrite user-edited data on recompositions or rotation.
     LaunchedEffect(showHomeChargeDialog) {
-        if (showHomeChargeDialog) {
+        if (showHomeChargeDialog && !homeChargeInitialized) {
             if (homeChargeSocText.isBlank()) {
                 homeChargeSocText = activeCar?.currentSoc?.toInt()?.toString() ?: "30"
             }
@@ -174,6 +189,7 @@ fun HomeScreen(
             if (homeChargeMeterText.isBlank() && appSettings?.homeLastMeterKwh != null && appSettings.homeLastMeterKwh > 0) {
                 homeChargeMeterText = String.format(Locale.US, "%.1f", appSettings.homeLastMeterKwh)
             }
+            homeChargeInitialized = true
         }
     }
 
@@ -236,6 +252,11 @@ fun HomeScreen(
         ) {
             // 1. Top Vehicle Header Row
             item {
+                val currentThemeKey = LocalCurrentTheme.current
+                val isLight = currentThemeKey == "light"
+                val primaryColor = MaterialTheme.colorScheme.primary
+                val secondaryColor = MaterialTheme.colorScheme.secondary
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -262,7 +283,7 @@ fun HomeScreen(
                                     )
                                     .border(
                                         1.dp,
-                                        Brush.linearGradient(
+                                        if (isLight) SolidColor(Color.Black) else Brush.linearGradient(
                                             listOf(
                                                 Color(0xFFF59E0B).copy(alpha = 0.6f),
                                                 ElectricCyan.copy(alpha = 0.3f),
@@ -285,11 +306,6 @@ fun HomeScreen(
                         }
 
                         // Center: Vehicle selector / Car Passport
-                        val currentThemeKey = LocalCurrentTheme.current
-                        val isLight = currentThemeKey == "light"
-                        val primaryColor = MaterialTheme.colorScheme.primary
-                        val secondaryColor = MaterialTheme.colorScheme.secondary
-
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -298,11 +314,11 @@ fun HomeScreen(
                                 .background(MaterialTheme.colorScheme.surface.copy(alpha = if (isLight) 0.95f else 0.85f))
                                 .border(
                                     1.dp,
-                                    Brush.linearGradient(
+                                    if (isLight) SolidColor(Color.Black) else Brush.linearGradient(
                                         listOf(
-                                            if (isLight) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.35f),
+                                            Color.White.copy(alpha = 0.35f),
                                             primaryColor.copy(alpha = 0.35f),
-                                            if (isLight) MaterialTheme.colorScheme.outline.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.08f)
+                                            Color.White.copy(alpha = 0.08f)
                                         )
                                     ),
                                     RoundedCornerShape(16.dp)
@@ -367,15 +383,15 @@ fun HomeScreen(
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(if (activeSession != null) ElectricCyan.copy(alpha = 0.18f) else BatteryGreen.copy(alpha = 0.16f))
                                 .border(
-                                    1.dp,
-                                    Brush.linearGradient(
+                                    width = 1.dp,
+                                    brush = if (isLight) androidx.compose.ui.graphics.SolidColor(Color.Black) else Brush.linearGradient(
                                         listOf(
                                             Color.White.copy(alpha = 0.45f),
                                             if (activeSession != null) ElectricCyan.copy(alpha = 0.6f) else BatteryGreen.copy(alpha = 0.5f),
                                             Color.Transparent
                                         )
                                     ),
-                                    RoundedCornerShape(16.dp)
+                                    shape = RoundedCornerShape(16.dp)
                                 )
                                 .clickable { onCalculateRangeClick() }
                                 .padding(horizontal = 10.dp, vertical = 7.dp)
@@ -424,51 +440,65 @@ fun HomeScreen(
                     val primaryColor = MaterialTheme.colorScheme.primary
                     val secondaryColor = MaterialTheme.colorScheme.secondary
 
+                    val centerpieceShape = RoundedCornerShape(26.dp)
+                    val centerpieceBorder = if (isLight) {
+                        BorderStroke(1.dp, Color.Black)
+                    } else {
+                        BorderStroke(
+                            width = 1.2.dp,
+                            brush = Brush.linearGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.35f),
+                                    primaryColor.copy(alpha = 0.45f),
+                                    secondaryColor.copy(alpha = 0.25f),
+                                    Color.White.copy(alpha = 0.08f)
+                                )
+                            )
+                        )
+                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(26.dp))
-                            // Base gradient background smoothly transitioning into ambient theme
+                            .clip(centerpieceShape)
                             .background(
-                                Brush.verticalGradient(
-                                    colors = if (isLight) {
-                                        listOf(
-                                            Color.White,
-                                            Color(0xFFF8FAFC),
-                                            Color(0xFFF1F5F9)
-                                        )
-                                    } else {
-                                        listOf(
-                                            MaterialTheme.colorScheme.surface,
-                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-                                            MaterialTheme.colorScheme.background
-                                        )
-                                    }
-                                )
+                                color = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
+                                shape = centerpieceShape
                             )
-                            // Soft radial glow in the center that smoothly dissolves toward borders
-                            .background(
-                                Brush.radialGradient(
-                                    colors = listOf(
-                                        primaryColor.copy(alpha = if (isLight) 0.12f else 0.20f),
-                                        secondaryColor.copy(alpha = if (isLight) 0.05f else 0.08f),
-                                        Color.Transparent
-                                    ),
-                                    radius = 420f
-                                )
-                            )
-                            .border(
-                                width = 1.2.dp,
-                                brush = Brush.linearGradient(
-                                    listOf(
-                                        if (isLight) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.35f),
-                                        primaryColor.copy(alpha = if (isLight) 0.5f else 0.45f),
-                                        secondaryColor.copy(alpha = if (isLight) 0.35f else 0.25f),
-                                        if (isLight) MaterialTheme.colorScheme.outline.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.08f)
+                            .then(
+                                if (!isLight) {
+                                    Modifier.background(
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                MaterialTheme.colorScheme.surface,
+                                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
+                                                MaterialTheme.colorScheme.background
+                                            )
+                                        ),
+                                        shape = centerpieceShape
                                     )
-                                ),
-                                shape = RoundedCornerShape(26.dp)
+                                } else {
+                                    Modifier
+                                }
                             )
+                            .then(
+                                if (!isLight) {
+                                    Modifier.background(
+                                        Brush.radialGradient(
+                                            colors = listOf(
+                                                primaryColor.copy(alpha = 0.20f),
+                                                secondaryColor.copy(alpha = 0.08f),
+                                                Color.Transparent
+                                            ),
+                                            radius = 420f
+                                        ),
+                                        shape = centerpieceShape
+                                    )
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            .border(centerpieceBorder, centerpieceShape)
                             .padding(vertical = 18.dp, horizontal = 20.dp)
                             .testTag("last_two_charges_card")
                     ) {
@@ -483,7 +513,9 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(primaryColor.copy(alpha = if (isLight) 0.15f else 0.12f))
-                                    .border(1.dp, primaryColor.copy(alpha = if (isLight) 0.40f else 0.30f), RoundedCornerShape(10.dp))
+                                    .then(
+                                        if (isLight) Modifier else Modifier.border(1.dp, primaryColor.copy(alpha = 0.30f), RoundedCornerShape(10.dp))
+                                    )
                                     .padding(horizontal = 12.dp, vertical = 4.dp)
                             ) {
                                 Icon(
@@ -524,20 +556,20 @@ fun HomeScreen(
                                 effectiveCons
                             }
 
-                            // Large Glowing Number with luminous shadow aura
+                            // Large Glowing Number with luminous shadow aura (disabled in light theme for crispness)
                             Row(
                                 verticalAlignment = Alignment.Bottom,
                                 horizontalArrangement = Arrangement.Center
                             ) {
-                                val numberGlow = Shadow(
-                                    color = primaryColor.copy(alpha = if (isLight) 0.25f else 0.75f),
+                                val numberGlow = if (isLight) null else Shadow(
+                                    color = primaryColor.copy(alpha = 0.75f),
                                     offset = Offset(0f, 0f),
-                                    blurRadius = if (isLight) 8f else 26f
+                                    blurRadius = 26f
                                 )
-                                val unitGlow = Shadow(
-                                    color = primaryColor.copy(alpha = if (isLight) 0.15f else 0.45f),
+                                val unitGlow = if (isLight) null else Shadow(
+                                    color = primaryColor.copy(alpha = 0.45f),
                                     offset = Offset(0f, 0f),
-                                    blurRadius = if (isLight) 6f else 14f
+                                    blurRadius = 14f
                                 )
 
                                 if (displayConsumption != null && displayConsumption > 0.0) {
@@ -861,23 +893,30 @@ fun HomeScreen(
                         .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp)
                 ) {
                     // Button 1: "Добавить зарядку" (Full width, sleek glass matching theme with primary accent)
-                    val primaryBtnColor = MaterialTheme.colorScheme.primary
-                    val secondaryBtnColor = MaterialTheme.colorScheme.secondary
+                    val primaryBtnColor = if (isLight) ElectricCyan else MaterialTheme.colorScheme.primary
+                    val secondaryBtnColor = if (isLight) Color(0xFFA855F7) else MaterialTheme.colorScheme.secondary
 
                     OutlinedButton(
                         onClick = onAddChargeClick,
+                        border = null,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = if (isLight) 0.9f else 0.75f))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        primaryBtnColor.copy(alpha = 0.25f),
+                                        secondaryBtnColor.copy(alpha = 0.20f)
+                                    )
+                                )
+                            )
                             .border(
-                                width = 1.2.dp,
+                                width = 1.4.dp,
                                 brush = Brush.linearGradient(
                                     listOf(
-                                        primaryBtnColor.copy(alpha = 0.8f),
-                                        if (isLight) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.35f),
-                                        secondaryBtnColor.copy(alpha = 0.6f)
+                                        primaryBtnColor,
+                                        secondaryBtnColor
                                     )
                                 ),
                                 shape = RoundedCornerShape(18.dp)
@@ -927,20 +966,15 @@ fun HomeScreen(
                                 onAddChargeClick()
                             }
                         },
+                        border = null,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
+                            .background(BatteryGreen.copy(alpha = 0.25f))
                             .border(
-                                width = 1.2.dp,
-                                brush = Brush.linearGradient(
-                                    listOf(
-                                        BatteryGreen.copy(alpha = 0.7f),
-                                        Color.White.copy(alpha = 0.3f),
-                                        BatteryGreen.copy(alpha = 0.4f)
-                                    )
-                                ),
+                                width = 1.4.dp,
+                                color = BatteryGreen,
                                 shape = RoundedCornerShape(18.dp)
                             )
                             .testTag("quick_home_charge_button"),
@@ -970,20 +1004,15 @@ fun HomeScreen(
                     // Button 3: "Бортовой журнал • Добавить расход" (Sleek dark glass with soft blue border)
                     OutlinedButton(
                         onClick = { showAddExpenseDialog = true },
+                        border = null,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
+                            .background(SoftBlue.copy(alpha = 0.22f))
                             .border(
-                                width = 1.2.dp,
-                                brush = Brush.linearGradient(
-                                    listOf(
-                                        SoftBlue.copy(alpha = 0.7f),
-                                        Color.White.copy(alpha = 0.3f),
-                                        ElectricCyan.copy(alpha = 0.4f)
-                                    )
-                                ),
+                                width = 1.4.dp,
+                                color = SoftBlue,
                                 shape = RoundedCornerShape(18.dp)
                             )
                             .testTag("add_expense_button"),
@@ -1073,9 +1102,9 @@ fun HomeScreen(
                         RecentSessionCard(
                             session = latest,
                             currency = currency,
-                            onClick = { editingSession = latest },
-                            onEditClick = { editingSession = latest },
-                            onShareClick = { sessionToShare = latest }
+                            onClick = { editingSessionId = latest.id },
+                            onEditClick = { editingSessionId = latest.id },
+                            onShareClick = { sessionToShareId = latest.id }
                         )
                     }
                 }
@@ -1130,12 +1159,17 @@ fun HomeScreen(
         val estPrice = effectiveTariff.pricePerKwh
         val estCost = neededKwh * estPrice
 
+        val isLightHomeCharge = LocalCurrentTheme.current == "light"
         AlertDialog(
             onDismissRequest = { /* Do not auto-dismiss on outside tap so user's data is never lost */ },
             properties = DialogProperties(
                 dismissOnBackPress = true,
                 dismissOnClickOutside = false
             ),
+            modifier = if (isLightHomeCharge) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+            shape = RoundedCornerShape(26.dp),
+            tonalElevation = 0.dp,
+            containerColor = if (isLightHomeCharge) Color.White else MaterialTheme.colorScheme.surface,
             icon = { Icon(Icons.Default.Home, contentDescription = null, tint = BatteryGreen, modifier = Modifier.size(28.dp)) },
             title = {
                 Text(
@@ -1233,19 +1267,18 @@ fun HomeScreen(
                             onValueChange = { homeChargeOdoText = it },
                             label = { Text("Пробег (км)") },
                             placeholder = { Text(if (latestEffectiveOdometer > 0) latestEffectiveOdometer.toInt().toString() else "0") },
-                            supportingText = {
-                                if (latestEffectiveOdometer > 0) {
-                                    Text(
-                                        text = "Посл.: ${latestEffectiveOdometer.toInt()} км",
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1.1f).testTag("home_charge_odometer_input"),
                             shape = RoundedCornerShape(14.dp)
+                        )
+                    }
+
+                    if (latestEffectiveOdometer > 0) {
+                        Text(
+                            text = "Предыдущий пробег: ${latestEffectiveOdometer.toInt()} км",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -1255,31 +1288,35 @@ fun HomeScreen(
                         onValueChange = { homeChargeMeterText = it },
                         label = { Text("Показания счётчика (кВт·ч)") },
                         placeholder = { Text("необязательно") },
-                        supportingText = {
-                            if (appSettings?.homeLastMeterKwh != null && appSettings.homeLastMeterKwh > 0) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().clickable {
-                                        homeChargeMeterText = String.format(Locale.US, "%.1f", appSettings.homeLastMeterKwh)
-                                    },
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Предыдущее: ${String.format(Locale.US, "%.1f", appSettings.homeLastMeterKwh)} кВт·ч (нажмите для сброса)",
-                                        fontSize = 10.sp,
-                                        color = ElectricCyan
-                                    )
-                                }
-                            }
-                        },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth().testTag("home_charge_meter_input"),
                         shape = RoundedCornerShape(14.dp)
                     )
 
-                    VoltCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(8.dp)) {
+                    if (appSettings?.homeLastMeterKwh != null && appSettings.homeLastMeterKwh > 0) {
+                        Text(
+                            text = "Предыдущее: ${String.format(Locale.US, "%.1f", appSettings.homeLastMeterKwh)} кВт·ч (нажмите для ввода)",
+                            fontSize = 11.sp,
+                            color = ElectricCyan,
+                            modifier = Modifier.clickable {
+                                homeChargeMeterText = String.format(Locale.US, "%.1f", appSettings.homeLastMeterKwh)
+                            }
+                        )
+                    }
+
+                    val isLight = LocalCurrentTheme.current == "light"
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (isLight) Color(0xFFF8FAFC) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                            )
+                            .padding(12.dp)
+                    ) {
+                        Column {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -1335,6 +1372,7 @@ fun HomeScreen(
                             parsedOdo
                         )
                         showHomeChargeDialog = false
+                        homeChargeInitialized = false
                         homeChargeSocText = ""
                         homeChargeOdoText = ""
                         homeChargeMeterText = ""
@@ -1348,6 +1386,7 @@ fun HomeScreen(
             dismissButton = {
                 TextButton(onClick = {
                     showHomeChargeDialog = false
+                    homeChargeInitialized = false
                     homeChargeSocText = ""
                     homeChargeOdoText = ""
                     homeChargeMeterText = ""
@@ -1361,7 +1400,15 @@ fun HomeScreen(
     // Dialog when Home Charging is not yet configured by the user
     if (showHomeNotConfiguredDialog) {
         AlertDialog(
-            onDismissRequest = { showHomeNotConfiguredDialog = false },
+            onDismissRequest = { /* user explicitly dismisses via buttons */ },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            ),
+            modifier = if (isLightHomeCharge) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+            shape = RoundedCornerShape(26.dp),
+            tonalElevation = 0.dp,
+            containerColor = if (isLightHomeCharge) Color.White else MaterialTheme.colorScheme.surface,
             icon = { Icon(Icons.Default.Settings, contentDescription = null, tint = SoftBlue, modifier = Modifier.size(28.dp)) },
             title = {
                 Text(
@@ -1408,18 +1455,18 @@ fun HomeScreen(
         EditChargingSessionDialog(
             session = s,
             currency = currency,
-            onDismiss = { editingSession = null },
+            onDismiss = { editingSessionId = null },
             onSave = { updated ->
                 onUpdateSession?.invoke(updated)
-                editingSession = null
+                editingSessionId = null
             },
             onDelete = { toDelete ->
-                editingSession = null
-                sessionToDelete = toDelete
+                editingSessionId = null
+                sessionToDeleteId = toDelete.id
             },
             onShare = { toShare ->
-                editingSession = null
-                sessionToShare = toShare
+                editingSessionId = null
+                sessionToShareId = toShare.id
             }
         )
     }
@@ -1430,7 +1477,7 @@ fun HomeScreen(
             session = sessionToShare!!,
             car = activeCar,
             currency = currency,
-            onDismiss = { sessionToShare = null }
+            onDismiss = { sessionToShareId = null }
         )
     }
 
@@ -1438,7 +1485,15 @@ fun HomeScreen(
     if (sessionToDelete != null) {
         val s = sessionToDelete!!
         AlertDialog(
-            onDismissRequest = { sessionToDelete = null },
+            onDismissRequest = { sessionToDeleteId = null },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            ),
+            modifier = if (isLightHomeCharge) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+            shape = RoundedCornerShape(26.dp),
+            tonalElevation = 0.dp,
+            containerColor = if (isLightHomeCharge) Color.White else MaterialTheme.colorScheme.surface,
             icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = { Text("Удалить эту зарядку?") },
             text = {
@@ -1448,7 +1503,7 @@ fun HomeScreen(
                 Button(
                     onClick = {
                         onDeleteSession?.invoke(s)
-                        sessionToDelete = null
+                        sessionToDeleteId = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -1456,7 +1511,7 @@ fun HomeScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { sessionToDelete = null }) {
+                TextButton(onClick = { sessionToDeleteId = null }) {
                     Text(strings.cancel)
                 }
             }
@@ -1513,6 +1568,8 @@ fun RecentSessionCard(
         else -> Color(0xFF38BDF8) // Light Blue AC
     }
 
+    val isLight = LocalCurrentTheme.current == "light"
+
     VoltCard(
         modifier = modifier.fillMaxWidth(),
         onClick = onClick
@@ -1530,8 +1587,10 @@ fun RecentSessionCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(badgeColor.copy(alpha = 0.2f))
-                            .border(1.dp, badgeColor, RoundedCornerShape(8.dp))
+                            .background(badgeColor.copy(alpha = if (isLight) 0.15f else 0.2f))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, badgeColor, RoundedCornerShape(8.dp))
+                            )
                             .padding(horizontal = 7.dp, vertical = 2.dp)
                     ) {
                         Text(
@@ -1600,12 +1659,23 @@ fun RecentSessionCard(
 
             if (!session.operatorComment.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
-                TagBadge(name = session.operatorComment, color = 0xFF38BDF8)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 1.dp)
+                ) {
+                    Text(
+                        text = "💬 ${session.operatorComment}",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // Action Buttons Row: Postcard & Edit
+            // Action Buttons Row: Postcard & Edit (Tight and clean without extra bottom padding)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
@@ -1613,34 +1683,34 @@ fun RecentSessionCard(
             ) {
                 TextButton(
                     onClick = { onShareClick?.invoke() ?: onClick?.invoke() },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Share,
                         contentDescription = "Открытка",
                         tint = ElectricCyan,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Открытка", fontSize = 12.sp, color = ElectricCyan, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text("Открытка", fontSize = 11.sp, color = ElectricCyan, fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.width(4.dp))
 
                 TextButton(
                     onClick = { onEditClick?.invoke() ?: onClick?.invoke() },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Редактировать",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Редактировать", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text("Редактировать", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

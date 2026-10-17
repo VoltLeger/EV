@@ -92,25 +92,26 @@ jobs:
             VERSION_TAG="${{ inputs.release_tag }}"
           fi
           if [ -z "$VERSION_TAG" ] || [ "$VERSION_TAG" = "main" ] || [ "$VERSION_TAG" = "master" ]; then
-            VERSION_TAG="v2.4.1"
+            VERSION_TAG="v2.5.6"
           fi
           cp app/build/outputs/apk/debug/app-debug.apk release-artifacts/VoltLedger-${VERSION_TAG}.apk
           ls -la release-artifacts/
 
       - name: Upload Debug APK as Workflow Artifact
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: VoltLedger-apk
           path: release-artifacts/*.apk
-          retention-days: 30
+          retention-days: 14
 
       - name: Publish or Update GitHub Release
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.create_release == true)
+        if: always() && (startsWith(github.ref, 'refs/tags/') || github.event_name == 'release' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.create_release == true))
         uses: softprops/action-gh-release@v2
         with:
           files: release-artifacts/*.apk
-          name: ${{ github.event_name == 'release' && github.event.release.name || (startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.release_tag) }}
-          tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || (startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.release_tag) }}
+          name: VoltLedger ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || (github.event_name == 'release' && github.event.release.name) || inputs.release_tag || 'v2.5.6' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || (github.event_name == 'release' && github.event.release.tag_name) || inputs.release_tag || 'v2.5.6' }}
           draft: false
           prerelease: false
           generate_release_notes: true

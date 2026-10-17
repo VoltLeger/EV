@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
+import com.example.ui.theme.LocalCurrentTheme
 import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -86,6 +87,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -123,7 +125,7 @@ fun SettingsScreen(
     operators: List<Operator>,
     tags: List<Tag>,
     onSelectCar: (Long) -> Unit,
-    onAddCar: (String, Double, Double, Double, Double) -> Unit,
+    onAddCar: (String, Double, Double, Double, Double, String) -> Unit,
     onDeleteCar: (Car) -> Unit,
     onUpdateCar: (Car) -> Unit = {},
     onAddOperator: (Operator) -> Unit,
@@ -178,20 +180,27 @@ fun SettingsScreen(
     val strings = LocalAppStrings.current
     val currency = LocalCurrency.current
 
-    var showAddCarDialog by remember { mutableStateOf(false) }
-    var showAddOperatorDialog by remember { mutableStateOf(false) }
-    var editingOperator by remember { mutableStateOf<Operator?>(null) }
-    var operatorToDelete by remember { mutableStateOf<Operator?>(null) }
-    var showImportJsonDialog by remember { mutableStateOf(false) }
-    var importJsonText by remember { mutableStateOf("") }
+    var showAddCarDialog by rememberSaveable { mutableStateOf(false) }
+    var showAddOperatorDialog by rememberSaveable { mutableStateOf(false) }
+    var editingOperatorId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var operatorToDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
+
+    val editingOperator = remember(operators, editingOperatorId) {
+        operators.find { it.id == editingOperatorId }
+    }
+    val operatorToDelete = remember(operators, operatorToDeleteId) {
+        operators.find { it.id == operatorToDeleteId }
+    }
+    var showImportJsonDialog by rememberSaveable { mutableStateOf(false) }
+    var importJsonText by rememberSaveable { mutableStateOf("") }
     var pendingBackupContent by remember { mutableStateOf<String?>(null) }
     var pendingBackupData by remember { mutableStateOf<com.example.util.BackupData?>(null) }
-    var restoreReplaceMode by remember { mutableStateOf(true) }
+    var restoreReplaceMode by rememberSaveable { mutableStateOf(true) }
     var restoreResultMessage by remember { mutableStateOf<String?>(null) }
     var isRestoring by remember { mutableStateOf(false) }
-    var showEmailDialog by remember { mutableStateOf(false) }
+    var showEmailDialog by rememberSaveable { mutableStateOf(false) }
     var emailInput by remember(userProfile?.email) { mutableStateOf(userProfile?.email ?: "") }
-    var showPhoneTransferAdviceDialog by remember { mutableStateOf(false) }
+    var showPhoneTransferAdviceDialog by rememberSaveable { mutableStateOf(false) }
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(
@@ -236,6 +245,8 @@ fun SettingsScreen(
         }
     }
 
+    val isLight = LocalCurrentTheme.current == "light"
+
     LiquidGlassBackground(modifier = modifier) {
         Column(modifier = Modifier.fillMaxSize()) {
             val tabs = listOf(
@@ -251,7 +262,9 @@ fun SettingsScreen(
                     .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                    .then(
+                        if (isLight) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                    )
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -811,13 +824,13 @@ fun SettingsScreen(
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     IconButton(
-                                        onClick = { editingOperator = op },
+                                        onClick = { editingOperatorId = op.id },
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(Icons.Default.Edit, contentDescription = "Edit", tint = SoftBlue, modifier = Modifier.size(18.dp))
                                     }
                                     IconButton(
-                                        onClick = { operatorToDelete = op },
+                                        onClick = { operatorToDeleteId = op.id },
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
@@ -908,13 +921,13 @@ fun SettingsScreen(
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     IconButton(
-                                        onClick = { editingOperator = op },
+                                        onClick = { editingOperatorId = op.id },
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(Icons.Default.Edit, contentDescription = "Edit", tint = SoftBlue, modifier = Modifier.size(18.dp))
                                     }
                                     IconButton(
-                                        onClick = { operatorToDelete = op },
+                                        onClick = { operatorToDeleteId = op.id },
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
@@ -1208,7 +1221,9 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(ElectricCyan.copy(alpha = 0.08f))
-                            .border(1.dp, ElectricCyan.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, ElectricCyan.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                            )
                             .padding(10.dp)
                     ) {
                         Column {
@@ -1531,7 +1546,9 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
                             .background(ElectricCyan.copy(alpha = 0.08f))
-                            .border(1.dp, ElectricCyan.copy(alpha = 0.28f), RoundedCornerShape(14.dp))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, ElectricCyan.copy(alpha = 0.28f), RoundedCornerShape(14.dp))
+                            )
                             .padding(14.dp)
                     ) {
                         Column {
@@ -1608,7 +1625,9 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
                             .background(if (hasEmail) BatteryGreen.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                            .border(1.dp, if (hasEmail) BatteryGreen.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, if (hasEmail) BatteryGreen.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+                            )
                             .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -1708,7 +1727,9 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
+                            )
                             .padding(14.dp)
                     ) {
                         Column {
@@ -1732,7 +1753,9 @@ fun SettingsScreen(
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(SoftBlue.copy(alpha = 0.15f))
-                                        .border(1.dp, SoftBlue.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                                        .then(
+                                            if (isLight) Modifier else Modifier.border(1.dp, SoftBlue.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                                        )
                                         .padding(10.dp)
                                 ) {
                                     Column {
@@ -1857,7 +1880,9 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                            )
                             .padding(12.dp)
                     ) {
                         Column {
@@ -2036,14 +2061,23 @@ fun SettingsScreen(
 
     // Dialog: Add Car
     if (showAddCarDialog) {
-        var newName by remember { mutableStateOf("") }
-        var newCapacity by remember { mutableStateOf("60.0") }
-        var newOdo by remember { mutableStateOf("0") }
-        var newSoc by remember { mutableStateOf("50") }
-        var newPassportConsumption by remember { mutableStateOf("16.0") }
+        var newName by rememberSaveable { mutableStateOf("") }
+        var newCapacity by rememberSaveable { mutableStateOf("60.0") }
+        var newOdo by rememberSaveable { mutableStateOf("0") }
+        var newSoc by rememberSaveable { mutableStateOf("50") }
+        var newPassportConsumption by rememberSaveable { mutableStateOf("16.0") }
+        var selectedCarCurrency by rememberSaveable { mutableStateOf(currency) }
 
         AlertDialog(
             onDismissRequest = { showAddCarDialog = false },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            ),
+            modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+            shape = RoundedCornerShape(26.dp),
+            tonalElevation = 0.dp,
+            containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
             title = { Text(strings.addCar) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -2052,6 +2086,27 @@ fun SettingsScreen(
                     OutlinedTextField(value = newPassportConsumption, onValueChange = { newPassportConsumption = it }, label = { Text("Паспортный расход (кВт·ч/100 км)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
                     OutlinedTextField(value = newOdo, onValueChange = { newOdo = it }, label = { Text(strings.initialOdometer) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
                     OutlinedTextField(value = newSoc, onValueChange = { newSoc = it }, label = { Text(strings.currentSoc) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text("Основная валюта расчёта:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf("BYN", "RUB", "USD", "EUR", "PLN", "KZT").forEach { curr ->
+                            val isSelected = selectedCarCurrency == curr
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedCarCurrency = curr },
+                                label = { Text(curr, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = ElectricCyan,
+                                    selectedLabelColor = Color.Black
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -2061,7 +2116,7 @@ fun SettingsScreen(
                     val soc = newSoc.toDoubleOrNull() ?: 50.0
                     val passport = newPassportConsumption.toDoubleOrNull() ?: 16.0
                     if (newName.isNotBlank()) {
-                        onAddCar(newName.trim(), cap, odo, soc, passport)
+                        onAddCar(newName.trim(), cap, odo, soc, passport, selectedCarCurrency)
                         showAddCarDialog = false
                     }
                 }) { Text(strings.save) }
@@ -2076,34 +2131,42 @@ fun SettingsScreen(
     if (showAddOperatorDialog || editingOperator != null) {
         val isEditing = editingOperator != null
         val target = editingOperator
-        var opName by remember { mutableStateOf(target?.name ?: "") }
-        var opType by remember { mutableStateOf(target?.type ?: "AC") }
-        var opSubType by remember { mutableStateOf(target?.subType ?: "") }
-        var opPrice by remember {
+        var opName by rememberSaveable(target?.id) { mutableStateOf(target?.name ?: "") }
+        var opType by rememberSaveable(target?.id) { mutableStateOf(target?.type ?: "AC") }
+        var opSubType by rememberSaveable(target?.id) { mutableStateOf(target?.subType ?: "") }
+        var opPrice by rememberSaveable(target?.id) {
             mutableStateOf(
                 if (target != null) {
                     if (target.type.equals("DC", true)) target.priceDc.toString() else target.priceAc.toString()
                 } else "0.36"
             )
         }
-        var opNightPrice by remember {
+        var opNightPrice by rememberSaveable(target?.id) {
             mutableStateOf(
                 if (target != null) {
                     (if (target.type.equals("DC", true)) target.nightPriceDc else target.nightPriceAc)?.toString() ?: ""
                 } else ""
             )
         }
-        var opNightStart by remember { mutableStateOf(target?.nightStartHour?.toString() ?: "23") }
-        var opNightEnd by remember { mutableStateOf(target?.nightEndHour?.toString() ?: "6") }
-        var opPenaltyPerMin by remember { mutableStateOf(target?.penaltyIdlePerMin?.toString() ?: "0.00") }
-        var opPenaltyFreeMin by remember { mutableStateOf(target?.penaltyFreeMinutes?.toString() ?: "0") }
-        var opComment by remember { mutableStateOf(target?.comment ?: "") }
+        var opNightStart by rememberSaveable(target?.id) { mutableStateOf(target?.nightStartHour?.toString() ?: "23") }
+        var opNightEnd by rememberSaveable(target?.id) { mutableStateOf(target?.nightEndHour?.toString() ?: "6") }
+        var opPenaltyPerMin by rememberSaveable(target?.id) { mutableStateOf(target?.penaltyIdlePerMin?.toString() ?: "0.00") }
+        var opPenaltyFreeMin by rememberSaveable(target?.id) { mutableStateOf(target?.penaltyFreeMinutes?.toString() ?: "0") }
+        var opComment by rememberSaveable(target?.id) { mutableStateOf(target?.comment ?: "") }
 
         AlertDialog(
             onDismissRequest = {
                 showAddOperatorDialog = false
-                editingOperator = null
+                editingOperatorId = null
             },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            ),
+            modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+            shape = RoundedCornerShape(26.dp),
+            tonalElevation = 0.dp,
+            containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
             title = { Text(if (isEditing) "Редактировать оператора" else strings.addOperator) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -2206,7 +2269,7 @@ fun SettingsScreen(
                             )
                         }
                         showAddOperatorDialog = false
-                        editingOperator = null
+                        editingOperatorId = null
                     }
                 }) { Text(strings.save) }
             },
@@ -2217,8 +2280,8 @@ fun SettingsScreen(
                             onClick = {
                                 val toDelete = target
                                 showAddOperatorDialog = false
-                                editingOperator = null
-                                operatorToDelete = toDelete
+                                editingOperatorId = null
+                                operatorToDeleteId = toDelete.id
                             },
                             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) {
@@ -2229,7 +2292,7 @@ fun SettingsScreen(
                     }
                     TextButton(onClick = {
                         showAddOperatorDialog = false
-                        editingOperator = null
+                        editingOperatorId = null
                     }) { Text(strings.cancel) }
                 }
             }
@@ -2240,7 +2303,15 @@ fun SettingsScreen(
     if (operatorToDelete != null) {
         val op = operatorToDelete!!
         AlertDialog(
-            onDismissRequest = { operatorToDelete = null },
+            onDismissRequest = { operatorToDeleteId = null },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            ),
+            modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+            shape = RoundedCornerShape(26.dp),
+            tonalElevation = 0.dp,
+            containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
             icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = { Text("Удалить оператора?") },
             text = {
@@ -2250,7 +2321,7 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         onDeleteOperator(op)
-                        operatorToDelete = null
+                        operatorToDeleteId = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -2258,7 +2329,7 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { operatorToDelete = null }) {
+                TextButton(onClick = { operatorToDeleteId = null }) {
                     Text(strings.cancel)
                 }
             }
@@ -2269,6 +2340,14 @@ fun SettingsScreen(
     if (showImportJsonDialog) {
         AlertDialog(
             onDismissRequest = { showImportJsonDialog = false },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            ),
+            modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+            shape = RoundedCornerShape(26.dp),
+            tonalElevation = 0.dp,
+            containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
             title = { Text(strings.importData) },
             text = {
                 Column {
@@ -2313,6 +2392,10 @@ fun SettingsScreen(
                     pendingBackupContent = null
                 }
             },
+            modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+            shape = RoundedCornerShape(26.dp),
+            tonalElevation = 0.dp,
+            containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CloudDownload, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(22.dp))
@@ -2334,7 +2417,9 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
                             .background(ElectricCyan.copy(alpha = 0.08f))
-                            .border(1.dp, ElectricCyan.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, ElectricCyan.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+                            )
                             .padding(10.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
@@ -2366,7 +2451,9 @@ fun SettingsScreen(
                             .clip(RoundedCornerShape(10.dp))
                             .clickable { restoreReplaceMode = true }
                             .background(if (restoreReplaceMode) ElectricCyan.copy(alpha = 0.12f) else Color.Transparent)
-                            .border(1.dp, if (restoreReplaceMode) ElectricCyan else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, if (restoreReplaceMode) ElectricCyan else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                            )
                             .padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -2389,7 +2476,9 @@ fun SettingsScreen(
                             .clip(RoundedCornerShape(10.dp))
                             .clickable { restoreReplaceMode = false }
                             .background(if (!restoreReplaceMode) ElectricCyan.copy(alpha = 0.12f) else Color.Transparent)
-                            .border(1.dp, if (!restoreReplaceMode) ElectricCyan else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, if (!restoreReplaceMode) ElectricCyan else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                            )
                             .padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -2460,6 +2549,10 @@ fun SettingsScreen(
     if (restoreResultMessage != null) {
         AlertDialog(
             onDismissRequest = { restoreResultMessage = null },
+            modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+            shape = RoundedCornerShape(26.dp),
+            tonalElevation = 0.dp,
+            containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
             title = { Text("Восстановление данных") },
             text = { Text(restoreResultMessage ?: "") },
             confirmButton = {
@@ -2474,6 +2567,14 @@ fun SettingsScreen(
     if (showEmailDialog) {
         AlertDialog(
             onDismissRequest = { showEmailDialog = false },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            ),
+            modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+            shape = RoundedCornerShape(26.dp),
+            tonalElevation = 0.dp,
+            containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
             title = { Text("Привязка E-mail") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2489,6 +2590,7 @@ fun SettingsScreen(
                         placeholder = { Text("pilot@example.com") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -2513,12 +2615,18 @@ fun SettingsScreen(
         )
     }
 
-
-
     // Dialog: Phone Transfer Recommendations
     if (showPhoneTransferAdviceDialog) {
         AlertDialog(
             onDismissRequest = { showPhoneTransferAdviceDialog = false },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            ),
+            modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+            shape = RoundedCornerShape(26.dp),
+            tonalElevation = 0.dp,
+            containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.PhoneAndroid, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(24.dp))
@@ -2543,7 +2651,9 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(ElectricCyan.copy(alpha = 0.1f))
-                            .border(1.dp, ElectricCyan.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, ElectricCyan.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                            )
                             .padding(10.dp)
                     ) {
                         Column {
@@ -2563,7 +2673,9 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(BatteryGreen.copy(alpha = 0.1f))
-                            .border(1.dp, BatteryGreen.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, BatteryGreen.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                            )
                             .padding(10.dp)
                     ) {
                         Column {

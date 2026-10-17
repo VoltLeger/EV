@@ -58,6 +58,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -75,6 +76,7 @@ import com.example.ui.theme.BatteryGreen
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.LocalCurrency
+import com.example.ui.theme.LocalCurrentTheme
 import com.example.ui.theme.SoftBlue
 import com.example.util.EVCalculator
 import java.text.SimpleDateFormat
@@ -128,13 +130,13 @@ fun StartChargingScreen(
 
     // Default flag is DC
     var selectedStationType by rememberSaveable { mutableStateOf("DC") }
-    var selectedOperator by remember { mutableStateOf<Operator?>(null) }
+    var selectedOperatorId by rememberSaveable { mutableStateOf<Long?>(null) }
     var operatorMenuExpanded by remember { mutableStateOf(false) }
     var customOperatorName by rememberSaveable { mutableStateOf("") }
     var pricePerKwhText by rememberSaveable { mutableStateOf("0.55") }
     var nightTariffApplied by rememberSaveable { mutableStateOf(false) }
     var startTimestamp by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
-    var showTimeAdjustDialog by remember { mutableStateOf(false) }
+    var showTimeAdjustDialog by rememberSaveable { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
 
     // Filter out Home charging stations from the public AC/DC list
@@ -145,15 +147,12 @@ fun StartChargingScreen(
         }
     }
 
-    // Initialize or reset selected operator when station type changes, only if not yet set or invalid
-    LaunchedEffect(filteredOperators.map { it.id }, selectedStationType) {
-        if (filteredOperators.isNotEmpty()) {
-            if (selectedOperator == null || filteredOperators.none { it.id == selectedOperator?.id }) {
-                selectedOperator = filteredOperators.first()
-            }
-        } else {
-            selectedOperator = null
-        }
+    // Resolve current selectedOperator from id, preserving selection across configuration changes
+    val selectedOperator = remember(operators, filteredOperators, selectedOperatorId) {
+        filteredOperators.firstOrNull { it.id == selectedOperatorId }
+            ?: operators.firstOrNull { it.id == selectedOperatorId }
+            ?: filteredOperators.firstOrNull()
+            ?: operators.firstOrNull()
     }
 
     // Update price when operator, station type, or manual tariff selection changes
@@ -175,8 +174,16 @@ fun StartChargingScreen(
         pricePerKwhText = String.format(Locale.US, "%.2f", price)
     }
 
-    LaunchedEffect(selectedOperator, selectedStationType) {
-        if (!userEditedPrice) {
+    // Initialize selectedOperatorId once when operators list loads, preserving user's selection across rotation and recomposition
+    LaunchedEffect(filteredOperators.map { it.id }) {
+        if (filteredOperators.isNotEmpty() && selectedOperatorId == null) {
+            selectedOperatorId = filteredOperators.first().id
+        }
+    }
+
+    // Recalculate price ONLY if user hasn't typed a custom price
+    LaunchedEffect(selectedOperator?.id, selectedStationType) {
+        if (!userEditedPrice && selectedOperator != null) {
             recalculatePrice(selectedOperator, selectedStationType, applyNight = nightTariffApplied)
         }
     }
@@ -250,21 +257,21 @@ fun StartChargingScreen(
                         },
                         label = { Text(strings.startOdometer) },
                         placeholder = { Text(if (prevOdometer > 0) prevOdometer.toInt().toString() else "0") },
-                        supportingText = {
-                            if (prevOdometer > 0) {
-                                Text(
-                                    text = "Предыдущий пробег: ${prevOdometer.toInt()} км",
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
                             .weight(1.1f)
                             .testTag("start_odometer_input"),
                         shape = RoundedCornerShape(14.dp)
+                    )
+                }
+
+                if (prevOdometer > 0) {
+                    Text(
+                        text = "Предыдущий пробег: ${prevOdometer.toInt()} км",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp, top = 2.dp)
                     )
                 }
 
@@ -314,11 +321,12 @@ fun StartChargingScreen(
                 Box(modifier = Modifier.fillMaxWidth()) {
                     val isDcOp = selectedStationType == "DC"
                     val tagColor = if (isDcOp) Color(0xFFC084FC) else Color(0xFF38BDF8)
+                    val isLight = LocalCurrentTheme.current == "light"
 
                     VoltCard(
                         onClick = { operatorMenuExpanded = true },
                         modifier = Modifier.fillMaxWidth(),
-                        borderColor = if (nightTariffApplied) Color.White else tagColor.copy(alpha = 0.5f)
+                        borderColor = if (nightTariffApplied) (if (isLight) ElectricCyan else Color.White) else tagColor.copy(alpha = 0.5f)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -333,11 +341,13 @@ fun StartChargingScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(tagColor.copy(alpha = 0.25f))
-                                        .border(
-                                            width = if (nightTariffApplied) 1.5.dp else 1.dp,
-                                            color = if (nightTariffApplied) Color.White else tagColor,
-                                            shape = RoundedCornerShape(8.dp)
+                                        .background(tagColor.copy(alpha = if (isLight) 0.15f else 0.25f))
+                                        .then(
+                                            if (isLight) Modifier else Modifier.border(
+                                                width = if (nightTariffApplied) 1.5.dp else 1.dp,
+                                                color = if (nightTariffApplied) Color.White else tagColor,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
                                         )
                                         .padding(horizontal = 7.dp, vertical = 3.dp)
                                 ) {
@@ -345,7 +355,7 @@ fun StartChargingScreen(
                                         text = selectedStationType,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (nightTariffApplied) Color.White else tagColor
+                                        color = if (nightTariffApplied && !isLight) Color.White else tagColor
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(10.dp))
@@ -436,14 +446,14 @@ fun StartChargingScreen(
                                     }
                                 },
                                 onClick = {
-                                    selectedOperator = op
+                                    selectedOperatorId = op.id
                                     userEditedPrice = false
                                     recalculatePrice(op, selectedStationType, applyNight = false)
                                     operatorMenuExpanded = false
                                 }
                             )
 
-                            // Night tariff option with extra white border / badge if operator supports night tariff
+                            // Night tariff option with theme-aware border / badge
                             if (nightPrice != null) {
                                 DropdownMenuItem(
                                     text = {
@@ -451,8 +461,10 @@ fun StartChargingScreen(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .background(Color.White.copy(alpha = 0.08f))
-                                                .border(1.5.dp, Color.White, RoundedCornerShape(8.dp))
+                                                .background(if (isLight) ElectricCyan.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.08f))
+                                                .then(
+                                                    if (isLight) Modifier else Modifier.border(1.dp, Color.White, RoundedCornerShape(8.dp))
+                                                )
                                                 .padding(horizontal = 8.dp, vertical = 6.dp)
                                         ) {
                                             Row(
@@ -468,26 +480,26 @@ fun StartChargingScreen(
                                                             text = "${op.name} • Ночной тариф",
                                                             fontWeight = FontWeight.Bold,
                                                             fontSize = 13.sp,
-                                                            color = Color.White
+                                                            color = if (isLight) MaterialTheme.colorScheme.onSurface else Color.White
                                                         )
                                                         Text(
                                                             text = "Льготный период (${op.nightStartHour}:00 - ${op.nightEndHour}:00)",
                                                             fontSize = 10.sp,
-                                                            color = Color.White.copy(alpha = 0.75f)
+                                                            color = if (isLight) MaterialTheme.colorScheme.onSurfaceVariant else Color.White.copy(alpha = 0.75f)
                                                         )
                                                     }
                                                 }
                                                 Text(
                                                     text = "${String.format(Locale.US, "%.2f", nightPrice)} $currency",
                                                     fontSize = 13.sp,
-                                                    color = Color.White,
+                                                    color = if (isLight) ElectricCyan else Color.White,
                                                     fontWeight = FontWeight.ExtraBold
                                                 )
                                             }
                                         }
                                     },
                                     onClick = {
-                                        selectedOperator = op
+                                        selectedOperatorId = op.id
                                         userEditedPrice = false
                                         recalculatePrice(op, selectedStationType, applyNight = true)
                                         operatorMenuExpanded = false
@@ -661,6 +673,8 @@ fun StartChargingScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                val isLight = LocalCurrentTheme.current == "light"
+
                 // Launch Charging Button
                 Button(
                     onClick = {
@@ -690,12 +704,14 @@ fun StartChargingScreen(
                                 listOf(ElectricCyan, SoftBlue)
                             )
                         )
-                        .border(
-                            width = 1.2.dp,
-                            brush = Brush.linearGradient(
-                                listOf(Color.White.copy(alpha = 0.65f), Color.White.copy(alpha = 0.15f))
-                            ),
-                            shape = RoundedCornerShape(18.dp)
+                        .then(
+                            if (isLight) Modifier else Modifier.border(
+                                width = 1.2.dp,
+                                brush = Brush.linearGradient(
+                                    listOf(Color.White.copy(alpha = 0.65f), Color.White.copy(alpha = 0.15f))
+                                ),
+                                shape = RoundedCornerShape(18.dp)
+                            )
                         )
                         .testTag("launch_charging_button"),
                     shape = RoundedCornerShape(18.dp),
@@ -722,11 +738,15 @@ fun StartChargingScreen(
     if (showTimeAdjustDialog) {
         val sdfDate = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
         val sdfTime = remember { SimpleDateFormat("HH:mm", Locale.US) }
-        var dateStr by remember { mutableStateOf(sdfDate.format(Date(startTimestamp))) }
-        var timeStr by remember { mutableStateOf(sdfTime.format(Date(startTimestamp))) }
+        var dateStr by rememberSaveable { mutableStateOf(sdfDate.format(Date(startTimestamp))) }
+        var timeStr by rememberSaveable { mutableStateOf(sdfTime.format(Date(startTimestamp))) }
 
         AlertDialog(
-            onDismissRequest = { showTimeAdjustDialog = false },
+            onDismissRequest = { /* user explicitly closes dialog via cancel or done */ },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            ),
             icon = { Icon(Icons.Default.CalendarToday, contentDescription = null, tint = ElectricCyan) },
             title = { Text("Установить время зарядки") },
             text = {

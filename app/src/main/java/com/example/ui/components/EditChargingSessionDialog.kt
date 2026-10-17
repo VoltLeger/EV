@@ -41,9 +41,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -55,6 +57,7 @@ import com.example.data.model.ChargingSession
 import com.example.ui.theme.BatteryGreen
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.LocalAppStrings
+import com.example.ui.theme.LocalCurrentTheme
 import com.example.ui.theme.SoftBlue
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -72,22 +75,22 @@ fun EditChargingSessionDialog(
     val strings = LocalAppStrings.current
 
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US) }
-    var editOperatorName by remember(session.id) { mutableStateOf(session.operatorName) }
-    var editStationType by remember(session.id) { mutableStateOf(session.stationType) }
-    var editStartSoc by remember(session.id) { mutableStateOf(session.startSoc.toInt().toString()) }
-    var editEndSoc by remember(session.id) { mutableStateOf(session.endSoc.toInt().toString()) }
-    var editKwh by remember(session.id) { mutableStateOf(String.format(Locale.US, "%.2f", session.kwhDeliveredByStation)) }
-    var editKwhReceived by remember(session.id) {
+    var editOperatorName by rememberSaveable(session.id) { mutableStateOf(session.operatorName) }
+    var editStationType by rememberSaveable(session.id) { mutableStateOf(session.stationType) }
+    var editStartSoc by rememberSaveable(session.id) { mutableStateOf(session.startSoc.toInt().toString()) }
+    var editEndSoc by rememberSaveable(session.id) { mutableStateOf(session.endSoc.toInt().toString()) }
+    var editKwh by rememberSaveable(session.id) { mutableStateOf(String.format(Locale.US, "%.2f", session.kwhDeliveredByStation)) }
+    var editKwhReceived by rememberSaveable(session.id) {
         mutableStateOf(session.kwhReceivedByCar?.let { String.format(Locale.US, "%.2f", it) } ?: "")
     }
-    var editPricePerKwh by remember(session.id) { mutableStateOf(String.format(Locale.US, "%.4f", session.pricePerKwh)) }
-    var editPenaltyCost by remember(session.id) { mutableStateOf(String.format(Locale.US, "%.2f", session.penaltyCost)) }
-    var editFixedAmount by remember(session.id) { mutableStateOf(String.format(Locale.US, "%.2f", session.fixedAmount)) }
-    var editCost by remember(session.id) { mutableStateOf(String.format(Locale.US, "%.2f", session.totalCost)) }
-    var editOdometer by remember(session.id) { mutableStateOf(session.startOdometer.toInt().toString()) }
-    var editComment by remember(session.id) { mutableStateOf(session.operatorComment ?: "") }
-    var editDateTimeText by remember(session.id) { mutableStateOf(dateFormat.format(Date(session.startTime))) }
-    var editCurrency by remember(session.id) { mutableStateOf(session.currency.ifBlank { currency }) }
+    var editPricePerKwh by rememberSaveable(session.id) { mutableStateOf(String.format(Locale.US, "%.4f", session.pricePerKwh)) }
+    var editPenaltyCost by rememberSaveable(session.id) { mutableStateOf(String.format(Locale.US, "%.2f", session.penaltyCost)) }
+    var editFixedAmount by rememberSaveable(session.id) { mutableStateOf(String.format(Locale.US, "%.2f", session.fixedAmount)) }
+    var editCost by rememberSaveable(session.id) { mutableStateOf(String.format(Locale.US, "%.2f", session.totalCost)) }
+    var editOdometer by rememberSaveable(session.id) { mutableStateOf(session.startOdometer.toInt().toString()) }
+    var editComment by rememberSaveable(session.id) { mutableStateOf(session.operatorComment ?: "") }
+    var editDateTimeText by rememberSaveable(session.id) { mutableStateOf(dateFormat.format(Date(session.startTime))) }
+    var editCurrency by rememberSaveable(session.id) { mutableStateOf(session.currency.ifBlank { currency }) }
 
     fun recalculateCost() {
         val kwh = editKwh.toDoubleOrNull() ?: 0.0
@@ -98,8 +101,18 @@ fun EditChargingSessionDialog(
         editCost = String.format(Locale.US, "%.2f", computed)
     }
 
+    val isLight = LocalCurrentTheme.current == "light"
+
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
+        ),
+        modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+        shape = RoundedCornerShape(26.dp),
+        tonalElevation = 0.dp,
+        containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -373,7 +386,6 @@ fun EditChargingSessionDialog(
                     Text(strings.cancel)
                 }
             }
-        },
-        shape = RoundedCornerShape(20.dp)
+        }
     )
 }

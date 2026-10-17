@@ -54,6 +54,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +68,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.example.data.model.Car
 import com.example.data.model.CarExpense
 import com.example.data.model.ChargingSession
@@ -82,6 +84,7 @@ import com.example.ui.theme.BatteryGreen
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.LocalCurrency
+import com.example.ui.theme.LocalCurrentTheme
 import com.example.ui.theme.SoftBlue
 import java.util.Locale
 
@@ -123,22 +126,38 @@ fun HistoryScreen(
     var showAllCarsSessions by remember { mutableStateOf(false) }
 
     // Charging session states
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedSort by remember { mutableStateOf(HistorySortOption.DATE_DESC) }
-    var editingSession by remember { mutableStateOf<ChargingSession?>(null) }
-    var sessionToDelete by remember { mutableStateOf<ChargingSession?>(null) }
-    var sessionToShare by remember { mutableStateOf<ChargingSession?>(null) }
+    var editingSessionId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var sessionToDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var sessionToShareId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     // Expenses states
-    var expenseSearchQuery by remember { mutableStateOf("") }
-    var selectedExpenseCategory by remember { mutableStateOf<String?>(null) }
-    var showAddExpenseDialog by remember { mutableStateOf(false) }
-    var editingExpense by remember { mutableStateOf<CarExpense?>(null) }
-    var expenseToDelete by remember { mutableStateOf<CarExpense?>(null) }
+    var expenseSearchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedExpenseCategory by rememberSaveable { mutableStateOf<String?>(null) }
+    var showAddExpenseDialog by rememberSaveable { mutableStateOf(false) }
+    var editingExpenseId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var expenseToDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     // Effective sessions to display
     val sourceSessions = remember(sessions, allSessions, showAllCarsSessions) {
         if (showAllCarsSessions) allSessions else sessions
+    }
+
+    val editingSession = remember(allSessions, sourceSessions, editingSessionId) {
+        allSessions.find { it.id == editingSessionId } ?: sourceSessions.find { it.id == editingSessionId }
+    }
+    val sessionToDelete = remember(allSessions, sourceSessions, sessionToDeleteId) {
+        allSessions.find { it.id == sessionToDeleteId } ?: sourceSessions.find { it.id == sessionToDeleteId }
+    }
+    val sessionToShare = remember(allSessions, sourceSessions, sessionToShareId) {
+        allSessions.find { it.id == sessionToShareId } ?: sourceSessions.find { it.id == sessionToShareId }
+    }
+    val editingExpense = remember(expenses, editingExpenseId) {
+        expenses.find { it.id == editingExpenseId }
+    }
+    val expenseToDelete = remember(expenses, expenseToDeleteId) {
+        expenses.find { it.id == expenseToDeleteId }
     }
 
     // Filter sessions
@@ -605,9 +624,9 @@ fun HistoryScreen(
                             HistorySessionItemCard(
                                 session = session,
                                 currency = currency,
-                                onClick = { editingSession = session },
-                                onEditClick = { editingSession = session },
-                                onShareClick = { sessionToShare = session }
+                                onClick = { editingSessionId = session.id },
+                                onEditClick = { editingSessionId = session.id },
+                                onShareClick = { sessionToShareId = session.id }
                             )
                         }
                     }
@@ -799,8 +818,8 @@ fun HistoryScreen(
                             HistoryExpenseItemCard(
                                 expense = expense,
                                 currency = currency,
-                                onEdit = { editingExpense = expense },
-                                onDelete = { expenseToDelete = expense }
+                                onEdit = { editingExpenseId = expense.id },
+                                onDelete = { expenseToDeleteId = expense.id }
                             )
                         }
                     }
@@ -817,18 +836,18 @@ fun HistoryScreen(
         EditChargingSessionDialog(
             session = s,
             currency = currency,
-            onDismiss = { editingSession = null },
+            onDismiss = { editingSessionId = null },
             onSave = { updated ->
                 onUpdateSession(updated)
-                editingSession = null
+                editingSessionId = null
             },
             onDelete = { toDelete ->
-                editingSession = null
-                sessionToDelete = toDelete
+                editingSessionId = null
+                sessionToDeleteId = toDelete.id
             },
             onShare = { toShare ->
-                editingSession = null
-                sessionToShare = toShare
+                editingSessionId = null
+                sessionToShareId = toShare.id
             }
         )
     }
@@ -837,7 +856,11 @@ fun HistoryScreen(
     if (sessionToDelete != null) {
         val s = sessionToDelete!!
         AlertDialog(
-            onDismissRequest = { sessionToDelete = null },
+            onDismissRequest = { sessionToDeleteId = null },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            ),
             icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = { Text("Удалить эту зарядку?") },
             text = {
@@ -847,7 +870,7 @@ fun HistoryScreen(
                 Button(
                     onClick = {
                         onDeleteSession(s)
-                        sessionToDelete = null
+                        sessionToDeleteId = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -855,7 +878,7 @@ fun HistoryScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { sessionToDelete = null }) {
+                TextButton(onClick = { sessionToDeleteId = null }) {
                     Text(strings.cancel)
                 }
             }
@@ -884,7 +907,7 @@ fun HistoryScreen(
             defaultOdometer = defaultOdometer,
             topCategories = topCategories,
             currency = currency,
-            onDismiss = { editingExpense = null },
+            onDismiss = { editingExpenseId = null },
             onSave = { category, amount, odometer, comment, expCurr ->
                 val updated = exp.copy(
                     category = category,
@@ -894,7 +917,7 @@ fun HistoryScreen(
                     currency = expCurr
                 )
                 onUpdateExpense?.invoke(updated)
-                editingExpense = null
+                editingExpenseId = null
             }
         )
     }
@@ -903,7 +926,11 @@ fun HistoryScreen(
     if (expenseToDelete != null) {
         val exp = expenseToDelete!!
         AlertDialog(
-            onDismissRequest = { expenseToDelete = null },
+            onDismissRequest = { expenseToDeleteId = null },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false
+            ),
             icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = { Text("Удалить этот расход?") },
             text = {
@@ -913,7 +940,7 @@ fun HistoryScreen(
                 Button(
                     onClick = {
                         onDeleteExpense?.invoke(exp)
-                        expenseToDelete = null
+                        expenseToDeleteId = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -921,7 +948,7 @@ fun HistoryScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { expenseToDelete = null }) {
+                TextButton(onClick = { expenseToDeleteId = null }) {
                     Text(strings.cancel)
                 }
             }
@@ -934,7 +961,7 @@ fun HistoryScreen(
             session = sessionToShare!!,
             car = activeCar,
             currency = currency,
-            onDismiss = { sessionToShare = null }
+            onDismiss = { sessionToShareId = null }
         )
     }
 }
@@ -956,11 +983,13 @@ fun HistorySessionItemCard(
         else -> Color(0xFF38BDF8) // Light Blue AC
     }
 
+    val isLight = LocalCurrentTheme.current == "light"
+
     VoltCard(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick() }
             .testTag("history_session_item_${session.id}"),
+        onClick = onClick,
         borderColor = badgeColor.copy(alpha = 0.35f)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -977,8 +1006,10 @@ fun HistorySessionItemCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(badgeColor.copy(alpha = 0.2f))
-                            .border(1.dp, badgeColor, RoundedCornerShape(8.dp))
+                            .background(badgeColor.copy(alpha = if (isLight) 0.15f else 0.2f))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, badgeColor, RoundedCornerShape(8.dp))
+                            )
                             .padding(horizontal = 7.dp, vertical = 3.dp)
                     ) {
                         Text(
@@ -1084,26 +1115,24 @@ fun HistorySessionItemCard(
             }
 
             if (!session.operatorComment.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(SoftBlue.copy(alpha = 0.15f))
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 1.dp)
                 ) {
                     Text(
-                        text = session.operatorComment,
+                        text = "💬 ${session.operatorComment}",
                         fontSize = 11.sp,
-                        color = SoftBlue,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // Action Buttons Row: Share Postcard & Edit Session
+            // Action Buttons Row: Share Postcard & Edit Session (Tight and clean)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
@@ -1111,34 +1140,34 @@ fun HistorySessionItemCard(
             ) {
                 TextButton(
                     onClick = { onShareClick?.invoke() ?: onClick() },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Share,
                         contentDescription = "Открытка",
                         tint = ElectricCyan,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Открытка", fontSize = 12.sp, color = ElectricCyan, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text("Открытка", fontSize = 11.sp, color = ElectricCyan, fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.width(4.dp))
 
                 TextButton(
                     onClick = { onEditClick?.invoke() ?: onClick() },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Редактировать",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Редактировать", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text("Редактировать", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -1154,12 +1183,13 @@ fun HistoryExpenseItemCard(
     modifier: Modifier = Modifier
 ) {
     val emoji = getCategoryEmoji(expense.category)
+    val isLight = LocalCurrentTheme.current == "light"
 
     VoltCard(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onEdit() }
             .testTag("history_expense_item_${expense.id}"),
+        onClick = onEdit,
         borderColor = SoftBlue.copy(alpha = 0.3f)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -1177,8 +1207,10 @@ fun HistoryExpenseItemCard(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(SoftBlue.copy(alpha = 0.15f))
-                            .border(1.dp, SoftBlue.copy(alpha = 0.3f), RoundedCornerShape(12.dp)),
+                            .background(SoftBlue.copy(alpha = if (isLight) 0.12f else 0.15f))
+                            .then(
+                                if (isLight) Modifier else Modifier.border(1.dp, SoftBlue.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(text = emoji, fontSize = 22.sp)

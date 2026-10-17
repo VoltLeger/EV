@@ -38,12 +38,15 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.example.ui.theme.LocalCurrentTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -85,27 +88,37 @@ fun AddEditExpenseDialog(
     onDismiss: () -> Unit,
     onSave: (category: String, amount: Double, odometer: Double?, comment: String?, currency: String) -> Unit
 ) {
-    var selectedCategory by remember {
+    var selectedCategory by rememberSaveable {
         mutableStateOf(initialExpense?.category ?: topCategories.firstOrNull() ?: "Мойка")
     }
     var showCategoryDropdown by remember { mutableStateOf(false) }
-    var selectedCurrency by remember { mutableStateOf(initialExpense?.currency ?: currency) }
-    var amountText by remember {
+    var selectedCurrency by rememberSaveable { mutableStateOf(initialExpense?.currency ?: currency) }
+    var amountText by rememberSaveable {
         mutableStateOf(if (initialExpense != null && initialExpense.amount > 0) String.format(Locale.US, "%.2f", initialExpense.amount) else "")
     }
-    var odometerText by remember {
+    var odometerText by rememberSaveable {
         val odo = initialExpense?.odometer ?: defaultOdometer
         mutableStateOf(if (odo != null && odo > 0) String.format(Locale.US, "%.0f", odo) else "")
     }
-    var commentText by remember {
+    var commentText by rememberSaveable {
         mutableStateOf(initialExpense?.comment ?: "")
     }
 
     val parsedAmount = amountText.replace(',', '.').toDoubleOrNull()
     val isFormValid = parsedAmount != null && parsedAmount > 0.0 && selectedCategory.isNotBlank()
 
+    val isLight = LocalCurrentTheme.current == "light"
+
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
+        ),
+        modifier = if (isLight) Modifier.border(1.dp, Color.Black, RoundedCornerShape(26.dp)) else Modifier,
+        shape = RoundedCornerShape(26.dp),
+        tonalElevation = 0.dp,
+        containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface,
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -315,7 +328,6 @@ fun AddEditExpenseDialog(
             ) {
                 Text(text = "Отмена")
             }
-        },
-        shape = RoundedCornerShape(24.dp)
+        }
     )
 }

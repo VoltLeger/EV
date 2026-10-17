@@ -83,6 +83,7 @@ import com.example.ui.components.VoltCard
 import com.example.ui.theme.BatteryGreen
 import com.example.ui.theme.BatteryOrange
 import com.example.ui.theme.ElectricCyan
+import com.example.ui.theme.LocalCurrentTheme
 import com.example.ui.theme.SoftBlue
 import com.example.ui.viewmodel.VoltViewModel
 import java.util.Locale
@@ -102,6 +103,8 @@ fun ProfileAwardsDialog(
     var isEditingName by remember { mutableStateOf(false) }
     var tempName by remember(profile.displayName) { mutableStateOf(profile.displayName) }
 
+    val isLight = LocalCurrentTheme.current == "light"
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -110,9 +113,15 @@ fun ProfileAwardsDialog(
             modifier = Modifier
                 .fillMaxWidth(0.94f)
                 .fillMaxHeight(0.90f)
-                .clip(RoundedCornerShape(24.dp)),
-            color = Color(0xFF0F172A),
-            tonalElevation = 8.dp
+                .clip(RoundedCornerShape(24.dp))
+                .border(
+                    1.dp,
+                    if (isLight) Color.Black else Color.White.copy(alpha = 0.15f),
+                    RoundedCornerShape(24.dp)
+                ),
+            shape = RoundedCornerShape(24.dp),
+            color = if (isLight) Color.White else Color(0xFF0F172A),
+            tonalElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier
@@ -473,13 +482,19 @@ fun ProfileAwardsDialog(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(12.dp))
                                             .background(
-                                                if (isSelected) ElectricCyan.copy(alpha = 0.2f)
-                                                else Color.White.copy(alpha = 0.05f)
+                                                if (isSelected) ElectricCyan.copy(alpha = if (isLight) 0.18f else 0.2f)
+                                                else if (isLight) Color(0xFFF1F5F9) else Color.White.copy(alpha = 0.05f)
                                             )
-                                            .border(
-                                                width = if (isSelected) 1.5.dp else 1.dp,
-                                                color = if (isSelected) ElectricCyan else Color.White.copy(alpha = 0.1f),
-                                                shape = RoundedCornerShape(12.dp)
+                                            .then(
+                                                if (isLight) {
+                                                    if (isSelected) Modifier.border(1.2.dp, ElectricCyan, RoundedCornerShape(12.dp)) else Modifier
+                                                } else {
+                                                    Modifier.border(
+                                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                                        color = if (isSelected) ElectricCyan else Color.White.copy(alpha = 0.1f),
+                                                        shape = RoundedCornerShape(12.dp)
+                                                    )
+                                                }
                                             )
                                             .clickable(enabled = isAvailable) {
                                                 viewModel.updateUserProfile(avatarEffect = effectId)
@@ -544,13 +559,19 @@ fun ProfileAwardsDialog(
                                             .size(40.dp)
                                             .clip(CircleShape)
                                             .background(
-                                                if (isSelected) ElectricCyan.copy(alpha = 0.25f)
-                                                else Color.White.copy(alpha = 0.05f)
+                                                if (isSelected) ElectricCyan.copy(alpha = if (isLight) 0.18f else 0.25f)
+                                                else if (isLight) Color(0xFFF1F5F9) else Color.White.copy(alpha = 0.05f)
                                             )
-                                            .border(
-                                                width = if (isSelected) 1.5.dp else 1.dp,
-                                                color = if (isSelected) ElectricCyan else Color.White.copy(alpha = 0.1f),
-                                                shape = CircleShape
+                                            .then(
+                                                if (isLight) {
+                                                    if (isSelected) Modifier.border(1.2.dp, ElectricCyan, CircleShape) else Modifier
+                                                } else {
+                                                    Modifier.border(
+                                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                                        color = if (isSelected) ElectricCyan else Color.White.copy(alpha = 0.1f),
+                                                        shape = CircleShape
+                                                    )
+                                                }
                                             )
                                             .clickable {
                                                 viewModel.updateUserProfile(avatarIcon = iconKey)
@@ -607,6 +628,7 @@ fun ProfileAwardsDialog(
 @Composable
 fun AwardItemCard(award: Award) {
     val isUnlocked = award.isUnlocked
+    val isLight = com.example.ui.theme.LocalCurrentTheme.current == "light"
 
     VoltCard(
         modifier = Modifier.fillMaxWidth(),
@@ -623,13 +645,15 @@ fun AwardItemCard(award: Award) {
                         .size(44.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(
-                            if (isUnlocked) BatteryGreen.copy(alpha = 0.15f)
-                            else Color.White.copy(alpha = 0.05f)
+                            if (isUnlocked) BatteryGreen.copy(alpha = if (isLight) 0.15f else 0.15f)
+                            else if (isLight) Color(0xFFF1F5F9) else Color.White.copy(alpha = 0.05f)
                         )
-                        .border(
-                            width = 1.dp,
-                            color = if (isUnlocked) BatteryGreen.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(12.dp)
+                        .then(
+                            if (isLight) Modifier else Modifier.border(
+                                width = 1.dp,
+                                color = if (isUnlocked) BatteryGreen.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(12.dp)
+                            )
                         ),
                     contentAlignment = Alignment.Center
                 ) {

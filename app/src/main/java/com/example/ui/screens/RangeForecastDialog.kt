@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -46,6 +47,7 @@ import com.example.ui.components.VoltCard
 import com.example.ui.theme.BatteryGreen
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.LocalAppStrings
+import com.example.ui.theme.LocalCurrentTheme
 import com.example.ui.theme.SoftBlue
 import com.example.util.EVCalculator
 import java.util.Locale
@@ -70,15 +72,23 @@ fun RangeForecastDialog(
         )
     }
 
+    val isLight = LocalCurrentTheme.current == "light"
+    val cardBorder = if (isLight) {
+        BorderStroke(1.dp, Color.Black)
+    } else {
+        BorderStroke(1.dp, SoftBlue.copy(alpha = 0.3f))
+    }
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = if (isLight) Color.White else MaterialTheme.colorScheme.surface
             ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border = cardBorder,
             modifier = modifier
                 .fillMaxWidth()
-                .border(1.dp, SoftBlue.copy(alpha = 0.3f), RoundedCornerShape(28.dp))
                 .testTag("range_forecast_dialog")
         ) {
             Column(
@@ -127,36 +137,75 @@ fun RangeForecastDialog(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Forecast Range Highlight Card
-                VoltCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    borderColor = ElectricCyan.copy(alpha = 0.4f)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                // Forecast Range Highlight Card (In light theme, clean soft container without duplicate black border)
+                if (isLight) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color(0xFFF1F5F9))
+                            .padding(vertical = 12.dp, horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = strings.forecastEstimatedRange,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(verticalAlignment = Alignment.Bottom) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        ) {
                             Text(
-                                text = String.format(Locale.getDefault(), "%.0f", forecast.estimatedRangeKm),
-                                fontSize = 48.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = ElectricCyan
+                                text = strings.forecastEstimatedRange,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text(
+                                    text = String.format(Locale.getDefault(), "%.0f", forecast.estimatedRangeKm),
+                                    fontSize = 48.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = ElectricCyan
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "км",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    VoltCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        borderColor = ElectricCyan.copy(alpha = 0.4f)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                        ) {
                             Text(
-                                text = "км",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 8.dp)
+                                text = strings.forecastEstimatedRange,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text(
+                                    text = String.format(Locale.getDefault(), "%.0f", forecast.estimatedRangeKm),
+                                    fontSize = 48.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = ElectricCyan
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "км",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                            }
                         }
                     }
                 }

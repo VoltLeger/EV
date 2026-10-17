@@ -41,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +63,7 @@ import com.example.ui.theme.BatteryOrange
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.LocalCurrency
+import com.example.ui.theme.LocalCurrentTheme
 import com.example.ui.theme.SoftBlue
 import com.example.util.EVCalculator
 import java.util.Locale
@@ -106,22 +108,26 @@ fun FinishChargingScreen(
     }
 
     val defaultMeter = initialMeterFromSession ?: (if (isHomeCharging) lastMeterKwh else null)
-    var initialMeterText by remember(defaultMeter) {
+    var initialMeterText by rememberSaveable {
         mutableStateOf(defaultMeter?.let { String.format(Locale.US, "%.1f", it) } ?: "")
     }
-    var finalMeterText by remember { mutableStateOf("") }
+    var finalMeterText by rememberSaveable { mutableStateOf("") }
 
-    var endSocText by remember { mutableStateOf("90") }
+    var userEditedDelivered by rememberSaveable { mutableStateOf(false) }
+    var userEditedCost by rememberSaveable { mutableStateOf(false) }
+    var userEditedPenalty by rememberSaveable { mutableStateOf(false) }
+
+    var endSocText by rememberSaveable { mutableStateOf("90") }
     val defaultOdo = if (session.startOdometer > 0) session.startOdometer else (latestOdometer ?: 0.0)
-    var odometerText by remember {
+    var odometerText by rememberSaveable {
         mutableStateOf(if (defaultOdo > 0) defaultOdo.toInt().toString() else "")
     }
-    var kwhDeliveredText by remember { mutableStateOf(if (isHomeCharging && initialMeterFromSession != null) "" else "35.0") }
-    var kwhReceivedText by remember { mutableStateOf("") }
-    var energyCostText by remember { mutableStateOf("") }
-    var penaltyCostText by remember { mutableStateOf("0.00") }
-    var fixedAmountText by remember { mutableStateOf("0.00") }
-    var totalCostText by remember { mutableStateOf("") }
+    var kwhDeliveredText by rememberSaveable { mutableStateOf(if (isHomeCharging && initialMeterFromSession != null) "" else "35.0") }
+    var kwhReceivedText by rememberSaveable { mutableStateOf("") }
+    var energyCostText by rememberSaveable { mutableStateOf("") }
+    var penaltyCostText by rememberSaveable { mutableStateOf("0.00") }
+    var fixedAmountText by rememberSaveable { mutableStateOf("0.00") }
+    var totalCostText by rememberSaveable { mutableStateOf("") }
 
     // Meter delta calculation
     val startMeterVal = initialMeterText.toDoubleOrNull()
@@ -130,9 +136,9 @@ fun FinishChargingScreen(
         endMeterVal - startMeterVal
     } else null
 
-    // Automatically sync calculated meter consumption into delivered kWh field
+    // Automatically sync calculated meter consumption into delivered kWh field only if user hasn't explicitly edited it
     LaunchedEffect(meterCalculatedKwh) {
-        if (meterCalculatedKwh != null && meterCalculatedKwh > 0.0) {
+        if (meterCalculatedKwh != null && meterCalculatedKwh > 0.0 && !userEditedDelivered) {
             kwhDeliveredText = String.format(Locale.US, "%.2f", meterCalculatedKwh)
         }
     }
@@ -143,7 +149,7 @@ fun FinishChargingScreen(
     }
 
     LaunchedEffect(Unit) {
-        if (suggestedPenalty > 0.0) {
+        if (suggestedPenalty > 0.0 && !userEditedPenalty && penaltyCostText == "0.00") {
             penaltyCostText = String.format(Locale.US, "%.2f", suggestedPenalty)
         }
     }
@@ -156,8 +162,10 @@ fun FinishChargingScreen(
     val endSocVal = endSocText.toDoubleOrNull() ?: 0.0
 
     LaunchedEffect(deliveredVal, session.pricePerKwh) {
-        val calcEnergy = deliveredVal * session.pricePerKwh
-        energyCostText = String.format(Locale.US, "%.2f", calcEnergy)
+        if (!userEditedCost) {
+            val calcEnergy = deliveredVal * session.pricePerKwh
+            energyCostText = String.format(Locale.US, "%.2f", calcEnergy)
+        }
     }
 
     val energyVal = energyCostText.toDoubleOrNull() ?: (deliveredVal * session.pricePerKwh)
@@ -307,12 +315,15 @@ fun FinishChargingScreen(
 
                         if (meterCalculatedKwh != null && meterCalculatedKwh > 0.0) {
                             Spacer(modifier = Modifier.height(10.dp))
+                            val isLight = LocalCurrentTheme.current == "light"
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(BatteryGreen.copy(alpha = 0.15f))
-                                    .border(1.dp, BatteryGreen.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                    .background(BatteryGreen.copy(alpha = if (isLight) 0.12f else 0.15f))
+                                    .then(
+                                        if (isLight) Modifier else Modifier.border(1.dp, BatteryGreen.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                    )
                                     .padding(horizontal = 12.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -369,7 +380,10 @@ fun FinishChargingScreen(
 
                 OutlinedTextField(
                     value = kwhDeliveredText,
-                    onValueChange = { kwhDeliveredText = it },
+                    onValueChange = {
+                        kwhDeliveredText = it
+                        userEditedDelivered = true
+                    },
                     label = { Text(if (isHomeCharging) "Израсходовано (кВт·ч)" else strings.deliveredByStation) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -458,7 +472,10 @@ fun FinishChargingScreen(
             // Energy Cost Field
             OutlinedTextField(
                 value = energyCostText,
-                onValueChange = { energyCostText = it },
+                onValueChange = {
+                    energyCostText = it
+                    userEditedCost = true
+                },
                 label = { Text("${strings.energyCost} ($currency)") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -476,7 +493,10 @@ fun FinishChargingScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = penaltyCostText,
-                        onValueChange = { penaltyCostText = it },
+                        onValueChange = {
+                            penaltyCostText = it
+                            userEditedPenalty = true
+                        },
                         label = { Text("Штраф / простой") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -590,12 +610,14 @@ fun FinishChargingScreen(
                             listOf(BatteryGreen, ElectricCyan)
                         )
                     )
-                    .border(
-                        width = 1.2.dp,
-                        brush = Brush.linearGradient(
-                            listOf(Color.White.copy(alpha = 0.65f), Color.White.copy(alpha = 0.15f))
-                        ),
-                        shape = RoundedCornerShape(18.dp)
+                    .then(
+                        if (LocalCurrentTheme.current == "light") Modifier else Modifier.border(
+                            width = 1.2.dp,
+                            brush = Brush.linearGradient(
+                                listOf(Color.White.copy(alpha = 0.65f), Color.White.copy(alpha = 0.15f))
+                            ),
+                            shape = RoundedCornerShape(18.dp)
+                        )
                     )
                     .testTag("save_and_complete_button"),
                 shape = RoundedCornerShape(18.dp),
