@@ -1,7 +1,9 @@
 package com.example.util
 
-const val APP_VERSION = "2.5.6"
-const val APP_VERSION_NAME = "v2.5.6"
+import com.example.BuildConfig
+
+val APP_VERSION: String get() = BuildConfig.VERSION_NAME
+val APP_VERSION_NAME: String get() = "v${BuildConfig.VERSION_NAME}"
 
 class AppStrings(val isEn: Boolean) {
     val appName = "VoltLedger"

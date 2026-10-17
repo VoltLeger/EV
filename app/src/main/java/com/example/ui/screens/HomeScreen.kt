@@ -227,7 +227,7 @@ fun HomeScreen(
         } else null
     }
 
-    // Calculate Last Two Charges Consumption (Centerpiece 3D Card)
+    // Calculate Recent Charges Consumption (Last 3 charges, or 2 if distance >= 200 km)
     val lastTwoConsumption = remember(completedSessions, usableCapacity) {
         EVCalculator.calculateLastTwoChargesConsumption(completedSessions, usableCapacity)
     }
@@ -243,6 +243,50 @@ fun HomeScreen(
             val priceInMain = com.example.util.CurrencyConverter.convert(lastSession.pricePerKwh, lastSession.currency, currency)
             priceInMain * effectiveCons
         } else null
+    }
+
+    // Current month charges and metrics: distance for all charges, count, and cost per 100 km in current month
+    val currentMonthData = remember(completedSessions, currency, realAvg, effectiveCons) {
+        val now = java.util.Calendar.getInstance()
+        val curYear = now.get(java.util.Calendar.YEAR)
+        val curMonth = now.get(java.util.Calendar.MONTH)
+        val cal = java.util.Calendar.getInstance()
+
+        val curMonthSessions = completedSessions.filter { session ->
+            cal.timeInMillis = session.startTime
+            cal.get(java.util.Calendar.YEAR) == curYear && cal.get(java.util.Calendar.MONTH) == curMonth
+        }.sortedBy { it.startTime }
+
+        // Distance for all charges in current month
+        val distanceKm: Double = if (curMonthSessions.size >= 2) {
+            val minOdo = curMonthSessions.minOf { it.startOdometer }
+            val maxOdo = curMonthSessions.maxOf { it.startOdometer }
+            (maxOdo - minOdo).coerceAtLeast(0.0)
+        } else if (curMonthSessions.size == 1) {
+            val first = curMonthSessions.first()
+            val prevSession = completedSessions
+                .filter { it.startTime < first.startTime }
+                .maxByOrNull { it.startTime }
+            if (prevSession != null && first.startOdometer > prevSession.startOdometer) {
+                first.startOdometer - prevSession.startOdometer
+            } else 0.0
+        } else 0.0
+
+        val totalCostMonth = curMonthSessions.sumOf {
+            com.example.util.CurrencyConverter.convert(it.totalCost, it.currency, currency)
+        }
+        val totalKwhMonth = curMonthSessions.sumOf { it.kwhDeliveredByStation }
+
+        // Cost per 100 km this month
+        val cost100Km: Double? = if (distanceKm >= 5.0 && totalCostMonth > 0.0) {
+            (totalCostMonth / distanceKm) * 100.0
+        } else if (totalCostMonth > 0.0 && totalKwhMonth > 0.0) {
+            val pricePerKwh = totalCostMonth / totalKwhMonth
+            val cons = effectiveCons ?: realAvg
+            pricePerKwh * cons
+        } else null
+
+        Triple(distanceKm, curMonthSessions.size, cost100Km)
     }
 
     LiquidGlassBackground(modifier = modifier) {
@@ -526,16 +570,11 @@ fun HomeScreen(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 val cardHeader = if (lastTwoConsumption.hasEnoughData && lastTwoConsumption.avgConsumption != null) {
-                                    if (lastTwoConsumption.distanceKm >= 200.0 && lastTwoConsumption.chargesCount <= 2) {
-                                        "СРЕДНИЙ РАСХОД ЗА 2 ПОСЛЕДНИЕ ЗАРЯДКИ"
+                                    if (lastTwoConsumption.chargesCount == 2 && lastTwoConsumption.distanceKm >= 200.0) {
+                                        "СРЕДНИЙ РАСХОД (ЗА 2 ЗАРЯДКИ > 200 КМ)"
                                     } else {
-                                        "СРЕДНИЙ РАСХОД"
+                                        "СРЕДНИЙ РАСХОД (ЗА ${lastTwoConsumption.chargesCount} ЗАРЯДКИ)"
                                     }
-                                } else if (effectiveMonthConsumption?.isPreviousMonth == true && effectiveMonthConsumption.consumption != null) {
-                                    val mName = effectiveMonthConsumption.monthName.ifBlank { "ПРЕД. МЕСЯЦ" }
-                                    "СРЕДНИЙ РАСХОД (ЗА ${mName.uppercase()})"
-                                } else if (effectiveMonthConsumption?.consumption != null) {
-                                    "СРЕДНИЙ РАСХОД ЗА МЕСЯЦ"
                                 } else {
                                     "СРЕДНИЙ РАСХОД"
                                 }
@@ -611,30 +650,27 @@ fun HomeScreen(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Subtitle with distance and energy info
-                            if (lastTwoConsumption.hasEnoughData) {
+                            // Subtitle: clean and clear indication of calculation basis without confusing clutter
+                            if (lastTwoConsumption.hasEnoughData && lastTwoConsumption.avgConsumption != null) {
+                                val subtitleText = if (lastTwoConsumption.chargesCount == 2 && lastTwoConsumption.distanceKm >= 200.0) {
+                                    "За последние 2 зарядки (пробег ${lastTwoConsumption.distanceKm.toInt()} км)"
+                                } else if (lastTwoConsumption.chargesCount >= 3) {
+                                    "За последние 3 зарядки"
+                                } else {
+                                    "За последние 2 зарядки"
+                                }
                                 Text(
-                                    text = "Поездка: ${lastTwoConsumption.distanceKm.toInt()} км • Расход: ${String.format(Locale.US, "%.1f", lastTwoConsumption.totalKwh)} кВт·ч",
+                                    text = subtitleText,
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Medium
                                 )
-                            } else if (effectiveMonthConsumption?.isPreviousMonth == true && effectiveMonthConsumption.consumption != null) {
-                                val mText = if (effectiveMonthConsumption.monthName.isNotBlank()) "за ${effectiveMonthConsumption.monthName.lowercase()}" else "за прошлый месяц"
-                                val extraStats = if (effectiveMonthConsumption.distanceKm >= 5.0 && effectiveMonthConsumption.totalKwh > 0.0) {
-                                    " (${effectiveMonthConsumption.distanceKm.toInt()} км • ${String.format(Locale.US, "%.1f", effectiveMonthConsumption.totalKwh)} кВт·ч)"
-                                } else ""
-                                Text(
-                                    text = "Расход $mText$extraStats • Сохраняется до новых зарядок",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            } else if (displayConsumption != null) {
+                            } else if (displayConsumption != null && displayConsumption > 0.0) {
                                 Text(
                                     text = "Средний расход электромобиля",
                                     fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Medium
                                 )
                             } else {
                                 Text(
@@ -665,7 +701,71 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Column 1: ПОСЛЕДНЯЯ ЗАРЯДКА
+                            // Column 1: ПРОБЕГ ЗА ВСЕ ЗАРЯДКИ В ТЕКУЩЕМ МЕСЯЦЕ
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                // Fixed Header Slot
+                                Box(
+                                    modifier = Modifier.height(22.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "ПРОБЕГ / МЕСЯЦ",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = SoftBlue,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                // Fixed Value Slot
+                                Box(
+                                    modifier = Modifier.height(26.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    val (monthDist, monthCount, _) = currentMonthData
+                                    Text(
+                                        text = if (monthDist > 0.0) {
+                                            "${monthDist.toInt()} км"
+                                        } else if (monthCount > 0) {
+                                            "0 км"
+                                        } else "—",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                // Fixed Unit / Subtitle Slot
+                                Box(
+                                    modifier = Modifier.height(18.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "в этом месяце",
+                                        fontSize = 10.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            // Divider 1
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .height(48.dp)
+                                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                            )
+
+                            // Column 2: ПОСЛЕДНЯЯ ЗАРЯДКА
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.weight(1f)
@@ -726,76 +826,6 @@ fun HomeScreen(
                                 }
                             }
 
-                            // Divider 1
-                            Box(
-                                modifier = Modifier
-                                    .width(1.dp)
-                                    .height(48.dp)
-                                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
-                            )
-
-                            // Column 2: РАСХОД ЗА МЕСЯЦ (Aligned with Month up, kWh/100km down)
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                // Fixed Header Slot (Month consumption title up)
-                                Box(
-                                    modifier = Modifier.height(22.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    val headerText = if (effectiveMonthConsumption?.isPreviousMonth == true && effectiveMonthConsumption.consumption != null) {
-                                        "РАСХОД / ПРЕД. МЕС"
-                                    } else {
-                                        "РАСХОД / МЕСЯЦ"
-                                    }
-                                    Text(
-                                        text = headerText,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = SoftBlue,
-                                        letterSpacing = 0.5.sp
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                // Fixed Value Slot
-                                Box(
-                                    modifier = Modifier.height(26.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    val consVal = effectiveMonthConsumption?.consumption ?: monthConsumption
-                                    Text(
-                                        text = if (consVal != null && consVal > 0.0) {
-                                            String.format(Locale.US, "%.1f", consVal)
-                                        } else "—",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(2.dp))
-
-                                // Fixed Unit Slot (kWh/100km down)
-                                Box(
-                                    modifier = Modifier.height(18.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    val unitText = if (effectiveMonthConsumption?.isPreviousMonth == true && effectiveMonthConsumption.consumption != null) {
-                                        if (effectiveMonthConsumption.monthName.isNotBlank()) effectiveMonthConsumption.monthName.lowercase() else "пред. месяц"
-                                    } else {
-                                        strings.kwhPer100Km
-                                    }
-                                    Text(
-                                        text = unitText,
-                                        fontSize = 11.sp,
-                                        color = if (effectiveMonthConsumption?.isPreviousMonth == true) ElectricCyan else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-
                             // Divider 2
                             Box(
                                 modifier = Modifier
@@ -804,7 +834,7 @@ fun HomeScreen(
                                     .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
                             )
 
-                            // Column 3: ЦЕНА ЗА 100 КМ
+                            // Column 3: ЦЕНА 100 КМ В ЭТОМ МЕСЯЦЕ
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.weight(1f)
@@ -830,9 +860,10 @@ fun HomeScreen(
                                     modifier = Modifier.height(26.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
+                                    val monthCost100 = currentMonthData.third ?: costPer100Km
                                     Text(
-                                        text = if (costPer100Km != null && costPer100Km > 0) {
-                                            String.format(Locale.US, "%.2f", costPer100Km)
+                                        text = if (monthCost100 != null && monthCost100 > 0) {
+                                            String.format(Locale.US, "%.2f", monthCost100)
                                         } else "—",
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold,
@@ -848,8 +879,10 @@ fun HomeScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "$currency / 100 км",
-                                        fontSize = 11.sp,
+                                        text = "$currency (в этом мес.)",
+                                        fontSize = 10.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }

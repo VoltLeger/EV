@@ -784,12 +784,12 @@ object EVCalculator {
             )
         }
 
-        // If distance < 200 km, accumulate across multiple charges until reaching >= 200 km or end of list
+        // If distance < 200 km, calculate across the last 3 charges (or up to 3 available in history)
+        val maxSessionsCount = minOf(sorted.size, 3)
         var accumulatedDist = 0.0
         var totalConsumedKwh = 0.0
-        var count = 1
 
-        for (i in 0 until sorted.size - 1) {
+        for (i in 0 until maxSessionsCount - 1) {
             val curr = sorted[i]
             val prev = sorted[i + 1]
             val stepDist = (curr.startOdometer - prev.startOdometer).coerceAtLeast(0.0)
@@ -797,14 +797,9 @@ object EVCalculator {
 
             accumulatedDist += stepDist
             totalConsumedKwh += stepKwh
-            count++
-
-            if (accumulatedDist >= 200.0) {
-                break
-            }
         }
 
-        val totalDist = (sorted.first().startOdometer - sorted[count - 1].startOdometer).coerceAtLeast(accumulatedDist)
+        val totalDist = (sorted.first().startOdometer - sorted[maxSessionsCount - 1].startOdometer).coerceAtLeast(accumulatedDist)
         val consumption = if (totalDist >= 5.0 && totalConsumedKwh > 0.0) {
             (totalConsumedKwh / totalDist) * 100.0
         } else null
@@ -814,7 +809,7 @@ object EVCalculator {
             distanceKm = totalDist,
             totalKwh = totalConsumedKwh,
             lastChargeKwh = latest.kwhDeliveredByStation,
-            chargesCount = count,
+            chargesCount = maxSessionsCount,
             hasEnoughData = consumption != null
         )
     }
