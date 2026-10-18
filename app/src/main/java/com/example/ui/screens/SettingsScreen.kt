@@ -266,7 +266,7 @@ fun SettingsScreen(
                         if (isLight) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
                     )
                     .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 tabs.forEach { (index, title, iconStr) ->
                     val isSelected = selectedTabIndex == index
@@ -279,11 +279,11 @@ fun SettingsScreen(
                             )
                             .border(
                                 1.dp,
-                                if (isSelected) ElectricCyan.copy(alpha = 0.6f) else Color.Transparent,
+                                if (isSelected) ElectricCyan.copy(alpha = 0.7f) else Color.Transparent,
                                 RoundedCornerShape(12.dp)
                             )
                             .clickable { selectedTabIndex = index }
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -292,15 +292,16 @@ fun SettingsScreen(
                         ) {
                             Text(
                                 text = iconStr,
-                                fontSize = 17.sp
+                                fontSize = 16.sp
                             )
-                            Spacer(modifier = Modifier.height(3.dp))
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = title,
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                 color = if (isSelected) ElectricCyan else MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
+                                softWrap = false,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
@@ -314,8 +315,10 @@ fun SettingsScreen(
             val carBeingEdited = allCars.firstOrNull { it.id == selectedCarForEditingId } ?: activeCar ?: allCars.firstOrNull()
 
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 96.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Section 1: Vehicles (Tab 0: Garage)
@@ -381,23 +384,23 @@ fun SettingsScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                    Column {
-                                        Text(
-                                            text = strings.carsSection,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "Нажмите на авто для выбора и редактирования",
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                            Text(
+                                                text = strings.carsSection,
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = "Нажмите на авто для выбора и редактирования",
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        IconButton(onClick = { showAddCarDialog = true }) {
+                                            Icon(Icons.Default.Add, contentDescription = strings.addCar, tint = SoftBlue)
+                                        }
                                     }
-                                    IconButton(onClick = { showAddCarDialog = true }) {
-                                        Icon(Icons.Default.Add, contentDescription = strings.addCar, tint = SoftBlue)
-                                    }
-                                }
 
                                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -428,11 +431,11 @@ fun SettingsScreen(
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)
+                                            modifier = Modifier.weight(1f).padding(end = 8.dp)
                                         ) {
                                             Box(
                                                 modifier = Modifier
-                                                    .size(40.dp)
+                                                    .size(42.dp)
                                                     .clip(RoundedCornerShape(10.dp))
                                                     .background(if (isActive) ElectricCyan.copy(alpha = 0.2f) else SoftBlue.copy(alpha = 0.15f)),
                                                 contentAlignment = Alignment.Center
@@ -456,15 +459,19 @@ fun SettingsScreen(
                                                 }
                                             }
                                             Spacer(modifier = Modifier.width(12.dp))
-                                            Column(modifier = Modifier.weight(1f, fill = false)) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
                                                     Text(
                                                         text = car.name,
                                                         fontWeight = if (isActive || isSelectedForEdit) FontWeight.Bold else FontWeight.Medium,
                                                         fontSize = 15.sp,
                                                         color = MaterialTheme.colorScheme.onSurface,
                                                         maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.weight(1f, fill = false)
                                                     )
                                                     if (isActive) {
                                                         Spacer(modifier = Modifier.width(6.dp))
@@ -472,31 +479,48 @@ fun SettingsScreen(
                                                             modifier = Modifier
                                                                 .clip(RoundedCornerShape(6.dp))
                                                                 .background(BatteryGreen.copy(alpha = 0.2f))
-                                                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                                                                .padding(horizontal = 6.dp, vertical = 2.dp)
                                                         ) {
-                                                            Text(
-                                                                text = "Основной",
-                                                                fontSize = 9.sp,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = BatteryGreen
-                                                            )
-                                                        }
+                                                             Text(
+                                                                 text = "Основной",
+                                                                 fontSize = 9.sp,
+                                                                 fontWeight = FontWeight.Bold,
+                                                                 color = BatteryGreen
+                                                             )
+                                                         }
                                                     }
                                                 }
-                                                Spacer(modifier = Modifier.height(2.dp))
-                                                Text(
-                                                    text = "${car.declaredCapacityKwh.toInt()} кВт·ч • ${car.initialOdometer.toInt()} км • Заряд: ${car.currentSoc.toInt()}%",
-                                                    fontSize = 12.sp,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
+                                                Spacer(modifier = Modifier.height(3.dp))
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "${car.declaredCapacityKwh.toInt()} кВт·ч",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = ElectricCyan
+                                                    )
+                                                    Text("•", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                                                    Text(
+                                                        text = "${car.initialOdometer.toInt()} км",
+                                                        fontSize = 11.sp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    Text("•", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                                                    Text(
+                                                        text = "${car.currentSoc.toInt()}%",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (car.currentSoc >= 50) BatteryGreen else Color(0xFFFFB300)
+                                                    )
+                                                }
                                             }
                                         }
 
                                         IconButton(
                                             onClick = { onDeleteCar(car) },
-                                            modifier = Modifier.size(32.dp)
+                                            modifier = Modifier.size(34.dp)
                                         ) {
                                             Icon(
                                                 Icons.Default.Delete,
@@ -506,7 +530,7 @@ fun SettingsScreen(
                                             )
                                         }
                                     }
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
                                 }
                             }
                         }
@@ -773,11 +797,19 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = strings.autoNightTariff,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(
+                                text = strings.autoNightTariff,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "С 23:00 до 06:00 расчёт по ночной ставке",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Switch(
                             checked = settings.autoNightTariff,
                             onCheckedChange = { onUpdateAutoNightTariff(it) },
@@ -1399,7 +1431,19 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = strings.enableNotifications, fontSize = 13.sp)
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    text = strings.enableNotifications,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Главный переключатель уведомлений",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             Switch(
                                 checked = settings.notificationsEnabled,
                                 onCheckedChange = { onUpdateNotificationsEnabled(it) },
@@ -1407,7 +1451,7 @@ fun SettingsScreen(
                             )
                         }
 
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
                         // Unfinished charge alert
                         Row(
@@ -1415,7 +1459,19 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = strings.unfinishedNotify, fontSize = 13.sp)
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    text = strings.unfinishedNotify,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Напоминание о длительной активной зарядке",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             Switch(
                                 checked = settings.notifyUnfinished,
                                 onCheckedChange = { onUpdateNotifyUnfinished(it) },
@@ -1424,13 +1480,27 @@ fun SettingsScreen(
                             )
                         }
 
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
                         // Weekly report
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = strings.weeklyReport, fontSize = 13.sp)
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    text = strings.weeklyReport,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Сводка расходов и зарядок за 7 дней",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             Switch(
                                 checked = settings.notifyWeekly,
                                 onCheckedChange = { onUpdateNotifyWeekly(it) },
@@ -1439,13 +1509,27 @@ fun SettingsScreen(
                             )
                         }
 
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
                         // Monthly report
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = strings.monthlyReport, fontSize = 13.sp)
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    text = strings.monthlyReport,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Итоговый отчёт за прошедший календарный месяц",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             Switch(
                                 checked = settings.notifyMonthly,
                                 onCheckedChange = { onUpdateNotifyMonthly(it) },
@@ -1454,15 +1538,26 @@ fun SettingsScreen(
                             )
                         }
 
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
                         // Achievement notifications
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = strings.notifyAchievements, fontSize = 13.sp)
-                                Text(text = strings.notifyAchievementsDesc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    text = strings.notifyAchievements,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = strings.notifyAchievementsDesc,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                             Switch(
                                 checked = settings.notifyAchievements,
@@ -1531,27 +1626,27 @@ fun SettingsScreen(
                 VoltCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Google Диск и Резервные копии",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Простое сохранение и перенос всех данных",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    text = "Google Диск и Резервные копии",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Простое сохранение и перенос всех данных",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(onClick = { showPhoneTransferAdviceDialog = true }) {
+                                Icon(Icons.Default.HelpOutline, contentDescription = "Инструкция по переносу", tint = SoftBlue)
+                            }
                         }
-                        IconButton(onClick = { showPhoneTransferAdviceDialog = true }) {
-                            Icon(Icons.Default.HelpOutline, contentDescription = "Инструкция по переносу", tint = SoftBlue)
-                        }
-                    }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
@@ -1647,7 +1742,10 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
@@ -1663,7 +1761,7 @@ fun SettingsScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.width(10.dp))
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = if (hasEmail) userProfile?.email.orEmpty() else "E-mail не привязан",
                                     fontSize = 13.sp,
@@ -1675,7 +1773,9 @@ fun SettingsScreen(
                                 Text(
                                     text = if (hasEmail) "Основной адрес для копий" else "Привяжите для защиты и отправки копий",
                                     fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }

@@ -198,5 +198,5 @@ class AppStrings(val isEn: Boolean) {
     val settingsTabGarage = if (isEn) "Garage" else "Гараж"
     val settingsTabTariffs = if (isEn) "Tariffs" else "Тарифы"
     val settingsTabSystem = if (isEn) "System" else "Система"
-    val settingsTabData = if (isEn) "Data & About" else "Данные и Автор"
+    val settingsTabData = if (isEn) "Data" else "Данные"
 }
