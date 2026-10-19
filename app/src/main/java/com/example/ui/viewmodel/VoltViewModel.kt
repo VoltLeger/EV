@@ -1,6 +1,7 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
@@ -15,6 +16,7 @@ import com.example.data.model.Operator
 import com.example.data.model.Tag
 import com.example.data.model.UserProfile
 import com.example.data.repository.VoltRepository
+import com.example.util.AppUpdateManager
 import com.example.util.AwardCalculator
 import com.example.util.CsvJsonBackupHelper
 import com.example.util.DefaultTariffsLoader
@@ -22,7 +24,10 @@ import com.example.util.EVCalculator
 import com.example.util.EmailBackupHelper
 import com.example.util.NotificationHelper
 import com.example.util.RangeForecastResult
+import com.example.util.UpdateInfo
+import com.example.util.UpdateStatus
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -40,11 +45,21 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsManager = SettingsManager(application)
     val repository = VoltRepository(db, settingsManager)
 
+    val updateStatus: StateFlow<UpdateStatus> = AppUpdateManager.status
+    val latestAvailableUpdate: StateFlow<UpdateInfo?> = AppUpdateManager.latestAvailableUpdate
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             seedDefaultData(application, db)
             repository.getOrCreateUserProfile()
             repository.fixOrphanSessions()
+
+            delay(2500L)
+            try {
+                if (settings.value.autoCheckUpdates) {
+                    AppUpdateManager.checkForUpdate(application)
+                }
+            } catch (_: Exception) {}
         }
     }
 
@@ -867,5 +882,31 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         importBackupData(csvText, replace) { result ->
             onComplete?.invoke(result.success, result.message)
         }
+    }
+
+    fun checkForUpdates(context: Context) {
+        viewModelScope.launch {
+            AppUpdateManager.checkForUpdate(context) { info ->
+                viewModelScope.launch {
+                    settingsManager.updateLastUpdateCheckTime(System.currentTimeMillis())
+                }
+            }
+        }
+    }
+
+    fun downloadAndInstallUpdate(context: Context, updateInfo: UpdateInfo) {
+        viewModelScope.launch {
+            AppUpdateManager.downloadAndInstall(context, updateInfo)
+        }
+    }
+
+    fun updateAutoCheckUpdates(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsManager.updateAutoCheckUpdates(enabled)
+        }
+    }
+
+    fun resetUpdateStatus() {
+        AppUpdateManager.resetStatus()
     }
 }

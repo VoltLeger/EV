@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.voltledger.vtlgr"
     minSdk = 26
     targetSdk = 36
-    versionCode = 23
-    versionName = "2.5.8"
+    versionCode = 24
+    versionName = "2.5.9"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

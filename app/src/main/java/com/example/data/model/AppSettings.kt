@@ -27,5 +27,7 @@ data class AppSettings(
     val homeSemiPeakPrice: Double = 0.2126,
     val homeSemiPeakStartHour: Int = 6,
     val homeSemiPeakEndHour: Int = 17,
-    val homeLastMeterKwh: Double? = null
+    val homeLastMeterKwh: Double? = null,
+    val autoCheckUpdates: Boolean = true,
+    val lastUpdateCheckTime: Long = 0L
 )

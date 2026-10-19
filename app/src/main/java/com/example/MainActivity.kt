@@ -112,6 +112,8 @@ class MainActivity : ComponentActivity() {
             val userProfile by viewModel.userProfile.collectAsState()
             val carExpenses by viewModel.carExpenses.collectAsState()
             val topExpenseCategories by viewModel.topExpenseCategories.collectAsState()
+            val updateStatus by viewModel.updateStatus.collectAsState()
+            val latestAvailableUpdate by viewModel.latestAvailableUpdate.collectAsState()
 
             VoltLedgerTheme(
                 themeSetting = settings.theme,
@@ -470,7 +472,12 @@ class MainActivity : ComponentActivity() {
                                                         semiPeakStartHour = sStart,
                                                         semiPeakEndHour = sEnd
                                                     )
-                                                }
+                                                },
+                                                updateStatus = updateStatus,
+                                                onCheckForUpdates = { viewModel.checkForUpdates(this@MainActivity) },
+                                                onDownloadAndInstallUpdate = { info -> viewModel.downloadAndInstallUpdate(this@MainActivity, info) },
+                                                onUpdateAutoCheckUpdates = { viewModel.updateAutoCheckUpdates(it) },
+                                                onResetUpdateStatus = { viewModel.resetUpdateStatus() }
                                             )
                                         }
                                     }

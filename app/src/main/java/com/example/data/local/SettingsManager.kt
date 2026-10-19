@@ -46,6 +46,8 @@ class SettingsManager(private val context: Context) {
         val KEY_HOME_SEMI_PEAK_END_HOUR = intPreferencesKey("home_semi_peak_end_hour")
         val KEY_HOME_LAST_METER_KWH = doublePreferencesKey("home_last_meter_kwh")
         val KEY_INITIAL_SEED_COMPLETED = booleanPreferencesKey("initial_seed_completed")
+        val KEY_AUTO_CHECK_UPDATES = booleanPreferencesKey("auto_check_updates")
+        val KEY_LAST_UPDATE_CHECK_TIME = longPreferencesKey("last_update_check_time")
     }
 
     suspend fun setInitialSeedCompleted(completed: Boolean = true) {
@@ -79,7 +81,9 @@ class SettingsManager(private val context: Context) {
             homeSemiPeakPrice = prefs[KEY_HOME_SEMI_PEAK_PRICE] ?: 0.2126,
             homeSemiPeakStartHour = prefs[KEY_HOME_SEMI_PEAK_START_HOUR] ?: 6,
             homeSemiPeakEndHour = prefs[KEY_HOME_SEMI_PEAK_END_HOUR] ?: 17,
-            homeLastMeterKwh = prefs[KEY_HOME_LAST_METER_KWH]
+            homeLastMeterKwh = prefs[KEY_HOME_LAST_METER_KWH],
+            autoCheckUpdates = prefs[KEY_AUTO_CHECK_UPDATES] ?: true,
+            lastUpdateCheckTime = prefs[KEY_LAST_UPDATE_CHECK_TIME] ?: 0L
         )
     }
 
@@ -133,6 +137,14 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { it[KEY_ONBOARDING_COMPLETED] = completed }
+    }
+
+    suspend fun updateAutoCheckUpdates(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_AUTO_CHECK_UPDATES] = enabled }
+    }
+
+    suspend fun updateLastUpdateCheckTime(time: Long) {
+        context.dataStore.edit { it[KEY_LAST_UPDATE_CHECK_TIME] = time }
     }
 
     suspend fun saveHomeChargingSettings(

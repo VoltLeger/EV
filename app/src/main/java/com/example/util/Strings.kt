@@ -199,4 +199,18 @@ class AppStrings(val isEn: Boolean) {
     val settingsTabTariffs = if (isEn) "Tariffs" else "Тарифы"
     val settingsTabSystem = if (isEn) "System" else "Система"
     val settingsTabData = if (isEn) "Data" else "Данные"
+
+    // App Updates (GitHub)
+    val appUpdatesTitle = if (isEn) "App Updates (GitHub)" else "Обновления приложения (GitHub)"
+    val appUpdatesSubtitle = if (isEn) "Check and self-update directly from GitHub" else "Проверка и автоматическое обновление из GitHub"
+    val currentVersion = if (isEn) "Current version" else "Текущая версия"
+    val checkForUpdates = if (isEn) "Check for Updates" else "Проверить обновление"
+    val checkingUpdates = if (isEn) "Checking GitHub..." else "Проверка на GitHub..."
+    val upToDateBadge = if (isEn) "You have the latest version" else "У вас актуальная версия"
+    val newVersionAvailable = if (isEn) "New version available" else "Доступна новая версия"
+    val downloadAndInstall = if (isEn) "Download & Install" else "Скачать и установить"
+    val downloadingUpdate = if (isEn) "Downloading update..." else "Загрузка обновления..."
+    val installUpdate = if (isEn) "Install Update" else "Установить обновление"
+    val autoCheckUpdatesLabel = if (isEn) "Check updates on app launch" else "Проверять обновления при запуске"
+    val openOnGitHub = if (isEn) "Open on GitHub" else "Открыть на GitHub"
 }
