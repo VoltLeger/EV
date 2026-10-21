@@ -13,7 +13,10 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,12 +34,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -197,6 +202,7 @@ class MainActivity : ComponentActivity() {
                         // 3. Main Container (4 Tabs: Home, History, Statistics, Settings)
                         composable("main") {
                             var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+                            var showUpdateBanner by rememberSaveable { mutableStateOf(true) }
                             val strings = LocalAppStrings.current
 
                             Scaffold(
@@ -479,6 +485,60 @@ class MainActivity : ComponentActivity() {
                                                 onUpdateAutoCheckUpdates = { viewModel.updateAutoCheckUpdates(it) },
                                                 onResetUpdateStatus = { viewModel.resetUpdateStatus() }
                                             )
+                                        }
+                                    }
+
+                                    if (latestAvailableUpdate != null && showUpdateBanner) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .align(Alignment.TopCenter)
+                                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(ElectricCyan)
+                                                .clickable {
+                                                    selectedTab = 3
+                                                    showUpdateBanner = false
+                                                }
+                                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                                ) {
+                                                    Text("⚡", fontSize = 16.sp)
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Column {
+                                                        Text(
+                                                            text = "Доступно обновление ${latestAvailableUpdate?.tagName}!",
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 13.sp,
+                                                            color = Color.Black
+                                                        )
+                                                        Text(
+                                                            text = "Нажмите для перехода в настройки и обновления",
+                                                            fontSize = 11.sp,
+                                                            color = Color.Black.copy(alpha = 0.8f)
+                                                        )
+                                                    }
+                                                }
+                                                IconButton(
+                                                    onClick = { showUpdateBanner = false },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Close,
+                                                        contentDescription = "Закрыть",
+                                                        tint = Color.Black,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }

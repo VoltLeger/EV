@@ -210,53 +210,54 @@ object AppUpdateManager {
                 .addHeader("User-Agent", "VoltLedger-EV-Android/${BuildConfig.VERSION_NAME}")
                 .build()
 
-            val response = httpClient.newCall(request).execute()
-            if (!response.isSuccessful) {
-                _status.value = UpdateStatus.Error("Не удалось скачать APK с GitHub (HTTP ${response.code})")
-                return@withContext
-            }
-
-            val body = response.body ?: throw IllegalStateException("Пустое тело ответа")
-            val totalBytes = if (updateInfo.fileSize > 0) updateInfo.fileSize else body.contentLength()
-
-            val tempFile = File(updatesDir, "${updateInfo.fileName}.tmp")
-            body.byteStream().use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    val buffer = ByteArray(8 * 1024)
-                    var bytesRead: Int
-                    var totalRead = 0L
-                    var lastReportTime = 0L
-
-                    while (input.read(buffer).also { bytesRead = it } != -1) {
-                        output.write(buffer, 0, bytesRead)
-                        totalRead += bytesRead
-
-                        val now = System.currentTimeMillis()
-                        if (now - lastReportTime > 200 || totalRead == totalBytes) {
-                            lastReportTime = now
-                            val progress = if (totalBytes > 0) totalRead.toFloat() / totalBytes.toFloat() else 0f
-                            _status.value = UpdateStatus.Downloading(
-                                info = updateInfo,
-                                progress = progress.coerceIn(0f, 1f),
-                                downloadedBytes = totalRead,
-                                totalBytes = totalBytes
-                            )
-                        }
-                    }
-                    output.flush()
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    _status.value = UpdateStatus.Error("Не удалось скачать APK с GitHub (HTTP ${response.code})")
+                    return@withContext
                 }
-            }
 
-            if (tempFile.exists()) {
-                if (apkFile.exists()) apkFile.delete()
-                tempFile.renameTo(apkFile)
-            }
+                val body = response.body ?: throw IllegalStateException("Пустое тело ответа")
+                val totalBytes = if (updateInfo.fileSize > 0) updateInfo.fileSize else body.contentLength()
 
-            _status.value = UpdateStatus.ReadyToInstall(updateInfo, apkFile)
+                val tempFile = File(updatesDir, "${updateInfo.fileName}.tmp")
+                body.byteStream().use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        val buffer = ByteArray(8 * 1024)
+                        var bytesRead: Int
+                        var totalRead = 0L
+                        var lastReportTime = 0L
 
-            // Trigger installation
-            withContext(Dispatchers.Main) {
-                installApk(context, apkFile)
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
+                            totalRead += bytesRead
+
+                            val now = System.currentTimeMillis()
+                            if (now - lastReportTime > 200 || totalRead == totalBytes) {
+                                lastReportTime = now
+                                val progress = if (totalBytes > 0) totalRead.toFloat() / totalBytes.toFloat() else 0f
+                                _status.value = UpdateStatus.Downloading(
+                                    info = updateInfo,
+                                    progress = progress.coerceIn(0f, 1f),
+                                    downloadedBytes = totalRead,
+                                    totalBytes = totalBytes
+                                )
+                            }
+                        }
+                        output.flush()
+                    }
+                }
+
+                if (tempFile.exists()) {
+                    if (apkFile.exists()) apkFile.delete()
+                    tempFile.renameTo(apkFile)
+                }
+
+                _status.value = UpdateStatus.ReadyToInstall(updateInfo, apkFile)
+
+                // Trigger installation
+                withContext(Dispatchers.Main) {
+                    installApk(context, apkFile)
+                }
             }
         } catch (e: Exception) {
             _status.value = UpdateStatus.Error("Ошибка загрузки обновления: ${e.message}")
@@ -275,11 +276,14 @@ object AppUpdateManager {
             // On Android 8.0+ (Oreo), verify if app can request package installs
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (!context.packageManager.canRequestPackageInstalls()) {
-                    val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(settingsIntent)
+                    try {
+                        val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(settingsIntent)
+                        return false
+                    } catch (_: Exception) {}
                 }
             }
 

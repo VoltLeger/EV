@@ -82,54 +82,22 @@ fun SplashScreen(
             contentScale = ContentScale.Crop
         )
 
-        // 2. Cinematic Gradient Scrim for text legibility & glowing ambiance
+        // 2. Cinematic Gradient Scrim: soft dark at top for branding, clear middle for Geely EX5
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xF5060B16), // Deep dark at the top for logo & title
-                            Color(0xD9070E1C),
-                            Color(0x33060B16), // Clear middle to show the EV car & scenery
-                            Color(0x88050914),
-                            Color(0xFA050914)  // Dark at bottom for loading indicator
+                            Color(0xDF040711), // Deep dark at the top for logo & title contrast
+                            Color(0x99040711),
+                            Color(0x11040711), // Clear middle to show the Geely EX5 car & reflections
+                            Color(0x33040711),
+                            Color(0xBB040711)  // Dark at bottom for loading indicator
                         )
                     )
                 )
         )
-
-        // 3. Futuristic Speed-Light Streaks at the bottom corners
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-
-            // Cyan energy trail left
-            drawLine(
-                brush = Brush.linearGradient(
-                    colors = listOf(Color.Transparent, Color(0x6600E5FF), Color(0xCC00E5FF)),
-                    start = Offset(0f, h * 0.78f),
-                    end = Offset(w * 0.35f, h * 0.84f)
-                ),
-                start = Offset(-20f, h * 0.77f),
-                end = Offset(w * 0.35f, h * 0.84f),
-                strokeWidth = 3.dp.toPx(),
-                cap = StrokeCap.Round
-            )
-
-            // Cyan energy trail right
-            drawLine(
-                brush = Brush.linearGradient(
-                    colors = listOf(Color(0xCC00E5FF), Color(0x4400E5FF), Color.Transparent),
-                    start = Offset(w * 0.65f, h * 0.84f),
-                    end = Offset(w + 20f, h * 0.79f)
-                ),
-                start = Offset(w * 0.65f, h * 0.84f),
-                end = Offset(w + 20f, h * 0.79f),
-                strokeWidth = 2.5.dp.toPx(),
-                cap = StrokeCap.Round
-            )
-        }
 
         // 4. Foreground Content (Logo, Branding, Slogan, Loading)
         Column(
