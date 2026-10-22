@@ -921,6 +921,18 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         AppUpdateManager.resetStatus()
     }
 
+    val vehicleTelemetryStatus = MutableStateFlow<com.example.util.VehicleTelemetryBridge.TelemetryResult?>(null)
+
+    fun testVehicleTelemetry(context: Context, onResult: ((com.example.util.VehicleTelemetryBridge.TelemetryResult) -> Unit)? = null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = com.example.util.VehicleTelemetryBridge.readVehicleTelemetry(context)
+            vehicleTelemetryStatus.value = result
+            withContext(Dispatchers.Main) {
+                onResult?.invoke(result)
+            }
+        }
+    }
+
     fun notifyWidgetUpdate() {
         try {
             com.example.widget.VoltLedgerWidgetProvider.updateAllWidgets(getApplication())

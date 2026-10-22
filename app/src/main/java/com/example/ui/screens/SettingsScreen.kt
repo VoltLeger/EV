@@ -53,6 +53,9 @@ import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.EvStation
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.SystemUpdate
 import android.widget.Toast
@@ -85,13 +88,17 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.DialogProperties
@@ -213,9 +220,25 @@ fun SettingsScreen(
     var restoreResultMessage by remember { mutableStateOf<String?>(null) }
     var isRestoring by remember { mutableStateOf(false) }
     var showEmailDialog by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    var telemetryRunning by remember { mutableStateOf(false) }
+    var telemetryResult by remember { mutableStateOf<com.example.util.VehicleTelemetryBridge.TelemetryResult?>(null) }
+    var showTelemetryDialog by remember { mutableStateOf(false) }
     var emailInput by remember(userProfile?.email) { mutableStateOf(userProfile?.email ?: "") }
     var showPhoneTransferAdviceDialog by rememberSaveable { mutableStateOf(false) }
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
+    var ex5ChargingStatus by remember { mutableStateOf<com.example.util.GeelyEx5ChargingTracker.LiveChargingStatus?>(null) }
+    var ex5TrackerRunning by remember { mutableStateOf(false) }
+    var p2pSyncMessage by remember { mutableStateOf<String?>(null) }
+    var showBluetoothPairDialog by remember { mutableStateOf(false) }
+    var bluetoothDevicesList by remember { mutableStateOf<List<com.example.util.LocalP2PSyncManager.PairedDevice>>(emptyList()) }
+    var isHotspotServerRunning by remember { mutableStateOf(com.example.util.LocalP2PSyncManager.isLocalServerRunning()) }
+
+    androidx.compose.runtime.LaunchedEffect(selectedTabIndex) {
+        if (selectedTabIndex == 1) {
+            ex5ChargingStatus = com.example.util.GeelyEx5ChargingTracker.getLiveStatus(context)
+        }
+    }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -1631,6 +1654,269 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // Section 5.5: Geely / Flyme Auto Telemetry Diagnostics (Чтение из авто)
+            item {
+                VoltCard(modifier = Modifier.fillMaxWidth().testTag("vehicle_telemetry_card")) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Авто-телеметрия электромобилей",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Geely • Zeekr • BYD • Deepal • Li Auto • Voyah • Xiaomi",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.DirectionsCar,
+                                contentDescription = null,
+                                tint = ElectricCyan,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = "Прямой опрос шины авто без рут-прав и подписей OEM: ECARX AdaptAPI (Geely/Zeekr), BYD DiLink, Deepal/Changan, Li Auto, Voyah, Xiaomi HyperOS, системные ключи CAN и Android Automotive CarPropertyManager.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 16.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (telemetryResult != null) {
+                            val res = telemetryResult!!
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (res.success) BatteryGreen.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                    .border(1.dp, if (res.success) BatteryGreen.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                    .padding(12.dp)
+                            ) {
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(if (res.success) "✅" else "ℹ️", fontSize = 16.sp)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = res.message,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = if (res.success) BatteryGreen else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    if (res.batterySocPercent != null) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        val kwhStr = res.remainingKwh?.let { String.format(Locale.US, "%.1f кВт·ч", it) } ?: "расчёт по ёмкости"
+                                        Text(
+                                            text = "Заряд батареи: ${res.batterySocPercent.toInt()}% • Остаток: $kwhStr",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    if (res.details.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Нажмите «Отчёт» для просмотра всех опрошенных служб",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    telemetryRunning = true
+                                    scope.launch {
+                                        val res = com.example.util.VehicleTelemetryBridge.readVehicleTelemetry(context)
+                                        telemetryResult = res
+                                        telemetryRunning = false
+                                        Toast.makeText(context, res.message, Toast.LENGTH_LONG).show()
+                                    }
+                                },
+                                enabled = !telemetryRunning,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = Color.Black)
+                            ) {
+                                if (telemetryRunning) {
+                                    Text("Опрос шины авто...", fontSize = 12.sp)
+                                } else {
+                                    Text("⚡ Проверить чтение из авто", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            if (telemetryResult != null && telemetryResult!!.details.isNotEmpty()) {
+                                OutlinedButton(
+                                    onClick = { showTelemetryDialog = true },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Отчёт", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Section 5.6: Geely EX5 Auto Charging Tracking & Real Consumption
+            item {
+                VoltCard(modifier = Modifier.fillMaxWidth().testTag("geely_ex5_charging_tracker_card")) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Авто-фиксация зарядок Geely EX5",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Старт / Конец зарядки и реальный расход до зарядки",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.EvStation,
+                                contentDescription = null,
+                                tint = BatteryGreen,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        val status = ex5ChargingStatus
+                        val isCharging = status?.isCharging == true || status?.sessionActive == true
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isCharging) BatteryGreen.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                .border(1.dp, if (isCharging) BatteryGreen.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(if (isCharging) "⚡" else "🔌", fontSize = 16.sp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (isCharging) "Идёт зарядка авто (Сессия активна)" else "Зарядный пистолет отключен",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = if (isCharging) BatteryGreen else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+
+                                if (status?.startSoc != null) {
+                                    Text(
+                                        text = "Начальный заряд: ${status.startSoc.toInt()}% • Одометр старта: ${status.startOdometer?.toInt() ?: "--"} км",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+
+                                if (status?.tripConsumptionBeforeCharge != null && status.tripDistanceKm != null) {
+                                    Text(
+                                        text = "Расход между зарядками: ${String.format(Locale.US, "%.1f", status.tripConsumptionBeforeCharge)} кВт·ч/100км (за ${status.tripDistanceKm.toInt()} км)",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = ElectricCyan
+                                    )
+                                }
+
+                                Text(
+                                    text = "Источник: ${status?.diagnosticSource ?: "Шина ECARX / Flyme Auto"}",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        ex5TrackerRunning = true
+                                        ex5ChargingStatus = com.example.util.GeelyEx5ChargingTracker.getLiveStatus(context)
+                                        ex5TrackerRunning = false
+                                        Toast.makeText(context, "Статус зарядки обновлён", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Обновить статус", fontSize = 11.sp)
+                            }
+
+                            if (!isCharging) {
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            ex5TrackerRunning = true
+                                            ex5ChargingStatus = com.example.util.GeelyEx5ChargingTracker.startChargingSession(context)
+                                            ex5TrackerRunning = false
+                                            Toast.makeText(context, "Сессия зарядки начата! Зафиксирован начальный % и пробег", Toast.LENGTH_LONG).show()
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = BatteryGreen, contentColor = Color.Black)
+                                ) {
+                                    Text("⚡ Старт зарядки", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            } else {
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            ex5TrackerRunning = true
+                                            val res = com.example.util.GeelyEx5ChargingTracker.finishChargingSession(context)
+                                            ex5ChargingStatus = com.example.util.GeelyEx5ChargingTracker.getLiveStatus(context)
+                                            ex5TrackerRunning = false
+                                            Toast.makeText(context, res.message, Toast.LENGTH_LONG).show()
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = Color.Black)
+                                ) {
+                                    Text("✅ Завершить сессию", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Tab 3: Data & About (Section 6: Backup, Section 7: About Developer, Section 8: Footer)
@@ -1937,6 +2223,132 @@ fun SettingsScreen(
                             Icon(Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(16.dp), tint = ElectricCyan)
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Рекомендации при смене телефона", fontSize = 12.sp, color = ElectricCyan)
+                        }
+                    }
+                }
+            }
+
+            // Section 6.2: Direct P2P Sync (LocalSend & Bluetooth)
+            item {
+                VoltCard(modifier = Modifier.fillMaxWidth().testTag("local_p2p_sync_card")) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    text = "Связь со смартфоном (P2P / LocalSend)",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Обмен данными по Bluetooth и локальной сети без интернета",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = null,
+                                tint = SoftBlue,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = "Передавайте сессии и телеметрию Geely EX5 прямо на смартфон (как в LocalSend), через встроенный Bluetooth или при раздаче Wi-Fi с телефона.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 16.sp
+                        )
+
+                        if (!p2pSyncMessage.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = p2pSyncMessage!!,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = ElectricCyan
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Button 1: Share via LocalSend app directly
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    val ok = com.example.util.LocalP2PSyncManager.shareViaLocalSend(context)
+                                    if (ok) {
+                                        p2pSyncMessage = "Открыто окно отправки (выберите LocalSend или Bluetooth)"
+                                    } else {
+                                        Toast.makeText(context, "Не удалось сформировать файл для передачи", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SoftBlue, contentColor = Color.White)
+                        ) {
+                            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("📤 Отправить через LocalSend / Bluetooth", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Button 2 & 3: Bluetooth Direct & Hotspot Server
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    bluetoothDevicesList = com.example.util.LocalP2PSyncManager.getPairedBluetoothDevices(context)
+                                    showBluetoothPairDialog = true
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Bluetooth, contentDescription = null, modifier = Modifier.size(14.dp), tint = SoftBlue)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Bluetooth P2P", fontSize = 11.sp)
+                            }
+
+                            Button(
+                                onClick = {
+                                    if (isHotspotServerRunning) {
+                                        com.example.util.LocalP2PSyncManager.stopLocalHotspotServer()
+                                        isHotspotServerRunning = false
+                                        p2pSyncMessage = "Локальный Wi-Fi сервер остановлен"
+                                    } else {
+                                        val started = com.example.util.LocalP2PSyncManager.startLocalHotspotServer(context)
+                                        isHotspotServerRunning = started
+                                        p2pSyncMessage = if (started) {
+                                            "Сервер запущен на порту 53317 (LocalSend). Смартфон в сети Wi-Fi/Hotspot может считывать данные!"
+                                        } else {
+                                            "Не удалось запустить сервер"
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isHotspotServerRunning) BatteryGreen else MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = if (isHotspotServerRunning) Color.Black else MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Text(
+                                    text = if (isHotspotServerRunning) "🟢 Wi-Fi активен" else "📶 Сервер Hotspot",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -3267,6 +3679,113 @@ fun SettingsScreen(
             confirmButton = {
                 Button(onClick = { showPhoneTransferAdviceDialog = false }) {
                     Text("Понятно")
+                }
+            }
+        )
+    }
+
+    if (showTelemetryDialog && telemetryResult != null) {
+        val res = telemetryResult!!
+        AlertDialog(
+            onDismissRequest = { showTelemetryDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🚗", fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Диагностика шины авто", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = res.message,
+                        fontWeight = FontWeight.Bold,
+                        color = if (res.success) BatteryGreen else MaterialTheme.colorScheme.onSurface,
+                        fontSize = 13.sp
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+                    Text("Журнал опроса модулей:", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+
+                    res.details.forEach { line ->
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Text("• ", color = ElectricCyan, fontSize = 12.sp)
+                            Text(line, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showTelemetryDialog = false }) {
+                    Text("Закрыть")
+                }
+            }
+        )
+    }
+
+    if (showBluetoothPairDialog) {
+        AlertDialog(
+            onDismissRequest = { showBluetoothPairDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Bluetooth, contentDescription = null, tint = SoftBlue)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Синхронизация по Bluetooth", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Выберите сопряженное устройство (ваш смартфон или мультимедиа Geely EX5):",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (bluetoothDevicesList.isEmpty()) {
+                        Text(
+                            text = "Нет сопряженных устройств. Убедитесь, что Bluetooth включен и устройства сопряжены в системных настройках.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    } else {
+                        bluetoothDevicesList.forEach { dev ->
+                            VoltCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showBluetoothPairDialog = false
+                                        p2pSyncMessage = "Связывание с ${dev.name}..."
+                                        scope.launch {
+                                            val res = com.example.util.LocalP2PSyncManager.syncViaBluetooth(context, dev.address)
+                                            p2pSyncMessage = res.message
+                                            Toast.makeText(context, res.message, Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Bluetooth, contentDescription = null, tint = SoftBlue)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(dev.name, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text(dev.address, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBluetoothPairDialog = false }) {
+                    Text("Закрыть")
                 }
             }
         )

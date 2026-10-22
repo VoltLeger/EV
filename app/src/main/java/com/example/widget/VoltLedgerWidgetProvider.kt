@@ -65,6 +65,11 @@ class VoltLedgerWidgetProvider : AppWidgetProvider() {
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    // 0. Auto-probe vehicle telemetry if running on Android Automotive / Flyme Auto
+                    try {
+                        com.example.util.VehicleTelemetryBridge.readVehicleTelemetry(context)
+                    } catch (_: Exception) {}
+
                     val db = AppDatabase.getDatabase(context)
                     val settingsManager = SettingsManager(context)
                     val settings = settingsManager.settingsFlow.firstOrNull()
@@ -119,19 +124,34 @@ class VoltLedgerWidgetProvider : AppWidgetProvider() {
                         )
                         views.setOnClickPendingIntent(R.id.widget_btn_refresh, refreshPendingIntent)
 
-                        // 4. Fill in vehicle state
+                        // 4. Fill in vehicle state & Range forecast based on last 3 charges
                         if (activeCar != null) {
                             views.setTextViewText(R.id.widget_car_name, activeCar.name)
                             val soc = activeCar.currentSoc.toInt().coerceIn(0, 100)
                             views.setTextViewText(R.id.widget_battery_soc, "$soc%")
                             views.setProgressBar(R.id.widget_battery_progress, 100, soc, false)
 
-                            // Estimated range calculation
+                            // Estimated range calculation analyzing last 3 charges first
                             val capacity = activeCar.usableCapacityKwh.takeIf { it > 0.0 } ?: 57.0
                             val passport = activeCar.passportConsumption.takeIf { it > 0.0 } ?: 16.0
                             val carSessions = allSessions.filter { it.carId == activeCar.id && it.status == "completed" }
-                            val cons = EVCalculator.calculateEffectiveMonthConsumption(carSessions, capacity, passport).consumption ?: passport
-                            val estimatedRange = EVCalculator.calculateRangeForSoc(capacity, activeCar.currentSoc, cons)
+
+                            val lastThree = EVCalculator.calculateLastThreeChargesConsumption(carSessions, capacity)
+                            val (effectiveCons, consSourceLabel) = when {
+                                lastThree.hasEnoughData && lastThree.avgConsumption != null && lastThree.avgConsumption > 0.0 -> {
+                                    Pair(lastThree.avgConsumption, "посл. ${lastThree.chargesCount} з.")
+                                }
+                                else -> {
+                                    val monthCons = EVCalculator.calculateEffectiveMonthConsumption(carSessions, capacity, passport).consumption
+                                    if (monthCons != null && monthCons > 0.0) {
+                                        Pair(monthCons, "по месяцу")
+                                    } else {
+                                        Pair(passport, "по паспорту")
+                                    }
+                                }
+                            }
+
+                            val estimatedRange = EVCalculator.calculateRangeForSoc(capacity, activeCar.currentSoc, effectiveCons)
                             views.setTextViewText(R.id.widget_range_text, "~${estimatedRange.toInt()} км")
 
                             // Status / Charging line
@@ -141,6 +161,12 @@ class VoltLedgerWidgetProvider : AppWidgetProvider() {
                                     "⚡ Идёт зарядка (${activeSession.stationType}) • Начало ${formatTime(activeSession.startTime)}"
                                 )
                                 views.setViewVisibility(R.id.widget_charging_indicator, View.VISIBLE)
+                            } else if (lastThree.hasEnoughData && lastThree.avgConsumption != null) {
+                                views.setTextViewText(
+                                    R.id.widget_status_text,
+                                    "Расход: ${String.format(Locale.US, "%.1f", effectiveCons)} кВт·ч/100км ($consSourceLabel)"
+                                )
+                                views.setViewVisibility(R.id.widget_charging_indicator, View.GONE)
                             } else if (lastCompleted != null) {
                                 val kwh = String.format(Locale.US, "%.1f", lastCompleted.kwhDeliveredByStation)
                                 views.setTextViewText(
@@ -151,7 +177,7 @@ class VoltLedgerWidgetProvider : AppWidgetProvider() {
                             } else {
                                 views.setTextViewText(
                                     R.id.widget_status_text,
-                                    "Расход: ${String.format(Locale.US, "%.1f", cons)} кВт·ч/100км"
+                                    "Расход: ${String.format(Locale.US, "%.1f", effectiveCons)} кВт·ч/100км ($consSourceLabel)"
                                 )
                                 views.setViewVisibility(R.id.widget_charging_indicator, View.GONE)
                             }
