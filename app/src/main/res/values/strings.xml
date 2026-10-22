@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">VoltLedger</string>
+    <string name="widget_name">VoltLedger EV</string>
+    <string name="widget_description">Статус заряда, запас хода и быстрый старт зарядки электромобиля</string>
 </resources>

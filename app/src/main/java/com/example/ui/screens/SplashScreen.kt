@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -114,8 +115,24 @@ fun SplashScreen(
                     .fillMaxWidth()
                     .padding(top = 56.dp)
             ) {
-                // Stylized V with lightning bolt icon mark
-                VoltLogoMark(modifier = Modifier.size(80.dp))
+                // Stylized VoltLedger App Logo
+                Image(
+                    painter = painterResource(id = R.drawable.img_voltledger_icon),
+                    contentDescription = "VoltLedger Logo",
+                    modifier = Modifier
+                        .size(84.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .border(
+                            1.5.dp,
+                            Brush.linearGradient(
+                                listOf(
+                                    ElectricCyan,
+                                    ElectricCyan.copy(alpha = 0.3f)
+                                )
+                            ),
+                            RoundedCornerShape(22.dp)
+                        )
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 

@@ -130,7 +130,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         if (car == null) expenses else expenses.filter { it.carId == car.id }
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.Eagerly,
+        started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
     )
 
@@ -141,7 +141,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         (sortedFromUser + defaults).distinct().take(5)
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.Eagerly,
+        started = SharingStarted.WhileSubscribed(5_000),
         initialValue = listOf("Мойка", "ТО", "Страховка", "Шиномонтаж", "Парковка")
     )
 
@@ -186,7 +186,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         AwardCalculator.calculateAwards(sessions, cars, car)
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.Eagerly,
+        started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
     )
 
@@ -194,7 +194,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         AwardCalculator.calculateTotalXp(sessions, aw)
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.Eagerly,
+        started = SharingStarted.WhileSubscribed(5_000),
         initialValue = 0L
     )
 
@@ -202,7 +202,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         AwardCalculator.getRankTier(xp)
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.Eagerly,
+        started = SharingStarted.WhileSubscribed(5_000),
         initialValue = "Новичок" to 1
     )
 
@@ -265,6 +265,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
             val carId = repository.insertCar(car)
             repository.setActiveCar(carId)
             repository.setOnboardingCompleted(true)
+            notifyWidgetUpdate()
         }
     }
 
@@ -314,6 +315,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                     currentSoc = startSoc.coerceIn(0.0, 100.0)
                 )
             )
+            notifyWidgetUpdate()
         }
     }
 
@@ -419,12 +421,14 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             }
+            notifyWidgetUpdate()
         }
     }
 
     fun cancelActiveSession(session: ChargingSession) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteSession(session)
+            notifyWidgetUpdate()
         }
     }
 
@@ -445,6 +449,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
             if (isEmpty) {
                 repository.setActiveCar(newId)
             }
+            notifyWidgetUpdate()
         }
     }
 
@@ -452,6 +457,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val usable = EVCalculator.calculateUsableCapacity(car.declaredCapacityKwh)
             repository.updateCar(car.copy(usableCapacityKwh = usable))
+            notifyWidgetUpdate()
         }
     }
 
@@ -463,12 +469,14 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
             if (remaining.isNotEmpty()) {
                 repository.setActiveCar(remaining.first().id)
             }
+            notifyWidgetUpdate()
         }
     }
 
     fun selectCar(carId: Long) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.setActiveCar(carId)
+            notifyWidgetUpdate()
         }
     }
 
@@ -646,12 +654,14 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
             if (finalMeter != null && finalMeter > 0.0) {
                 settingsManager.updateHomeLastMeterKwh(finalMeter)
             }
+            notifyWidgetUpdate()
         }
     }
 
     fun deleteSession(session: ChargingSession) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteSession(session)
+            notifyWidgetUpdate()
         }
     }
 
@@ -791,6 +801,7 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
                     currentSoc = currentSoc.coerceIn(0.0, 100.0)
                 )
             )
+            notifyWidgetUpdate()
         }
     }
 
@@ -908,5 +919,11 @@ class VoltViewModel(application: Application) : AndroidViewModel(application) {
 
     fun resetUpdateStatus() {
         AppUpdateManager.resetStatus()
+    }
+
+    fun notifyWidgetUpdate() {
+        try {
+            com.example.widget.VoltLedgerWidgetProvider.updateAllWidgets(getApplication())
+        } catch (_: Exception) {}
     }
 }

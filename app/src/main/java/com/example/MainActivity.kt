@@ -98,10 +98,12 @@ import kotlinx.coroutines.delay
 class MainActivity : ComponentActivity() {
 
     private val viewModel: VoltViewModel by viewModels()
+    private var pendingScreenAction by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        pendingScreenAction = intent?.getStringExtra("open_screen")
 
         setContent {
             val settings by viewModel.settings.collectAsState()
@@ -160,6 +162,19 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Handle quick action navigation from widget shortcut
+                LaunchedEffect(pendingScreenAction) {
+                    if (pendingScreenAction == "start_charging") {
+                        val current = navController.currentDestination?.route
+                        if (current != null && current != "splash" && current != "onboarding") {
+                            try {
+                                navController.navigate("start_charging")
+                            } catch (_: Exception) {}
+                            pendingScreenAction = null
+                        }
+                    }
+                }
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -176,6 +191,12 @@ class MainActivity : ComponentActivity() {
                                     if (allCars.isNotEmpty() || settings.onboardingCompleted) {
                                         navController.navigate("main") {
                                             popUpTo("splash") { inclusive = true }
+                                        }
+                                        if (pendingScreenAction == "start_charging") {
+                                            try {
+                                                navController.navigate("start_charging")
+                                            } catch (_: Exception) {}
+                                            pendingScreenAction = null
                                         }
                                     } else {
                                         navController.navigate("onboarding") {
@@ -663,5 +684,20 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.getStringExtra("open_screen")?.let {
+            pendingScreenAction = it
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        try {
+            com.example.widget.VoltLedgerWidgetProvider.updateAllWidgets(this)
+        } catch (_: Exception) {}
     }
 }

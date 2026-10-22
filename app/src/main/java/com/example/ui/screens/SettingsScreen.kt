@@ -9,6 +9,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -105,6 +106,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import coil.compose.AsyncImage
 import com.example.data.model.AppSettings
 import com.example.data.model.Car
@@ -2373,7 +2376,13 @@ fun SettingsScreen(
                                     .border(1.5.dp, ElectricCyan.copy(alpha = 0.4f), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("⚡", fontSize = 22.sp)
+                                Image(
+                                    painter = painterResource(id = R.drawable.img_voltledger_icon),
+                                    contentDescription = "VoltLedger Logo",
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(CircleShape)
+                                )
                             }
 
                             Spacer(modifier = Modifier.width(14.dp))
@@ -2491,8 +2500,14 @@ fun SettingsScreen(
                         onDismissRequest = { showAboutDeveloperDialog = false },
                         title = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("⚡", fontSize = 20.sp)
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Image(
+                                    painter = painterResource(id = R.drawable.img_voltledger_icon),
+                                    contentDescription = "VoltLedger Logo",
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
                                 Text("О разработчике", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                             }
                         },

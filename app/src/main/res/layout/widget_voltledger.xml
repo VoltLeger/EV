@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_widget_voltledger"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <!-- Top Header Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/widget_logo"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/img_voltledger_icon" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_app_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="VoltLedger"
+                android:textColor="#00E5FF"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_car_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Электромобиль"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Refresh Button -->
+        <ImageView
+            android:id="@+id/widget_btn_refresh"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@drawable/bg_widget_button"
+            android:contentDescription="Обновить"
+            android:padding="6dp"
+            android:src="@drawable/ic_widget_refresh" />
+
+        <!-- Quick Start Charging Button -->
+        <ImageView
+            android:id="@+id/widget_btn_add"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_widget_charge_btn"
+            android:contentDescription="Начать зарядку"
+            android:padding="5dp"
+            android:src="@drawable/ic_widget_add" />
+    </LinearLayout>
+
+    <!-- Middle Battery & Range Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_battery_soc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="80%"
+            android:textColor="#00E676"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/widget_battery_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="0dp"
+            android:layout_height="10dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_weight="1"
+            android:max="100"
+            android:progress="80"
+            android:progressDrawable="@drawable/widget_battery_progress" />
+
+        <TextView
+            android:id="@+id/widget_range_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="~360 км"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Bottom Status Line -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/widget_charging_indicator"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:layout_marginEnd="4dp"
+            android:contentDescription="Зарядка"
+            android:src="@drawable/ic_widget_bolt"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_status_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Загрузка данных..."
+            android:textColor="#94A3B8"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+</LinearLayout>
